@@ -315,8 +315,11 @@
             submitButton.disabled = !(priorityIsValid && issueTitleIsValid);
         }
 
-        document.getElementById("prioritySelect").addEventListener("change", validateForm);
-        document.getElementById("ITitle").addEventListener("input", validateForm);
+        // only wire the validation up when the page really has these fields
+        if (document.getElementById("prioritySelect") && document.getElementById("priorityError") && document.getElementById("submitButton")) {
+            document.getElementById("prioritySelect").addEventListener("change", validateForm);
+            document.getElementById("ITitle").addEventListener("input", validateForm);
+        }
     </script>
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>

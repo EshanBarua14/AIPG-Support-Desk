@@ -13,6 +13,7 @@
                     <!-- form start -->
                     <form asp-controller="Admin" asp-action="UpdateSupportSubCatagory" method="post">
                         <div class="card-body">
+                            <div asp-validation-summary="All" class="text-danger"></div>
                             <div class="form-group">
                                 <label for="exampleInputEmail1">SupportSubCatagoryId</label>
                                 <input type="text" asp-for="@Model.SupportSubCatagoryId" value="@Model.SupportSubCatagoryId" class="form-control" id="exampleInputEmail1" placeholder="SupportSubCatagoryId" readonly>

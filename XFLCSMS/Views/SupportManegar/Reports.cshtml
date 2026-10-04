@@ -13,7 +13,7 @@
             <div class="container-fluid">
                 <div class="row">
                     <div class="col-md-10 offset-md-1">
-                        <form id="advancedSearchForm" asp-action="Search" asp-controller="Admin" method="get">
+                        <form id="advancedSearchForm" asp-action="Search" asp-controller="SupportManegar" method="get">
 
                             <div class="row">
 
@@ -142,7 +142,7 @@
     $(function () {
         $('#searchButton').click(function () {
             $.ajax({
-                url: '/SupportManeger/Search',
+                url: '/SupportManegar/Search',
                 type: 'GET',
                 data: $('form').serialize(),
                 success: function (response) {

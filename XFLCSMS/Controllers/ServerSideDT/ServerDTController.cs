@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using XFLCSMS.Infrastructure;
 
 namespace XFLCSMS.Controllers.ServerSideDT
 {
+    [SessionAuthorize(SessionAuthorizeAttribute.Admin)]
     public class ServerDTController : Controller
     {
         private readonly DataContext _context;

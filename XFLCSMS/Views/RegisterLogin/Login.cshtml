@@ -28,12 +28,20 @@
         <!-- /.login-logo -->
         <div class="card card-outline card-primary">
             <div class="card-header text-center">
-                <a href="../../index2.html" class="h1"><b>XFL</b>CSMS</a>
+                <a href="~/" class="h1"><b>XFL</b>CSMS</a>
                 <br>
                 <p class="login-box-msg">Sign in to start your session</p>
             </div>
 
             <div class="card-body">
+                @if (ViewBag.Message != null)
+                {
+                    <div class="alert alert-danger" role="alert">@ViewBag.Message</div>
+                }
+                @if (TempData["Message"] != null)
+                {
+                    <div class="alert alert-success" role="alert">@TempData["Message"]</div>
+                }
                 <form asp-controller="RegisterLogin" asp-action="Login" method="post">
                     <div class="card">
                         <div class="card-body login-card-body">

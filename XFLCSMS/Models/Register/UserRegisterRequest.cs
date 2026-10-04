@@ -39,9 +39,16 @@ namespace XFLCSMS.Models.Register
         [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{4,}$",
         ErrorMessage = "Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character.")]
         public string Password { get; set; } = string.Empty;
-      
 
-        [Required]
+        // Not stored: only compared with Password (the page checked this in JavaScript only).
+        [Required(ErrorMessage = "Please confirm your password.")]
+        [DataType(DataType.Password)]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        [NotMapped]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        // [Required] on a bool is always satisfied, so an unticked box used to be accepted.
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must agree to the terms & conditions.")]
         public bool Terms { get; set; }
     }
 }

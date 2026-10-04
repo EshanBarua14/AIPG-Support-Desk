@@ -14,22 +14,26 @@ using XFLCSMS.Models.Issue;
 using XFLCSMS.Models.Register;
 using XFLCSMS.Models.Support;
 using XFLCSMS.Models.Todos;
+using XFLCSMS.Services;
 
 namespace XFLCSMS.Controllers
 {
-    public class AdminController : Controller
+    public class AdminController : CsmsController
     {
         private readonly DataContext _context;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public AdminController(DataContext context, IWebHostEnvironment webHostEnvironment)
+        protected override string SessionKey => "AdminData";
+
+        public AdminController(DataContext context, IWebHostEnvironment webHostEnvironment, TicketService tickets)
+            : base(context, tickets)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
         }
         public IActionResult Index()
         {
-            return View();
+            return RedirectToAction("Dashbord");
         }
 
         public async Task<IActionResult> Dashbord()
@@ -135,10 +139,9 @@ namespace XFLCSMS.Controllers
 
                 return View(TicketCount);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -208,15 +211,14 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login","RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -231,7 +233,7 @@ namespace XFLCSMS.Controllers
                     .Include(i => i.attachment)  // Include attachments in the query
                     .FirstOrDefault(i => i.IssueId == id);
 
-                if (issueWithAttachments == null)
+                if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
                     return NotFound();
                 }
@@ -250,6 +252,7 @@ namespace XFLCSMS.Controllers
                     TicketDetails = issueWithAttachments.Details,
                     Command = issueWithAttachments.Comments,
                     TicketStatus = issueWithAttachments.IStatus,
+                    IStatus = issueWithAttachments.IStatus,
                     Priority = issueWithAttachments.Priority,
                     Attachments = issueWithAttachments.attachment,
                     ApproveOn = issueWithAttachments.ApproveOn,
@@ -261,9 +264,9 @@ namespace XFLCSMS.Controllers
 
                 return View(makerView);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -280,7 +283,7 @@ namespace XFLCSMS.Controllers
                 //var SupportEng = _context.Users.Where(i => i.Designation == "Support Engineer").ToList();
                 var SupportEng = _context.Users.Where(user => user.Department == "Support Engineer").ToList();
 
-                if (issueWithAttachments == null)
+                if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
                     return NotFound();
                 }
@@ -300,6 +303,7 @@ namespace XFLCSMS.Controllers
                     TicketDetails = issueWithAttachments.Details,
                     Command = issueWithAttachments.Comments,
                     TicketStatus = issueWithAttachments.IStatus,
+                    IStatus = issueWithAttachments.IStatus,
                     Attachments = issueWithAttachments.attachment,
                     IssueTitle = issueWithAttachments.ITitle,
                     Priority = issueWithAttachments.Priority,
@@ -312,7 +316,7 @@ namespace XFLCSMS.Controllers
             }
             catch (Exception ex)
             {
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -322,89 +326,28 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-
-
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                var editor = CurrentUser!;
                 var issue = await _context.Issues.FirstOrDefaultAsync(a => a.IssueId == makerView.IssueId);
-                if (issue != null)
+                if (issue == null || !CanAccessIssue(issue))
                 {
-                    issue.ITitle = makerView.IssueTitle;
-                    issue.Details = makerView.TicketDetails;
-                    issue.Comments = makerView.Command;
-                    issue.AssignOn = makerView.AssgnOn;
-                    issue.AssignBy = makerView.AssgnBy;
-                    issue.UpdatedOn = DateTime.Now;
-                    issue.UpdatedBy = LogSesson.FullName.ToString();
-                    if (makerView.AssgnBy == null)
-                    {
-                        issue.AssignOn = null;
-                        issue.AssignBy = null;
-                    }
-                    if (issue.AssignBy != null && LogSesson.UType == true)
-                    {
-                        issue.ApproveOn = DateTime.Now;
-                        issue.ApproveBy = LogSesson.FullName;
-                    }
-                    else
-                    {
-                        issue.ApproveOn = null;
-                        issue.ApproveBy = null;
-                    }
-                    issue.IStatus = makerView.IStatus;
-                    if (makerView.IStatus == "Close")
-                    {
-                        issue.ClosedOn = DateTime.Now;
-                        issue.ClosedBy = LogSesson.FullName;
-                    }
-                    else
-                    {
-                        issue.ClosedOn = null;
-                        issue.ClosedBy = null;
-                    }
-
-                    _context.Update(issue);
-                    await _context.SaveChangesAsync();
-
-
-                    if (files != null)
-                    {
-                        var uploadFolder = Path.Combine(_webHostEnvironment.WebRootPath, "Uplods");
-                        Directory.CreateDirectory(uploadFolder); // Create the directory once outside the loop
-
-                        foreach (var file in files)
-                        {
-                            var fileName = file.FileName; // Ensure unique file names
-                            var filePath = Path.Combine(uploadFolder, fileName);
-
-                            using (var stream = new FileStream(filePath, FileMode.Create))
-                            {
-                                await file.CopyToAsync(stream);
-                            }
-
-                            var attachment = new Attachment
-                            {
-                                FileName = file.FileName,
-                                AttachmentLoc = filePath,
-                                IssueId = makerView.IssueId
-                            };
-
-                            _context.Attachments.Add(attachment);
-                        }
-
-                        await _context.SaveChangesAsync();
-                    }
-
-
-                    return RedirectToAction("AdminView", "Admin");
+                    return NotFound("Edit is not done");
                 }
 
+                Tickets.ApplyStaffEdit(issue, makerView, editor, canApprove: editor.UType);
+                await _context.SaveChangesAsync();
 
-                return NotFound("Edit is not done");
+                var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
+                if (rejected.Count > 0)
+                {
+                    TempData["ErrorMessage"] = "The ticket was saved, but these files were not attached (file type not allowed): "
+                        + string.Join(", ", rejected);
+                }
+
+                return RedirectToAction("AdminView", "Admin");
             }
             catch (Exception ex)
             {
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public async Task<IActionResult> ClosedTicketList(int page, int rowperpage, string? searchString = null, string?
@@ -473,14 +416,14 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
 
         }
@@ -550,15 +493,14 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -574,10 +516,9 @@ namespace XFLCSMS.Controllers
                 
                 return View();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -587,41 +528,98 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
+                brokerage.BrokerageId = 0; // identity column: the database assigns the id
+                ValidateBrokerage(brokerage);
+                if (!ModelState.IsValid)
+                {
+                    return View(brokerage);
+                }
+
                 await _context.AddAsync(brokerage);
                 await _context.SaveChangesAsync();
-                return RedirectToAction("BrocarageHouseList", "Admin"); // Redirect to the action that displays a list of brokerages     
+                return RedirectToAction("BrocarageHouseList", "Admin");
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
+            }
+        }
+
+        // Ticket numbers are built from the acronym (ABC_0000001), so name and acronym must be unique.
+        private void ValidateBrokerage(Brokerage brokerage)
+        {
+            brokerage.BrokerageHouseName = (brokerage.BrokerageHouseName ?? string.Empty).Trim();
+            brokerage.BrokerageHouseAcronym = (brokerage.BrokerageHouseAcronym ?? string.Empty).Trim();
+
+            if (_context.Brokerages.Any(b => b.BrokerageId != brokerage.BrokerageId && b.BrokerageHouseName == brokerage.BrokerageHouseName))
+            {
+                ModelState.AddModelError(nameof(Brokerage.BrokerageHouseName), "A brokerage house with this name already exists.");
+            }
+
+            if (_context.Brokerages.Any(b => b.BrokerageId != brokerage.BrokerageId && b.BrokerageHouseAcronym == brokerage.BrokerageHouseAcronym))
+            {
+                ModelState.AddModelError(nameof(Brokerage.BrokerageHouseAcronym), "This acronym is already used by another brokerage house.");
             }
         }
 
 
         [HttpDelete]
-        public IActionResult DeleteTicket(int id)
+        public async Task<IActionResult> DeleteTicket(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var issueToDelete = _context.Issues.Find(id);
-                if (issueToDelete != null)
+                var issue = await _context.Issues.Include(i => i.attachment).FirstOrDefaultAsync(i => i.IssueId == id);
+                if (issue == null)
                 {
-                    _context.Issues.Remove(issueToDelete);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The ticket was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                // remove the uploaded files too, not only the database rows
+                foreach (var attachment in issue.attachment?.ToList() ?? new List<Attachment>())
+                {
+                    await Tickets.DeleteAttachmentAsync(attachment);
+                }
+
+                _context.Issues.Remove(issue);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
+        }
+
+        // The user list's Delete button used to call DeleteTicket with the USER id and deleted an unrelated ticket.
+        [HttpDelete]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            try
+            {
+                if (id == CurrentUser!.Id)
+                {
+                    return Conflict("You cannot delete the account you are signed in with.");
+                }
+
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound("The user was not found.");
+                }
+
+                // Deleting the user would cascade and delete every ticket he raised.
+                if (await _context.Issues.AnyAsync(i => i.UserId == id))
+                {
+                    return Conflict("This user has raised tickets, so the account cannot be deleted. Disable the user instead (Edit > User Status).");
+                }
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
         }
 
@@ -636,10 +634,9 @@ namespace XFLCSMS.Controllers
                 var users = _context.Users.ToList();
                 return View(users);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -661,7 +658,8 @@ namespace XFLCSMS.Controllers
                 var userView = new UserView
                 {
                     Id = user.Id,
-                    FullName = user.UserName,
+                    FullName = user.FullName,
+                    Department = user.Department ?? string.Empty,
                     Email = user.Email,
                     PhonNumber = user.PhonNumber,
                     Designation = user.Designation,
@@ -677,10 +675,9 @@ namespace XFLCSMS.Controllers
 
                 return View(userView);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -702,7 +699,8 @@ namespace XFLCSMS.Controllers
                 var userView = new UserView
                 {
                     Id = user.Id,
-                    FullName = user.UserName,
+                    FullName = user.FullName,
+                    Department = user.Department ?? string.Empty,
                     Email = user.Email,
                     PhonNumber = user.PhonNumber,
                     Designation = user.Designation,
@@ -716,9 +714,9 @@ namespace XFLCSMS.Controllers
                 };
                 return View(userView);
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
 
 
@@ -746,9 +744,9 @@ namespace XFLCSMS.Controllers
                 }
                 return RedirectToAction("UserList");
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
         }
 
@@ -762,10 +760,9 @@ namespace XFLCSMS.Controllers
                 var Brocareges = await _context.Brokerages.ToListAsync();
                 return View(Brocareges);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -785,37 +782,9 @@ namespace XFLCSMS.Controllers
 
                 return View(brocarage);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-        public async Task<IActionResult> DownloadAttachment(int? att)
-        {
-            if (att == null)
-            {
-                return BadRequest("Attachment ID is missing in the query parameters.");
-            }
-
-            var attachment = await _context.Attachments.FirstOrDefaultAsync(i => i.AttachmentId == att);
-
-            if (attachment == null)
-            {
-                return NotFound("Attachment not found.");
-            }
-
-            var filePath = attachment.AttachmentLoc;
-            var fileName = attachment.FileName;
-
-            if (System.IO.File.Exists(filePath))
-            {
-                return PhysicalFile(filePath, "application/pdf", fileName);
-            }
-            else
-            {
-                return NotFound("File not found."); // or handle as appropriate
+                return HandleError(ex);
             }
         }
 
@@ -836,10 +805,9 @@ namespace XFLCSMS.Controllers
 
                 return View(brocarage);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -848,50 +816,56 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-
                 var brocarage = await _context.Brokerages.FirstOrDefaultAsync(item => item.BrokerageId == brokeragesss.BrokerageId);
-
-                if (brocarage != null)
+                if (brocarage == null)
                 {
-                    brocarage.BrokerageHouseName = brokeragesss.BrokerageHouseName;
-                    brocarage.BrokerageHouseAcronym = brokeragesss.BrokerageHouseAcronym;
-                    _context.Update(brocarage);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("BrocarageHouseList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin"); 
-            }
 
+                ValidateBrokerage(brokeragesss);
+                if (!ModelState.IsValid)
+                {
+                    return View("EditBrocarage", brokeragesss);
+                }
+
+                brocarage.BrokerageHouseName = brokeragesss.BrokerageHouseName;
+                brocarage.BrokerageHouseAcronym = brokeragesss.BrokerageHouseAcronym;
+                await _context.SaveChangesAsync();
+                return RedirectToAction("BrocarageHouseList", "Admin");
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
         [HttpDelete]
-        public IActionResult DeleteBrocarage(int id)
+        public async Task<IActionResult> DeleteBrocarage(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var issueToDelete = _context.Brokerages.Find(id);
-                if (issueToDelete != null)
+                var house = await _context.Brokerages.FindAsync(id);
+                if (house == null)
                 {
-                    _context.Brokerages.Remove(issueToDelete);
-                    _context.SaveChanges();
-                    return Ok();
+                    return NotFound("The brokerage house was not found.");
                 }
-                return NotFound();
-            }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
 
+                // Deleting a house in use either fails on the foreign keys or silently wipes all of its tickets.
+                if (await _context.Branchhs.AnyAsync(b => b.BrokerageId == id)
+                    || await _context.Users.AnyAsync(u => u.BrokerageHouseName == id)
+                    || await _context.Issues.AnyAsync(i => i.BrokerageId == id))
+                {
+                    return Conflict("This brokerage house still has branches, users or tickets, so it cannot be deleted.");
+                }
+
+                _context.Brokerages.Remove(house);
+                await _context.SaveChangesAsync();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
 
@@ -915,10 +889,9 @@ namespace XFLCSMS.Controllers
 
                 return View(branches);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -936,10 +909,9 @@ namespace XFLCSMS.Controllers
 
                 return View(BB);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -950,19 +922,27 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                if (!await _context.Brokerages.AnyAsync(b => b.BrokerageId == branchView.BrokerageId))
+                {
+                    ModelState.AddModelError(nameof(BranchView.BrokerageId), "Please select a brokerage house.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    branchView.brocarage = await _context.Brokerages.ToListAsync(); // the drop-down needs its options again
+                    return View(branchView);
+                }
+
                 Branchh branchh = new Branchh();
-                branchh.BranchName = branchView.BranchName;
+                branchh.BranchName = branchView.BranchName.Trim();
                 branchh.BrokerageId = branchView.BrokerageId;
                 await _context.Branchhs.AddAsync(branchh);
                 await _context.SaveChangesAsync();
                 return RedirectToAction("BranchList", "Admin");
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -973,7 +953,7 @@ namespace XFLCSMS.Controllers
                 var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
-                var branch = await _context.Branchhs.FirstOrDefaultAsync(item => item.BrokerageId == id);
+                var branch = await _context.Branchhs.FirstOrDefaultAsync(item => item.BranchId == id);
 
                 if (branch == null)
                 {
@@ -988,9 +968,9 @@ namespace XFLCSMS.Controllers
 
                 return View(b);
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
         }
 
@@ -1019,10 +999,9 @@ namespace XFLCSMS.Controllers
 
                 return View(b);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -1032,49 +1011,51 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 var branch = await _context.Branchhs.FirstOrDefaultAsync(item => item.BranchId == branchView.BranchId);
-
-                if (branch != null)
+                if (branch == null)
                 {
-                    branch.BranchName = branchView.BranchName;
-
-                    _context.Branchhs.Update(branch);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("BranchList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
+
+                if (!ModelState.IsValid)
+                {
+                    branchView.BrokerageHouseName = GetBrocarageHouseName(branch.BrokerageId) ?? string.Empty;
+                    return View("EditBranch", branchView);
+                }
+
+                branch.BranchName = branchView.BranchName.Trim();
+                await _context.SaveChangesAsync();
+                return RedirectToAction("BranchList", "Admin");
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
-
         }
 
         [HttpDelete]
-        public IActionResult DeleteBranch(int id)
+        public async Task<IActionResult> DeleteBranch(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var issueToDelete = _context.Branchhs.FirstOrDefault(i=>i.BranchId== id);
-                if (issueToDelete != null)
+                var branch = await _context.Branchhs.FirstOrDefaultAsync(i => i.BranchId == id);
+                if (branch == null)
                 {
-                    _context.Branchhs.Remove(issueToDelete);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The branch was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                if (await _context.Users.AnyAsync(u => u.Branch == id))
+                {
+                    return Conflict("Users are registered under this branch, so it cannot be deleted.");
+                }
+
+                _context.Branchhs.Remove(branch);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1089,10 +1070,9 @@ namespace XFLCSMS.Controllers
                 var supportType = await _context.SupportTypes.ToListAsync();
                 return View(supportType);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public async Task<IActionResult> ViewSupportType(int id)
@@ -1111,10 +1091,9 @@ namespace XFLCSMS.Controllers
 
                 return View(brocarage);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1127,10 +1106,9 @@ namespace XFLCSMS.Controllers
                 ViewBag.Profile = LogSesson;
                 return View();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1140,17 +1118,19 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                supportType.SupportTypeId = 0; // identity column: the database assigns the id
+                if (!ModelState.IsValid)
+                {
+                    return View(supportType);
+                }
 
                 await _context.AddAsync(supportType);
                 await _context.SaveChangesAsync();
-                return RedirectToAction("SupportTypeList", "Admin"); // Redirect to the action that displays a list of brokerages
+                return RedirectToAction("SupportTypeList", "Admin");
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1171,10 +1151,9 @@ namespace XFLCSMS.Controllers
 
                 return View(brocarage);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1183,50 +1162,51 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var brocarage = await _context.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == brokeragesss.SupportTypeId);
-
-                if (brocarage != null)
+                var existing = await _context.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == brokeragesss.SupportTypeId);
+                if (existing == null)
                 {
-                    brocarage.SType = brokeragesss.SType;
-
-                    _context.Update(brocarage);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("SupportTypeList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
 
+                if (!ModelState.IsValid)
+                {
+                    return View("EditSupportType", brokeragesss);
+                }
+
+                existing.SType = brokeragesss.SType;
+                await _context.SaveChangesAsync();
+                return RedirectToAction("SupportTypeList", "Admin");
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
         [HttpDelete]
-        public IActionResult DeleteSupportType(int id)
+        public async Task<IActionResult> DeleteSupportType(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var issueToDelete = _context.SupportTypes.Find(id);
-                if (issueToDelete != null)
+                var item = await _context.SupportTypes.FindAsync(id);
+                if (item == null)
                 {
-                    _context.SupportTypes.Remove(issueToDelete);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The support type was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                // Tickets point at this row; deleting it would fail on the foreign key.
+                if (await _context.Issues.AnyAsync(i => i.SupportTypeId == id))
+                {
+                    return Conflict("This support type is used by existing tickets, so it cannot be deleted.");
+                }
+
+                _context.SupportTypes.Remove(item);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1241,10 +1221,9 @@ namespace XFLCSMS.Controllers
                 var supportCatagory = await _context.SupportCatagories.ToListAsync();
                 return View(supportCatagory);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public async Task<IActionResult> ViewSupportCatagory(int id)
@@ -1263,10 +1242,9 @@ namespace XFLCSMS.Controllers
 
                 return View(supportCatagory);
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1279,10 +1257,9 @@ namespace XFLCSMS.Controllers
                 ViewBag.Profile = LogSesson;
                 return View();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1292,16 +1269,19 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                supportCatagory.SupportCatagoryId = 0; // identity column: the database assigns the id
+                if (!ModelState.IsValid)
+                {
+                    return View(supportCatagory);
+                }
+
                 await _context.AddAsync(supportCatagory);
                 await _context.SaveChangesAsync();
-                return RedirectToAction("SupportCatagoryList", "Admin"); // Redirect to the action that displays a list of brokerages
+                return RedirectToAction("SupportCatagoryList", "Admin");
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1321,10 +1301,9 @@ namespace XFLCSMS.Controllers
 
                 return View(supportCatagory);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1333,50 +1312,51 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var scatagory = await _context.SupportCatagories.FirstOrDefaultAsync(item =>
-                item.SupportCatagoryId == supportCatagory.SupportCatagoryId);
-
-                if (scatagory != null)
+                var existing = await _context.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == supportCatagory.SupportCatagoryId);
+                if (existing == null)
                 {
-                    scatagory.SCatagory = supportCatagory.SCatagory;
-
-                    _context.Update(scatagory);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("SupportCatagoryList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
 
+                if (!ModelState.IsValid)
+                {
+                    return View("EditSupportCatagory", supportCatagory);
+                }
+
+                existing.SCatagory = supportCatagory.SCatagory;
+                await _context.SaveChangesAsync();
+                return RedirectToAction("SupportCatagoryList", "Admin");
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
         [HttpDelete]
-        public IActionResult DeleteSupportCatagory(int id)
+        public async Task<IActionResult> DeleteSupportCatagory(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var scatagory = _context.SupportCatagories.Find(id);
-                if (scatagory != null)
+                var item = await _context.SupportCatagories.FindAsync(id);
+                if (item == null)
                 {
-                    _context.SupportCatagories.Remove(scatagory);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The support category was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                // Tickets point at this row; deleting it would fail on the foreign key.
+                if (await _context.Issues.AnyAsync(i => i.SupportCatagoryId == id))
+                {
+                    return Conflict("This support category is used by existing tickets, so it cannot be deleted.");
+                }
+
+                _context.SupportCatagories.Remove(item);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1390,10 +1370,9 @@ namespace XFLCSMS.Controllers
                 var supportSubCatagory = await _context.SupportSubCatagories.ToListAsync();
                 return View(supportSubCatagory);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public async Task<IActionResult> ViewSupportSubCatagory(int id)
@@ -1412,10 +1391,9 @@ namespace XFLCSMS.Controllers
 
                 return View(supportSubCatagory);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public IActionResult CreateSupportSubCatagory()
@@ -1427,10 +1405,9 @@ namespace XFLCSMS.Controllers
                 ViewBag.Profile = LogSesson;
                 return View();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1440,18 +1417,19 @@ namespace XFLCSMS.Controllers
         {
             try
             {
+                supportSubCatagory.SupportSubCatagoryId = 0; // identity column: the database assigns the id
+                if (!ModelState.IsValid)
+                {
+                    return View(supportSubCatagory);
+                }
 
-
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 await _context.AddAsync(supportSubCatagory);
                 await _context.SaveChangesAsync();
-                return RedirectToAction("SupportSubCatagoryList", "Admin"); // Redirect to the action that displays a list of brokerages
+                return RedirectToAction("SupportSubCatagoryList", "Admin");
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1471,9 +1449,9 @@ namespace XFLCSMS.Controllers
 
                 return View(supportSubCatagory);
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
 
         }
@@ -1482,51 +1460,51 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var subcatagory = await _context.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == supportSubCatagory.SupportSubCatagoryId);
-
-                if (subcatagory != null)
+                var existing = await _context.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == supportSubCatagory.SupportSubCatagoryId);
+                if (existing == null)
                 {
-                    subcatagory.SubCatagory = supportSubCatagory.SubCatagory;
-
-                    _context.Update(subcatagory);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("SupportSubCatagoryList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
-            }
-            catch(Exception ex)
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
 
+                if (!ModelState.IsValid)
+                {
+                    return View("EditSupportSubCatagory", supportSubCatagory);
+                }
+
+                existing.SubCatagory = supportSubCatagory.SubCatagory;
+                await _context.SaveChangesAsync();
+                return RedirectToAction("SupportSubCatagoryList", "Admin");
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
         [HttpDelete]
-        public IActionResult DeleteSupportSubCatagory(int id)
+        public async Task<IActionResult> DeleteSupportSubCatagory(int id)
         {
             try
             {
-
-
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var subcatagory = _context.SupportSubCatagories.Find(id);
-                if (subcatagory != null)
+                var item = await _context.SupportSubCatagories.FindAsync(id);
+                if (item == null)
                 {
-                    _context.SupportSubCatagories.Remove(subcatagory);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The support sub-category was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                // Tickets point at this row; deleting it would fail on the foreign key.
+                if (await _context.Issues.AnyAsync(i => i.SupportSubCatagoryId == id))
+                {
+                    return Conflict("This support sub-category is used by existing tickets, so it cannot be deleted.");
+                }
+
+                _context.SupportSubCatagories.Remove(item);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch 
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1542,9 +1520,9 @@ namespace XFLCSMS.Controllers
                 var affectedSectios = await _context.AffectedSectionss.ToListAsync();
                 return View(affectedSectios);
             }
-            catch {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+            catch (Exception ex)
+            {
+                return HandleError(ex);
             }
         }
         public async Task<IActionResult> ViewAffectedSection(int id)
@@ -1563,10 +1541,9 @@ namespace XFLCSMS.Controllers
 
                 return View(affectedsection);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         public IActionResult CreateAffectedSection()
@@ -1578,10 +1555,9 @@ namespace XFLCSMS.Controllers
                 ViewBag.Profile = LogSesson;
                 return View();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1591,33 +1567,20 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                affectedSection.AffectedSectionId = 0; // identity column: the database assigns the id
+                if (!ModelState.IsValid)
+                {
+                    return View(affectedSection);
+                }
+
                 await _context.AddAsync(affectedSection);
                 await _context.SaveChangesAsync();
-                return RedirectToAction("AffectedSectionList", "Admin"); // Redirect to the action that displays a list of brokerages
+                return RedirectToAction("AffectedSectionList", "Admin");
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
-        }
-
-        [HttpPost]
-        public IActionResult DeleteAttachment(int attachmentId)
-        {
-            var attachment = _context.Attachments.Find(attachmentId);
-
-            if (attachment == null)
-            {
-                return NotFound();
-            }
-
-            _context.Attachments.Remove(attachment);
-            _context.SaveChanges();
-
-            return Ok();
         }
 
         public async Task<IActionResult> EditAffectedSection(int id)
@@ -1636,10 +1599,9 @@ namespace XFLCSMS.Controllers
 
                 return View(affectedSection);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1648,50 +1610,51 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var aSection = await _context.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == affectedSection.AffectedSectionId);
-
-                if (aSection != null)
+                var existing = await _context.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == affectedSection.AffectedSectionId);
+                if (existing == null)
                 {
-                    aSection.ASection = affectedSection.ASection;
-
-                    _context.Update(aSection);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("AffectedSectionList", "Admin");
+                    return NotFound();
                 }
-                return NotFound();
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
 
+                if (!ModelState.IsValid)
+                {
+                    return View("EditAffectedSection", affectedSection);
+                }
+
+                existing.ASection = affectedSection.ASection;
+                await _context.SaveChangesAsync();
+                return RedirectToAction("AffectedSectionList", "Admin");
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
         }
 
         [HttpDelete]
-        public IActionResult DeleteAffectedSection(int id)
+        public async Task<IActionResult> DeleteAffectedSection(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                // Perform the deletion logic here (remove the issue from the database)
-                var asection = _context.AffectedSectionss.Find(id);
-                if (asection != null)
+                var item = await _context.AffectedSectionss.FindAsync(id);
+                if (item == null)
                 {
-                    _context.AffectedSectionss.Remove(asection);
-                    _context.SaveChanges();
-                    return Ok(); // Return a success status
+                    return NotFound("The affected section was not found.");
                 }
-                return NotFound(); // Return a not found status if the issue doesn't exist
+
+                // Tickets point at this row; deleting it would fail on the foreign key.
+                if (await _context.Issues.AnyAsync(i => i.AffectedSectionId == id))
+                {
+                    return Conflict("This affected section is used by existing tickets, so it cannot be deleted.");
+                }
+
+                _context.AffectedSectionss.Remove(item);
+                await _context.SaveChangesAsync();
+                return Ok();
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -1721,6 +1684,8 @@ namespace XFLCSMS.Controllers
         [HttpGet]
         public async Task<IActionResult> Search(ReportView reportView)
         {
+            // the report page can be opened/searched with an empty filter
+            reportView.search ??= new XFLCSMS.Models.Admin.Search();
 
 
             if(reportView.search.ToDate>=DateTime.Now)
@@ -1735,11 +1700,14 @@ namespace XFLCSMS.Controllers
             if (!String.IsNullOrEmpty(reportView.search.Priority))
                 searchResults = searchResults.Where(x => x.Priority.Contains(reportView.search.Priority)).ToList();
             if (!String.IsNullOrEmpty(reportView.search.AStatus))
-                searchResults = searchResults.Where(x => x.IStatus.Contains(reportView.search.AStatus)).ToList();
+                searchResults = searchResults.Where(x => x.IStatus != null && x.IStatus.Contains(reportView.search.AStatus)).ToList();
             if (reportView.search.EmployeeName != null)
                 searchResults = searchResults.Where(x => x.ClosedBy == reportView.search.EmployeeName).ToList();
-            if((reportView.search.FromDate != null) && (reportView.search.ToDate != null))
-                searchResults = searchResults.Where(x => (x.TDate >= reportView.search.FromDate) && (x.TDate <= reportView.search.ToDate)).ToList();
+            // both ends of the range are inclusive, and either end may be left empty
+            if (reportView.search.FromDate != null)
+                searchResults = searchResults.Where(x => x.TDate.Date >= reportView.search.FromDate.Value.Date).ToList();
+            if (reportView.search.ToDate != null)
+                searchResults = searchResults.Where(x => x.TDate.Date <= reportView.search.ToDate.Value.Date).ToList();
 
             string Brocaragename = (reportView.search.BrokerageId > 0) ? GetBrocarageHouseName(reportView.search.BrokerageId) : "All";
             string EmployeeNamee = (reportView.search.EmployeeName !=null) ? reportView.search.EmployeeName : "All";
@@ -1833,7 +1801,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).OrderByDescending(item => item.Id).ToList();
 
@@ -1850,10 +1818,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1866,12 +1833,18 @@ namespace XFLCSMS.Controllers
                 var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
+                if (string.IsNullOrWhiteSpace(newTodo?.Todo?.Todoname))
+                {
+                    TempData["ErrorMessage"] = "Please enter a to-do before adding it.";
+                    return RedirectToAction("ViewTodo");
+                }
+
                 Todo todo = new Todo()
                 {
                     CreatedOn = DateTime.Now,
                     Todoname = newTodo.Todo.Todoname,
                     Status = "In progress",
-                    UserId = newTodo.Todo.UserId,
+                    UserId = LogSesson.Id,
                     BrokerageId = LogSesson.BrokerageHouseName,
                 };
 
@@ -1880,10 +1853,9 @@ namespace XFLCSMS.Controllers
                 return RedirectToAction("ViewTodo");
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1913,10 +1885,9 @@ namespace XFLCSMS.Controllers
                 return View(todo);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -1936,8 +1907,15 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                existingTodo.Todoname = model.Todoname;
-                existingTodo.Status = model.Status;
+                if (!string.IsNullOrWhiteSpace(model.Todoname))
+                {
+                    existingTodo.Todoname = model.Todoname;
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.Status))
+                {
+                    existingTodo.Status = model.Status;
+                }
 
                 _context.Todos.Update(existingTodo);
                 await _context.SaveChangesAsync();
@@ -1945,10 +1923,9 @@ namespace XFLCSMS.Controllers
                 return RedirectToAction("ViewTodo");
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -2006,7 +1983,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).ToList();
 
@@ -2023,10 +2000,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -2083,7 +2059,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).ToList();
 
@@ -2100,10 +2076,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -2136,11 +2111,9 @@ namespace XFLCSMS.Controllers
 
                 return View(reportView);
             }
-            catch
+            catch (Exception ex)
             {
-
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -2151,6 +2124,7 @@ namespace XFLCSMS.Controllers
             {
                 var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                reportView.search ??= new XFLCSMS.Models.Todos.TodoSearch();
                 if (reportView.search != null)
                 {
                     // Check if FromDate is not null and is greater than or equal to the current date
@@ -2173,10 +2147,13 @@ namespace XFLCSMS.Controllers
 
 
                 if (!String.IsNullOrEmpty(reportView.search.Status))
-                    searchResults = searchResults.Where(x => x.Status.Contains(reportView.search.Status)).ToList();
+                    searchResults = searchResults.Where(x => x.Status != null && x.Status.Contains(reportView.search.Status)).ToList();
 
-                if ((reportView.search.FromDate != null) && (reportView.search.ToDate != null))
-                    searchResults = searchResults.Where(x => (x.CreatedOn >= reportView.search.FromDate) && (x.CreatedOn <= reportView.search.ToDate)).ToList();
+                // both ends of the range are inclusive, and either end may be left empty
+                if (reportView.search.FromDate != null)
+                    searchResults = searchResults.Where(x => x.CreatedOn.Date >= reportView.search.FromDate.Value.Date).ToList();
+                if (reportView.search.ToDate != null)
+                    searchResults = searchResults.Where(x => x.CreatedOn.Date <= reportView.search.ToDate.Value.Date).ToList();
 
                 string Brocaragename = GetBrocarageHouseName(LogSesson.BrokerageHouseName);
                 string EmployeeNamee = LogSesson.FullName;
@@ -2185,7 +2162,7 @@ namespace XFLCSMS.Controllers
 
                 int TotalTodo = searchResults.Count();
                 int TotalInprogressTodo = searchResults.Where(x => x.Status == "In progress").Count();
-                int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Completed").Count();
+                int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Done").Count();
                 int TotalCancledTodo = TotalTodo - TotalInprogressTodo - TotalCompletedTodoo;
 
 
@@ -2214,11 +2191,9 @@ namespace XFLCSMS.Controllers
                 return PartialView("_todoSearchResult", reportViewWithSearchResults);
 
             }
-            catch
+            catch (Exception ex)
             {
-
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -2279,7 +2254,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).OrderByDescending(item => item.Id).ToList();
 
@@ -2296,10 +2271,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -2332,11 +2306,9 @@ namespace XFLCSMS.Controllers
 
                 return View(reportView);
             }
-            catch
+            catch (Exception ex)
             {
-
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -2349,6 +2321,7 @@ namespace XFLCSMS.Controllers
             User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
 
 
+            reportView.search ??= new XFLCSMS.Models.Todos.TodoSearch();
             if (reportView.search != null)
             {
                 // Check if FromDate is not null and is greater than or equal to the current date
@@ -2366,11 +2339,14 @@ namespace XFLCSMS.Controllers
 
             var searchResults = await _context.Todos.ToListAsync();
 
-            if ((reportView.search.FromDate != null) && (reportView.search.ToDate != null))
-                searchResults = searchResults.Where(x => (x.CreatedOn >= reportView.search.FromDate) && (x.CreatedOn <= reportView.search.ToDate)).ToList();
+            // both ends of the range are inclusive, and either end may be left empty
+            if (reportView.search.FromDate != null)
+                searchResults = searchResults.Where(x => x.CreatedOn.Date >= reportView.search.FromDate.Value.Date).ToList();
+            if (reportView.search.ToDate != null)
+                searchResults = searchResults.Where(x => x.CreatedOn.Date <= reportView.search.ToDate.Value.Date).ToList();
 
             if (!String.IsNullOrEmpty(reportView.search.Status))
-                searchResults = searchResults.Where(x => x.Status.Contains(reportView.search.Status)).ToList();
+                searchResults = searchResults.Where(x => x.Status != null && x.Status.Contains(reportView.search.Status)).ToList();
 
             if (reportView.search.BrocarageHouseName.HasValue)
                 searchResults = searchResults.Where(x => x.BrokerageId == reportView.search.BrocarageHouseName).ToList();
@@ -2387,7 +2363,7 @@ namespace XFLCSMS.Controllers
 
             int TotalTodo = searchResults.Count();
             int TotalInprogressTodo = searchResults.Where(x => x.Status == "In progress").Count();
-            int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Completed").Count();
+            int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Done").Count();
             int TotalCancledTodo = TotalTodo - TotalInprogressTodo - TotalCompletedTodoo;
 
 
@@ -2415,152 +2391,22 @@ namespace XFLCSMS.Controllers
             // Return the partial view with the populated reportView model
             return PartialView("_todoSearchResult", reportViewWithSearchResults);
             }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-
-
-
-
-
-
-        public IActionResult Logout()
-        {
-             HttpContext.Session.Remove("AdminData");
-            return RedirectToAction("Login", "RegisterLogin");
-        }
-        public async Task< IActionResult> Profile(int  id)
-        {
-
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var user = await _context.Users.FirstOrDefaultAsync(item => item.Id == id);
-
-                if (user == null)
-                {
-                    return NotFound(); // Or handle the case where the user is not found
-                }
-
-                var userView = new UserView
-                {
-                    Id = user.Id,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhonNumber = user.PhonNumber,
-                    Designation = user.Designation,
-                    BrokerageHouseName = GetBrocarageHouseName(user.BrokerageHouseName),
-                    Branch = GetBranchName(user.Branch),
-                    EmployeeId = user.EmployeeId,
-                    UserName = user.UserName,
-                    UCatagory = user.UCatagory,
-                    UType = user.UType,
-                    UStatus = user.UStatus
-                };
-
-
-                return View(userView);
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-
-
-        public async Task<IActionResult> ChangePassword()
-        {
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var pass = new Password
-                {
-                    UserId = LogSesson.Id
-                };
-                return View(pass);
-            }
-            catch
-            {
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-
-
-        [HttpPost]
-        public async Task<IActionResult> ChangePassword(Password password)
-        {
-            try
-            {
-                var user = await _context.Users.FirstOrDefaultAsync(i => i.Id == password.UserId);
-                if (user != null)
-                {
-                    if (!VerifyPasswordHash(password.CurrentPassword, user.PasswordHash, user.PasswordSalt))
-                    {
-                        ViewBag.message = "Current Password is not Correct";
-                        return View();
-                    }
-                    else
-                    {
-                        if (password.NewPassword != password.ConNewPassword)
-                        {
-                            ViewBag.message = "New Password and Confarm password are not Same";
-                            return View();
-                        }
-                        else
-                        {
-                            CreatePasswordHash(password.NewPassword,
-                                out byte[] passwordHash,
-                                out byte[] passwordSalt);
-
-                            user.PasswordHash = passwordHash;
-                            user.PasswordSalt = passwordSalt;
-
-                            _context.Users.Update(user);
-                            _context.SaveChanges();
-                            HttpContext.Session.Remove("AdminData");
-                            return RedirectToAction("Login", "RegisterLogin");
-                        }
-                    }
-                }
-                return View();
-            }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
 
-        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512())
-            {
-                passwordSalt = hmac.Key;
-                passwordHash = hmac
-                    .ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-            }
-        }
 
-        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512(passwordSalt))
-            {
-                var computedHash = hmac
-                    .ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-                return computedHash.SequenceEqual(passwordHash);
-            }
-        }
+
+
+
+
+
+
+
+
 
 
 
@@ -2599,7 +2445,7 @@ namespace XFLCSMS.Controllers
             var Brocarage = _context.Branchhs.ToList();
             foreach (var item in Brocarage)
             {
-                if (item.BrokerageId == id)
+                if (item.BranchId == id)
                 {
                     return item.BranchName;
                 }
@@ -2611,7 +2457,7 @@ namespace XFLCSMS.Controllers
         private string UserName(int id)
         {
             var user = _context.Users.Where(i => i.Id == id).FirstOrDefault();
-            return user.FullName;
+            return user?.FullName ?? string.Empty;
         }
         private string SupportTypeName(int? id)
         {

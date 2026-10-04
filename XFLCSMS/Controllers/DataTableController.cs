@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using XFLCSMS.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using XFLCSMS.Models.DataTable;
 
 namespace XFLCSMS.Controllers
 {
+    [SessionAuthorize(SessionAuthorizeAttribute.Admin)]
     public class DataTableController : Controller
     {
         private readonly DataContext _context;
@@ -26,12 +28,14 @@ namespace XFLCSMS.Controllers
             return View();
         }
         [HttpPost]
-        public IActionResult Create( Customer customer)
+        public async Task<IActionResult> Create(Customer customer)
         {
-             _context.AddAsync(customer);
-             _context.SaveChangesAsync();
-           
-            return View("Index");
+            // The two calls were not awaited (the request ended before the save ran) and
+            // the Index view was returned without its model.
+            await _context.AddAsync(customer);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Index");
         }
         
         public ActionResult GetList()

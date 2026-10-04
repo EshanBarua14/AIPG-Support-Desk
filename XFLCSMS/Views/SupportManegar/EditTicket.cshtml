@@ -65,7 +65,12 @@
                                 <select asp-for="@Model.AssgnBy" id="brokerageCodes" name="AssgnBy" class="form-control">
                                     @* <option value="@Model.AssgnBy">Select a support Engineer</option> *@
                                     <option value="">Unassign</option>
-                                    @foreach (var item in @Model.SupportEngineers)
+                                    @if (!string.IsNullOrEmpty(Model.AssgnBy) && (Model.SupportEngineers == null || !Model.SupportEngineers.Any(e => e.FullName == Model.AssgnBy)))
+                                    {
+                                        @* keep the current assignee selectable even if he is no longer in the engineer list *@
+                                        <option value="@Model.AssgnBy">@Model.AssgnBy</option>
+                                    }
+                                    @foreach (var item in Model.SupportEngineers ?? new List<XFLCSMS.Models.Register.User>())
                                     {
                                         <option value="@item.FullName">@item.FullName</option>
                                     }
@@ -127,6 +132,11 @@
                             <div class="form-group">
                                 <label for="exampleInputEmail1">Ticket Status</label>
                                 <select asp-for="@Model.IStatus" id="brokerageCodes" name="IStatus" class="form-control">
+                                    @if (!string.IsNullOrEmpty(Model.IStatus) && !new[] { "Open", "Inqueue", "Inprogress", "Close" }.Contains(Model.IStatus))
+                                    {
+                                        @* a status saved by an older version: keep it instead of silently switching the ticket to Open *@
+                                        <option value="@Model.IStatus">@Model.IStatus</option>
+                                    }
                                     <option value="Open">Open</option>
                                     <option value="Inqueue">Inqueue</option>
                                     <option value="Inprogress">In Progress</option>
@@ -329,8 +339,11 @@
             submitButton.disabled = !(priorityIsValid && issueTitleIsValid);
         }
 
-        document.getElementById("prioritySelect").addEventListener("change", validateForm);
-        document.getElementById("ITitle").addEventListener("input", validateForm);
+        // only wire the validation up when the page really has these fields
+        if (document.getElementById("prioritySelect") && document.getElementById("priorityError") && document.getElementById("submitButton")) {
+            document.getElementById("prioritySelect").addEventListener("change", validateForm);
+            document.getElementById("ITitle").addEventListener("input", validateForm);
+        }
     </script>
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>

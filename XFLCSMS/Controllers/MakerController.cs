@@ -11,22 +11,32 @@ using XFLCSMS.Models.Issue;
 using XFLCSMS.Models.Register;
 using XFLCSMS.Models.Todos;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using XFLCSMS.Services;
 
 namespace XFLCSMS.Controllers
 {
-    public class MakerController : Controller
+    public class MakerController : CsmsController
     {
         private readonly DataContext _context;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public MakerController(DataContext context, IWebHostEnvironment webHostEnvironment)
+        protected override string SessionKey => "MakerData";
+
+        // A maker (brokerage house user) only works with the tickets he raised himself.
+        protected override bool CanAccessIssue(IssueTable issue)
+        {
+            return issue.UserId == CurrentUser?.Id;
+        }
+
+        public MakerController(DataContext context, IWebHostEnvironment webHostEnvironment, TicketService tickets)
+            : base(context, tickets)
         {
             _context = context;
             _webHostEnvironment = webHostEnvironment;
         }
         public IActionResult Index()
         {
-            return View();
+            return RedirectToAction("Dashbord");
         }
 
 
@@ -128,10 +138,9 @@ namespace XFLCSMS.Controllers
 
                 return View(TicketCount);
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
         [HttpGet]
@@ -206,16 +215,15 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -290,16 +298,15 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -367,15 +374,14 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -444,15 +450,14 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<IssueTable> IssueList = TicketList.Skip(skip_records).Take(take_records).ToList();
                 return View(IssueList);
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -509,8 +514,7 @@ namespace XFLCSMS.Controllers
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -524,67 +528,29 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-
-                var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-
-
-                var issue = new IssueTable
+                // Owner, brokerage house, ticket number and date are decided on the server (see TicketService).
+                var result = await Tickets.CreateAsync(CurrentUser!, issueViewModel?.issueFrom, files);
+                if (result.Issue == null)
                 {
-                    TDate = issueViewModel.issueFrom.dateTime,
-                    TNumber = issueViewModel.issueFrom.TicketId,
-
-                    Priority = issueViewModel.issueFrom.Priority,
-                    Details = issueViewModel.issueFrom.IssueDetails,
-                    Comments = issueViewModel.issueFrom.Commands,
-                    UserId = issueViewModel.issueFrom.UserId,
-                    SupportCatagoryId = issueViewModel.issueFrom.SupportCatagoryId,
-                    SupportTypeId = issueViewModel.issueFrom.SupportTypeId,
-                    SupportSubCatagoryId = issueViewModel.issueFrom.SupportSubCatagoryID,
-                    AffectedSectionId = issueViewModel.issueFrom.AffectedSectionId,
-                    ITitle = issueViewModel.issueFrom.ITitle,
-                    IStatus = "Open",
-                    AssignOn = null,
-                    AssignBy = null,
-
-                    BrokerageId = CreateBrocarageID(issueViewModel.issueFrom.BrocarageHouseName)
-                };
-                _context.Issues.Add(issue);
-                _context.SaveChanges();
-                var uploadFolder = Path.Combine(_webHostEnvironment.WebRootPath, "Uplods");
-                Directory.CreateDirectory(uploadFolder); // Create the directory once outside the loop
-
-                foreach (var file in files)
-                {
-
-                    var fileName = file.FileName; // Ensure unique file names
-                    var filePath = Path.Combine(uploadFolder, fileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-
-                    var attachment = new Attachment
-                    {
-                        FileName = file.FileName,
-                        AttachmentLoc = filePath,
-                        IssueId = issue.IssueId
-                    };
-
-                    _context.Attachments.Add(attachment);
-
-
+                    TempData["ErrorMessage"] = result.Error;
+                    return RedirectToAction("IssueRaiseFrom");
                 }
 
-                await _context.SaveChangesAsync();
+                if (result.RejectedFiles.Count > 0)
+                {
+                    TempData["ErrorMessage"] = "Ticket " + result.Issue.TNumber + " was created, but these files were not attached (file type not allowed): "
+                        + string.Join(", ", result.RejectedFiles);
+                }
+                else
+                {
+                    TempData["SuccessMessage"] = "Ticket " + result.Issue.TNumber + " was created.";
+                }
 
                 return RedirectToAction("MackerTicketList");
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -600,7 +566,7 @@ namespace XFLCSMS.Controllers
                     .Include(i => i.attachment)  // Include attachments in the query
                     .FirstOrDefault(i => i.IssueId == id);
 
-                if (issueWithAttachments == null)
+                if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
                     return NotFound();
                 }
@@ -619,6 +585,7 @@ namespace XFLCSMS.Controllers
                     TicketDetails = issueWithAttachments.Details,
                     Command = issueWithAttachments.Comments,
                     TicketStatus = issueWithAttachments.IStatus,
+                    IStatus = issueWithAttachments.IStatus,
                     Priority = issueWithAttachments.Priority,
                     Attachments = issueWithAttachments.attachment,
                     ApproveOn = issueWithAttachments.ApproveOn,
@@ -632,8 +599,7 @@ namespace XFLCSMS.Controllers
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -650,9 +616,9 @@ namespace XFLCSMS.Controllers
                 var issueWithAttachments = _context.Issues
                     .Include(i => i.attachment)  // Include attachments in the query
                     .FirstOrDefault(i => i.IssueId == id);
-                var SupportEng = _context.Users.Where(i => i.Designation == "Support Engineer").ToList();
+                var SupportEng = _context.Users.Where(i => i.Department == "Support Engineer").ToList();
 
-                if (issueWithAttachments == null)
+                if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
                     return NotFound();
                 }
@@ -672,6 +638,7 @@ namespace XFLCSMS.Controllers
                     TicketDetails = issueWithAttachments.Details,
                     Command = issueWithAttachments.Comments,
                     TicketStatus = issueWithAttachments.IStatus,
+                    IStatus = issueWithAttachments.IStatus,
                     Attachments = issueWithAttachments.attachment,
                     IssueTitle = issueWithAttachments.ITitle,
                     Priority = issueWithAttachments.Priority,
@@ -684,8 +651,7 @@ namespace XFLCSMS.Controllers
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -695,61 +661,28 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                var editor = CurrentUser!;
                 var issue = await _context.Issues.FirstOrDefaultAsync(a => a.IssueId == makerView.IssueId);
-                if (issue != null)
+                if (issue == null || !CanAccessIssue(issue))
                 {
-                    issue.ITitle = makerView.IssueTitle;
-                    issue.Details = makerView.TicketDetails;
-                    issue.Comments = makerView.Command;
-                    issue.Priority = makerView.Priority;
-                    issue.UpdatedOn = DateTime.Now;
-                    issue.UpdatedBy = LogSesson.FullName;
-                    _context.Update(issue);
-                    await _context.SaveChangesAsync();
-
-
-                    if (files != null)
-                    {
-                        var uploadFolder = Path.Combine(_webHostEnvironment.WebRootPath, "Uplods");
-                        Directory.CreateDirectory(uploadFolder); // Create the directory once outside the loop
-
-                        foreach (var file in files)
-                        {
-                            var fileName = file.FileName; // Ensure unique file names
-                            var filePath = Path.Combine(uploadFolder, fileName);
-
-                            using (var stream = new FileStream(filePath, FileMode.Create))
-                            {
-                                await file.CopyToAsync(stream);
-                            }
-
-                            var attachment = new Attachment
-                            {
-                                FileName = file.FileName,
-                                AttachmentLoc = filePath,
-                                IssueId = makerView.IssueId
-                            };
-
-                            _context.Attachments.Add(attachment);
-                        }
-
-                        await _context.SaveChangesAsync();
-                    }
-
-
-                    return RedirectToAction("MackerTicketList", "Maker");
+                    return NotFound("Edit is not done");
                 }
 
+                Tickets.ApplyOwnerEdit(issue, makerView, editor);
+                await _context.SaveChangesAsync();
 
-                return NotFound("Edit is not done");
+                var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
+                if (rejected.Count > 0)
+                {
+                    TempData["ErrorMessage"] = "The ticket was saved, but these files were not attached (file type not allowed): "
+                        + string.Join(", ", rejected);
+                }
+
+                return RedirectToAction("MackerTicketList", "Maker");
             }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
-
+                return HandleError(ex);
             }
         }
 
@@ -773,11 +706,9 @@ namespace XFLCSMS.Controllers
 
                 return View(reportView);
             }
-            catch
+            catch (Exception ex)
             {
-
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -785,15 +716,17 @@ namespace XFLCSMS.Controllers
         [HttpGet]
         public async Task<IActionResult> Search(ReportView reportView)
         {
+            // the report page can be opened/searched with an empty filter
+            reportView.MakerSearch ??= new MakerSearch();
             var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
             User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
             if (reportView.MakerSearch.FromDate >= DateTime.Now)
             {
-                reportView.SESearch.FromDate = DateTime.Now;
+                reportView.MakerSearch.FromDate = DateTime.Now;
             }
             if (reportView.MakerSearch.ToDate >= DateTime.Now)
             {
-                reportView.SESearch.ToDate = DateTime.Now;
+                reportView.MakerSearch.ToDate = DateTime.Now;
             }
 
             var searchResults = _context.Issues
@@ -806,10 +739,13 @@ namespace XFLCSMS.Controllers
                 searchResults = searchResults.Where(x => x.Priority.Contains(reportView.MakerSearch.Priority)).ToList();
 
             if (!String.IsNullOrEmpty(reportView.MakerSearch.AStatus))
-                searchResults = searchResults.Where(x => x.IStatus.Contains(reportView.MakerSearch.AStatus)).ToList();
+                searchResults = searchResults.Where(x => x.IStatus != null && x.IStatus.Contains(reportView.MakerSearch.AStatus)).ToList();
 
-            if ((reportView.MakerSearch.FromDate != null) && (reportView.MakerSearch.ToDate != null))
-                searchResults = searchResults.Where(x => (x.TDate >= reportView.MakerSearch.FromDate) && (x.TDate <= reportView.MakerSearch.ToDate)).ToList();
+            // both ends of the range are inclusive, and either end may be left empty
+            if (reportView.MakerSearch.FromDate != null)
+                searchResults = searchResults.Where(x => x.TDate.Date >= reportView.MakerSearch.FromDate.Value.Date).ToList();
+            if (reportView.MakerSearch.ToDate != null)
+                searchResults = searchResults.Where(x => x.TDate.Date <= reportView.MakerSearch.ToDate.Value.Date).ToList();
 
             string Brocaragename = GetBrocarageHouseName(LogSesson.BrokerageHouseName);
             string EmployeeNamee = LogSesson.FullName;
@@ -846,12 +782,6 @@ namespace XFLCSMS.Controllers
             // Return the partial view with the populated reportView model
             return PartialView("_SearchResults", reportViewWithSearchResults);
         }
-        public IActionResult Logout()
-        {
-            HttpContext.Session.Remove("MakerData");
-            return RedirectToAction("Login", "RegisterLogin");
-        }
-
         [HttpGet]
         public async Task<IActionResult> TodoReports()
         {
@@ -876,11 +806,9 @@ namespace XFLCSMS.Controllers
 
                 return View(reportView);
             }
-            catch
+            catch (Exception ex)
             {
-
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
         }
 
@@ -891,6 +819,7 @@ namespace XFLCSMS.Controllers
             {
                 var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
+                reportView.search ??= new XFLCSMS.Models.Todos.TodoSearch();
                 if (reportView.search != null)
                 {
                     // Check if FromDate is not null and is greater than or equal to the current date
@@ -913,10 +842,13 @@ namespace XFLCSMS.Controllers
 
 
                 if (!String.IsNullOrEmpty(reportView.search.Status))
-                    searchResults = searchResults.Where(x => x.Status.Contains(reportView.search.Status)).ToList();
+                    searchResults = searchResults.Where(x => x.Status != null && x.Status.Contains(reportView.search.Status)).ToList();
 
-                if ((reportView.search.FromDate != null) && (reportView.search.ToDate != null))
-                    searchResults = searchResults.Where(x => (x.CreatedOn >= reportView.search.FromDate) && (x.CreatedOn <= reportView.search.ToDate)).ToList();
+                // both ends of the range are inclusive, and either end may be left empty
+                if (reportView.search.FromDate != null)
+                    searchResults = searchResults.Where(x => x.CreatedOn.Date >= reportView.search.FromDate.Value.Date).ToList();
+                if (reportView.search.ToDate != null)
+                    searchResults = searchResults.Where(x => x.CreatedOn.Date <= reportView.search.ToDate.Value.Date).ToList();
 
                 string Brocaragename = GetBrocarageHouseName(LogSesson.BrokerageHouseName);
                 string EmployeeNamee = LogSesson.FullName;
@@ -925,7 +857,7 @@ namespace XFLCSMS.Controllers
 
                 int TotalTodo = searchResults.Count();
                 int TotalInprogressTodo = searchResults.Where(x => x.Status == "In progress").Count();
-                int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Completed").Count();
+                int TotalCompletedTodoo = searchResults.Where(x => x.Status == "Done").Count();
                 int TotalCancledTodo = TotalTodo - TotalInprogressTodo - TotalCompletedTodoo;
 
 
@@ -954,138 +886,16 @@ namespace XFLCSMS.Controllers
                 return PartialView("_todoSearchResult", reportViewWithSearchResults);
 
             }
-            catch
-            {
-
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-
-
-        }
-
-
-        public async Task<IActionResult> Profile(int id)
-        {
-
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var user = await _context.Users.FirstOrDefaultAsync(item => item.Id == id);
-
-                if (user == null)
-                {
-                    return NotFound(); // Or handle the case where the user is not found
-                }
-
-                var userView = new UserView
-                {
-                    Id = user.Id,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhonNumber = user.PhonNumber,
-                    Designation = user.Designation,
-                    BrokerageHouseName = GetBrocarageHouseName(user.BrokerageHouseName),
-                    Branch = GetBranchName(user.Branch),
-                    EmployeeId = user.EmployeeId,
-                    UserName = user.UserName,
-                    UCatagory = user.UCatagory,
-                    UType = user.UType,
-                    UStatus = user.UStatus
-                };
-
-
-                return View(userView);
-            }
-            catch
-            {
-                HttpContext.Session.Remove("AdminData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-        public async Task<IActionResult> ChangePassword()
-        {
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var pass = new Password
-                {
-                    UserId = LogSesson.Id
-                };
-                return View(pass);
-            }
-            catch
-            {
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-
-
-        [HttpPost]
-        public async Task<IActionResult> ChangePassword(Password password)
-        {
-            try
-            {
-                var user = await _context.Users.FirstOrDefaultAsync(i => i.Id == password.UserId);
-                if (user != null)
-                {
-                    if (!VerifyPasswordHash(password.CurrentPassword, user.PasswordHash, user.PasswordSalt))
-                    {
-                        ViewBag.message = "Current Password is not Correct";
-                        return View();
-                    }
-                    else
-                    {
-                        if (password.NewPassword != password.ConNewPassword)
-                        {
-                            ViewBag.message = "New Password and Confarm password are not Same";
-                            return View();
-                        }
-                        else
-                        {
-                            CreatePasswordHash(password.NewPassword,
-                                out byte[] passwordHash,
-                                out byte[] passwordSalt);
-
-                            user.PasswordHash = passwordHash;
-                            user.PasswordSalt = passwordSalt;
-
-                            _context.Users.Update(user);
-                            _context.SaveChanges();
-                            HttpContext.Session.Remove("MakerData");
-                            return RedirectToAction("Login", "RegisterLogin");
-                        }
-                    }
-                }
-                return View();
-            }
             catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
-            }
-        }
-
-        [HttpPost]
-        public IActionResult DeleteAttachment(int attachmentId)
-        {
-            var attachment = _context.Attachments.Find(attachmentId);
-
-            if (attachment == null)
-            {
-                return NotFound();
+                return HandleError(ex);
             }
 
-            _context.Attachments.Remove(attachment);
-            _context.SaveChanges();
 
-            return Ok();
         }
+
+
+
 
         [HttpGet]
         public async Task<IActionResult> ViewTodo(int page, int rowperpage, string? searchString = null, string? sortField = null, bool sortAscending = true)
@@ -1142,7 +952,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).OrderByDescending(item => item.Id).ToList();
 
@@ -1159,10 +969,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1220,7 +1029,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).ToList();
 
@@ -1237,10 +1046,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1297,7 +1105,7 @@ namespace XFLCSMS.Controllers
 
                 Pager P = new Pager(tot_records, page, pagesize, number_of_button, searchString);
                 ViewBag.pager = P;
-                int skip_records = (page - 1) * pagesize;
+                int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
                 List<Todo> todoss = todos.Skip(skip_records).Take(take_records).ToList();
 
@@ -1314,10 +1122,9 @@ namespace XFLCSMS.Controllers
                 return View(todoviewModel);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -1332,12 +1139,18 @@ namespace XFLCSMS.Controllers
                 var jsonStringFromSession = HttpContext.Session.GetString("MakerData");
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
+                if (string.IsNullOrWhiteSpace(newTodo?.Todo?.Todoname))
+                {
+                    TempData["ErrorMessage"] = "Please enter a to-do before adding it.";
+                    return RedirectToAction("ViewTodo");
+                }
+
                 Todo todo = new Todo()
                 {
                     CreatedOn = DateTime.Now,
                     Todoname = newTodo.Todo.Todoname,
                     Status = "In progress",
-                    UserId = newTodo.Todo.UserId,
+                    UserId = LogSesson.Id,
                     BrokerageId = LogSesson.BrokerageHouseName,
                 };
 
@@ -1346,10 +1159,9 @@ namespace XFLCSMS.Controllers
                 return RedirectToAction("ViewTodo");
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
         }
@@ -1363,7 +1175,7 @@ namespace XFLCSMS.Controllers
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var todo = await _context.Todos.FindAsync(id);
-                if (todo == null)
+                if (todo == null || todo.UserId != LogSesson.Id)
                 {
                     return NotFound();
                 }
@@ -1379,10 +1191,9 @@ namespace XFLCSMS.Controllers
                 return View(todo);
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -1397,13 +1208,20 @@ namespace XFLCSMS.Controllers
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
 
                 var existingTodo = await _context.Todos.FindAsync(model.Id);
-                if (existingTodo == null)
+                if (existingTodo == null || existingTodo.UserId != LogSesson.Id)
                 {
                     return NotFound();
                 }
 
-                existingTodo.Todoname = model.Todoname;
-                existingTodo.Status = model.Status;
+                if (!string.IsNullOrWhiteSpace(model.Todoname))
+                {
+                    existingTodo.Todoname = model.Todoname;
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.Status))
+                {
+                    existingTodo.Status = model.Status;
+                }
 
                 _context.Todos.Update(existingTodo);
                 await _context.SaveChangesAsync();
@@ -1411,10 +1229,9 @@ namespace XFLCSMS.Controllers
                 return RedirectToAction("ViewTodo");
 
             }
-            catch
+            catch (Exception ex)
             {
-                HttpContext.Session.Remove("MakerData");
-                return RedirectToAction("Login", "RegisterLogin");
+                return HandleError(ex);
             }
 
 
@@ -1425,53 +1242,6 @@ namespace XFLCSMS.Controllers
 
 
 
-        public async Task<IActionResult> DownloadAttachment(int? att)
-        {
-            if (att == null)
-            {
-                return BadRequest("Attachment ID is missing in the query parameters.");
-            }
-
-            var attachment = await _context.Attachments.FirstOrDefaultAsync(i => i.AttachmentId == att);
-
-            if (attachment == null)
-            {
-                return NotFound("Attachment not found.");
-            }
-
-            var filePath = attachment.AttachmentLoc;
-            var fileName = attachment.FileName;
-
-            if (System.IO.File.Exists(filePath))
-            {
-                return PhysicalFile(filePath, "application/pdf", fileName);
-            }
-            else
-            {
-                return NotFound("File not found."); // or handle as appropriate
-            }
-        }
-
-
-        private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512())
-            {
-                passwordSalt = hmac.Key;
-                passwordHash = hmac
-                    .ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-            }
-        }
-
-        private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512(passwordSalt))
-            {
-                var computedHash = hmac
-                    .ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
-                return computedHash.SequenceEqual(passwordHash);
-            }
-        }
 
 
 
@@ -1493,7 +1263,7 @@ namespace XFLCSMS.Controllers
             var Brocarage = _context.Branchhs.ToList();
             foreach (var item in Brocarage)
             {
-                if (item.BrokerageId == id)
+                if (item.BranchId == id)
                 {
                     return item.BranchName;
                 }
@@ -1503,7 +1273,7 @@ namespace XFLCSMS.Controllers
         private string UserName(int id)
         {
             var user = _context.Users.Where(i => i.Id == id).FirstOrDefault();
-            return user.FullName;
+            return user?.FullName ?? string.Empty;
         }
         private string SupportTypeName(int? id)
         {
@@ -1596,38 +1366,8 @@ namespace XFLCSMS.Controllers
 
         private string GenerateTicketId(int id)
         {
-            var Brocaragessss = _context.Brokerages.ToList();
-            foreach (var item in Brocaragessss)
-            {
-
-                if (item.BrokerageId == id)
-                {
-                    var testData = _context.Issues.ToList();
-                    int max = 0000000;
-                    //Dictionary<string, int> dictionary = new Dictionary<string, int>();
-                    foreach (var item2 in testData)
-                    {
-                        string name = item2.TNumber.Split('_')[0];
-                        int value = Int32.Parse(item2.TNumber.Split('_')[1]);
-
-                        if (name == item.BrokerageHouseAcronym)
-                        {
-                            if (value > max)
-                                max = value;
-                        }
-
-                    }
-
-                    max = max + 1;
-                    string formattedNumber = max.ToString("D7");
-                    string ticketID = item.BrokerageHouseAcronym + '_' + formattedNumber;
-                    return ticketID;
-                }
-
-            }
-
-
-            return null;
+            // Shown on the form as a preview only; the real number is taken when the ticket is saved.
+            return Tickets.NextTicketNumber(id) ?? string.Empty;
         }
     }
 }

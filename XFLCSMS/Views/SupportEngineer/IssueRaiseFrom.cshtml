@@ -20,7 +20,7 @@
 
 
 <section class="content">
-    <form asp-controller="Maker" asp-action="IssueRaiseFrom" name="files" method="post" enctype="multipart/form-data" id="uploadForm">
+    <form asp-controller="SupportEngineer" asp-action="IssueRaiseFrom" name="files" method="post" enctype="multipart/form-data" id="uploadForm">
         <div class="container-fluid">
             <div class="row">
                 <div class="col-md-6">
@@ -169,7 +169,7 @@
 @section Scripts {
     <script>
         $(function () {
-            bsCustomFileInput.init();
+            if (window.bsCustomFileInput) { bsCustomFileInput.init(); }
         });
     </script>
     <script>

@@ -25,7 +25,7 @@
     <!-- iCheck -->
     <link rel="stylesheet" href="~/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
     <!-- JQVMap -->
-    <link rel="stylesheet" href="/~plugins/jqvmap/jqvmap.min.css">
+    <link rel="stylesheet" href="~/plugins/jqvmap/jqvmap.min.css">
     <!-- Theme style -->
     <link rel="stylesheet" href="~/dist/css/adminlte.min.css">
     <!-- overlayScrollbars -->
@@ -570,7 +570,23 @@
     <!-- AdminLTE for demo purposes -->
     <script src="~/dist/js/demo.js"></script>
     <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
-    <script src="~/dist/js/pages/dashboard.js"></script>
+    <script>
+        // AdminLTE's demo script (dist/js/pages/dashboard.js) was included here. Only its "draggable cards"
+        // part applies to this page; the rest expects demo widgets (world map, sparklines, sales chart)
+        // that do not exist here and threw script errors on every load.
+        $(function () {
+            if ($.fn.sortable) {
+                $('.connectedSortable').sortable({
+                    placeholder: 'sort-highlight',
+                    connectWith: '.connectedSortable',
+                    handle: '.card-header, .nav-tabs',
+                    forcePlaceholderSize: true,
+                    zIndex: 999999
+                });
+                $('.connectedSortable .card-header').css('cursor', 'move');
+            }
+        });
+    </script>
 
     <script>
         document.onkeydown = function (e) {

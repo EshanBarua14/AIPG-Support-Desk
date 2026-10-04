@@ -127,7 +127,9 @@
                                 rowToDelete.remove();
                             } else {
                                 // Handle errors, e.g., show an error message
-                                console.error('Error:', response.statusText);
+                                response.text().then(function (message) {
+                                    alert(message || ('Delete failed: ' + response.statusText));
+                                });
                             }
                         })
                         .catch(error => {

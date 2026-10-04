@@ -169,7 +169,7 @@
 @section Scripts {
     <script>
         $(function () {
-            bsCustomFileInput.init();
+            if (window.bsCustomFileInput) { bsCustomFileInput.init(); }
         });
     </script>
     <script>

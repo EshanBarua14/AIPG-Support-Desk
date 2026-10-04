@@ -24,9 +24,10 @@
         {
 
         }
-        public Pager(int totalrecord, int currentpage, int pagesize = 10, int buttons = 3, string searchString = null)
+        public Pager(int totalrecord, int currentpage, int pagesize = 10, int buttons = 3, string? searchString = null)
         {
-            TotalPages = (int)Math.Ceiling(totalrecord / (decimal)pagesize);
+            if (pagesize <= 0) { pagesize = 10; }
+            TotalPages = Math.Max(1, (int)Math.Ceiling(totalrecord / (decimal)pagesize));
             if (currentpage <= 0) { currentpage = 1; }
             if (currentpage > TotalPages) { currentpage = TotalPages; }
             CurrentPage = currentpage;

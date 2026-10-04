@@ -1,9 +1,45 @@
-Requirements:
-Visual Studio 2022
-SQL Server 19
+XFL CSMS - how to run
+=====================
 
-Step 1: Run XFLCSMS.sln
-Step 2: Go to Data/DataContext
-Step 3: Change the SQL Server name and configure the Database to link with the application 
-Step 4: Go to tools and Nuget Package Manager/Package Manager Console: insert the command add-migrations (migration name), update-database
+Requirements
+------------
+- Visual Studio 2022 with the "ASP.NET and web development" workload and the .NET 6 SDK/runtime
+- SQL Server (Express is fine)
 
+1. Database
+-----------
+Option A - use the supplied data (CSMS.bak)
+   CSMS.bak was taken on SQL Server 2022 (version 16). SQL Server can only restore a backup on the
+   same or a newer version, so this needs SQL Server 2022 or later.
+   SSMS > Databases > Restore Database > Device > CSMS.bak > restore as "CSMS".
+   Nothing else to do: the migrations are already recorded in that database.
+
+Option B - start with an empty database (also the way to go on SQL Server 2019)
+   Do nothing. On first start the application creates the "CSMS" database and all tables by itself
+   and, because the database has no users yet, creates a first administrator:
+        user name: admin        password: Admin@12345
+   (values come from "SeedAdmin" in appsettings.Development.json; change the password after signing in).
+   That administrator can then create brokerage houses and branches, which registration needs.
+
+2. Connection string
+--------------------
+XFLCSMS/appsettings.json > ConnectionStrings > DefaultConnection
+   default:  Server=.\SQLEXPRESS;Database=CSMS;Trusted_Connection=True;...
+   - "."            = this computer
+   - "\SQLEXPRESS"  = instance name. For a default (unnamed) SQL Server instance use  Server=.
+(The connection string is no longer hard-coded in Data/DataContext.cs.)
+
+3. Run
+------
+Open XFLCSMS.sln and press F5 (profile "XFLCSMS" -> https://localhost:7044 or http://localhost:5100).
+Do NOT run Add-Migration: the model and the migrations are in sync. Update-Database is not needed either
+(the application applies pending migrations at start-up; set "Database": { "AutoMigrate": false } in
+appsettings.json to switch that off).
+
+4. E-mail
+---------
+Registration and "forgot password" send a token by e-mail using EmailHost / EmailUsername / EmailPassword
+in appsettings.json (Gmail SMTP, port 587). If the mail cannot be sent the user now sees a message instead
+of an error page, and a registration whose mail failed is rolled back.
+
+See FIXES.md for the list of what was changed.

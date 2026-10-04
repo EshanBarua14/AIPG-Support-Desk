@@ -113,7 +113,7 @@
 
                 if (isConfirmed) {
                     // Perform the DELETE request using JavaScript
-                    fetch(`/Admin/DeleteTicket/${issueId}`, {
+                    fetch(`/Admin/DeleteUser/${issueId}`, {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json'
@@ -126,7 +126,9 @@
                                 rowToDelete.remove();
                             } else {
                                 // Handle errors, e.g., show an error message
-                                console.error('Error:', response.statusText);
+                                response.text().then(function (message) {
+                                    alert(message || ('Delete failed: ' + response.statusText));
+                                });
                             }
                         })
                         .catch(error => {

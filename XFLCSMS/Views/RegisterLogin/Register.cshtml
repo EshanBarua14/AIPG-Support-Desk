@@ -18,7 +18,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="~/css/all.min.css">
     <!-- icheck bootstrap -->
-    <link rel="stylesheet" href="C:\Users\Lenovo\Desktop\CMCS\Login-Registation-ForgotPassword-Email\XFLCSMS\wwwroot\lib\bootstrap\dist\css\icheck-bootstrap.min.css">
+    <link rel="stylesheet" href="~/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
     <!-- Theme style -->
     <link rel="stylesheet" href="~/css/adminlte.min.css">
     <style>
@@ -39,7 +39,7 @@
         <!-- Register Logo -->
         <div class="card card-outline card-primary">
             <div class="card-header text-center">
-                <a href="../../index.html" class="h1"><b>XFL</b>CSMS</a>
+                <a href="~/" class="h1"><b>XFL</b>CSMS</a>
                 <br>
                 <p class="register-box-msg">Register a New Account</p>
 
@@ -49,6 +49,7 @@
 
             <div class="card-body">
                 <form asp-controller="RegisterLogin" asp-action="Register" method="post" id="form1" class="form-toggle active">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
                     <div class="card">
                         <div class="card-body register-card-body">
                             <p class="register-box-msg"><b>Personal Information</b></p>
@@ -99,7 +100,7 @@
 
                                 <select asp-for="userRegisterRequest.BrokerageHouseName" id="brokerageCodes"  name="userRegisterRequest.BrokerageHouseName" class="form-control">
 
-                                        <option value="XFL">Select Your Organization</option>
+                                        <option value="0">Select Your Organization</option>
                                         @foreach (var item in Model.Brokerages)
                                         {
                                             <option value="@item.BrokerageId" data-acronym="@item.BrokerageHouseAcronym">@item.BrokerageHouseName</option>
@@ -144,7 +145,7 @@
 
                                 <div class="input-group mb-3">
                                     <select asp-for="userRegisterRequest.Branch" id="Branch" name="userRegisterRequest.Branch" class="form-control">
-                                        <option value="">Select Your Branch</option>
+                                        <option value="0">Select Your Branch</option>
                                         @foreach (var item in Model.Branchhs)
                                         {
                                             <option value="@item.BranchId">@item.BranchName</option>
@@ -164,7 +165,7 @@
                             {
                                 <div class="input-group mb-3">
                                     <select asp-for="userRegisterRequest.Branch" id="Branch" name="userRegisterRequest.Branch" class="form-control">
-                                        <option value="NULL">Select Your Branch</option>
+                                        <option value="0">Select Your Branch</option>
                                     </select>
                                     <div class="input-group-append">
                                         <div class="input-group-text">
@@ -236,6 +237,7 @@
                                 <button class="btn btn-outline-secondary" type="button" id="ConfirmpasswordToggle" onclick="ConfirmtogglePassword()">Show</button>
                             </div>
                             <span id="passwordMismatchError" class="text-danger" style="display: none;">Passwords do not match.</span>
+                            <span asp-validation-for="userRegisterRequest.ConfirmPassword" class="text-danger"></span>
 
 
                         </div>
@@ -245,7 +247,7 @@
                             <div class="">
                                 <div class="icheck-primary">
                                     <input asp-for="userRegisterRequest.Terms" id="Terms" type="checkbox" name="userRegisterRequest.Terms">
-                                    <label for="agreeTerms">
+                                    <label for="Terms">
                                         I agree to the <a href="#">terms & conditions</a>
                                     </label>
                                 </div>
@@ -397,7 +399,7 @@
                 branchDropdown.empty();
 
                 // Add the default "Select Your Branch" option
-                branchDropdown.append('<option value="NULL">Select Your Branch</option>');
+                branchDropdown.append('<option value="0">Select Your Branch</option>');
 
                 // Fetch branches based on the selected brokerage using AJAX
                 $.ajax({

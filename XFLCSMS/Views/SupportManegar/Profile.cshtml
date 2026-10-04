@@ -1,0 +1,126 @@
+﻿@model XFLCSMS.Models.Admin.UserView;
+@{
+    Layout = "_SupportManegerLayout";
+}
+
+<!-- Main content -->
+<!-- Main content -->
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <!-- left column -->
+            <div class="col-md-6">
+                <!-- general form elements -->
+                <div class="card card-primary">
+                    <!-- /.card-header -->
+                    <!-- form start -->
+                    <form>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">UserId</label>
+                                <input type="text" value="@Model.Id" class="form-control" id="exampleInputEmail1" placeholder="UserId" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Full Name</label>
+                                <input type="text" value="@Model.FullName" class="form-control" id="exampleInputEmail1" placeholder="Full Name" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">User Name</label>
+                                <input type="text" class="form-control" value="@Model.UserName" id="exampleInputEmail1" placeholder="User Name" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Email</label>
+                                <input type="text" value="@Model.Email" class="form-control" id="exampleInputEmail1" placeholder="Emai" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Phon Number</label>
+                                <input type="text" value="@Model.PhonNumber" class="form-control" id="exampleInputEmail1" placeholder="Phon Number" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Designation</label>
+                                <input type="text" value="@Model.Designation" class="form-control" id="exampleInputEmail1" placeholder="Designation" readonly>
+                            </div>
+
+                        </div>
+                        <!-- /.card-body -->
+                    </form>
+                </div>
+                <!-- /.card -->
+            </div>
+            <!--/.col (left) -->
+            <!-- right column -->
+            <div class="col-md-6">
+                <!-- Form Element sizes -->
+                <div class="card card-primary">
+
+                    <form>
+
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Employee Id</label>
+                                <input type="text" value="@Model.EmployeeId" class="form-control" id="exampleInputEmail1" placeholder="Employee Id" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Brocarage House Name</label>
+                                <input type="text" value="@Model.BrokerageHouseName" class="form-control" id="exampleInputEmail1" placeholder="Brocarage House Name" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">Branch</label>
+                                <input type="text" value="@Model.Branch" class="form-control" id="exampleInputEmail1" placeholder="Branch" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">User Catagory</label>
+                                <input type="text" value="@Model.UCatagory" class="form-control" id="exampleInputEmail1" placeholder="User Catagory" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">User Type</label>
+                                <input type="text" value="@Model.UType" class="form-control" id="exampleInputEmail1" placeholder="User Type" readonly>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="exampleInputEmail1">User Status</label>
+                                <input type="text" value="@Model.UStatus" class="form-control" id="Priority" placeholder="User Status" readonly>
+                            </div>
+
+
+
+                        </div>
+                        <!-- /.card-body -->
+                    </form>
+
+                    <!-- /.card-body -->
+                </div>
+                <!-- /.card -->
+            </div>
+            <!--/.col (right) -->
+        </div>
+        <!-- /.row -->
+        <!-- /.card-body -->
+
+    </div>
+
+
+
+    <!-- /.container-fluid -->
+</section>
+<!-- /.content -->
+<script type="text/javascript">
+    // Define a function named preventback
+    function preventback() {
+        // Forward the browser's history by one step, effectively preventing the user from going back
+        window.history.forward();
+    }
+
+    // Set a timeout to call the preventback function immediately after the script is executed
+    setTimeout("preventback()", 0);
+
+    // When the window loads, assign a null function to the onload event to effectively do nothing
+    window.onload = function () { null };
+</script>

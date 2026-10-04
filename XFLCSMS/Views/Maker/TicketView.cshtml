@@ -145,7 +145,7 @@
 
                             <textarea class="form-control" rows="3" placeholder="Details Regarding Ticket from input" id="editor" readonly>
 
-                                @Html.Raw(Model.TicketDetails)
+                                @Html.Raw(XFLCSMS.Services.HtmlSanitizer.Sanitize(Model.TicketDetails))
 
                             </textarea>
 

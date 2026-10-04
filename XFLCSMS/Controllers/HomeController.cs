@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using XFLCSMS.Infrastructure;
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Security.Cryptography;
@@ -9,6 +11,8 @@ using XFLCSMS.Models.Register;
 
 namespace XFLCSMS.Controllers
 {
+    // Old scaffolding pages (brokerage CRUD, file upload). They were open to anyone who knew the URL.
+    [SessionAuthorize(SessionAuthorizeAttribute.Admin)]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
@@ -39,6 +43,12 @@ namespace XFLCSMS.Controllers
         [HttpPost]
         public async Task<IActionResult> FileUpload( IFormFile file)
         {
+            if (file == null || file.Length == 0)
+            {
+                ViewBag.Messege = "Please choose a file first.";
+                return View();
+            }
+
             string UploadFolder = Path.Combine(_webHostEnvironment.WebRootPath, "Uplods");
             if(!Directory.Exists(UploadFolder))
             {
@@ -234,11 +244,13 @@ namespace XFLCSMS.Controllers
 
 
 
+        [AllowAnonymous]
         public IActionResult Privacy()
         {
             return View();
         }
 
+        [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

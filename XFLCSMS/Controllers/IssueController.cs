@@ -1,9 +1,9 @@
 ﻿using MessagePack;
 using Microsoft.AspNetCore.Mvc;
+using XFLCSMS.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 using Newtonsoft.Json;
-using NuGet.Protocol;
 using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using XFLCSMS.Models.Brocarage;
@@ -13,6 +13,7 @@ using XFLCSMS.Models.Register;
 
 namespace XFLCSMS.Controllers
 {
+    [SessionAuthorize(SessionAuthorizeAttribute.Admin)]
     public class IssueController : Controller
     {
         private readonly DataContext _context;

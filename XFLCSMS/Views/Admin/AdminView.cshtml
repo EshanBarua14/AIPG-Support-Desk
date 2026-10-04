@@ -32,7 +32,7 @@
             <div class="col-md-2">
                 <div class="card-tools">
                     <div class="input-group">
-                        <p class="mt-1 mb-1">Shows:  </p>
+                        <p class="mt-1 mb-1">Show:  </p>
                         <select name="rowperpage" class="ml-1 mt-0 mb-0" id="rowsPerPageSelect">
                             @for (int j = 0; j < rows_per_page.Length; j++)
                             {
@@ -76,7 +76,7 @@
 
                     </th>
                     <th style="width: 10%">
-                        TNumber
+                        Ticket No.
                         @if (ViewBag.CurrentSortField == "TNumber")
                         {
                             @if (ViewBag.CurrentSortAscending)
@@ -345,7 +345,7 @@
                                 }
                             }
                             <span class="badge @badgeClass" data-status="@item.IStatus">
-                                @Html.DisplayFor(modelItem => item.IStatus)
+                                @DisplayText.Status(item.IStatus)
                             </span>
                         </td>
 
@@ -363,7 +363,7 @@
                                     Edit
                                 </a>
                                 <a class="btn btn-outline-danger btn-sm" asp-controller="Admin" 
-                                asp-action="DeleteTicket"  asp-route-id="@item.IssueId">
+                                asp-action="DeleteTicket"  asp-route-id="@item.IssueId" data-issue-id="@item.IssueId">
                                     <i class="fas fa-trash">
                                     </i>
                                     Delete
@@ -383,7 +383,7 @@
         <div id="paginationRow">
             <div class="row">
                 <div class="col-md-4 pagination-container">
-                    <span>Sowing @start to @end form @ViewBag.pager.TotalRecord items</span>
+                    <span>Showing @(end == 0 ? 0 : start) to @end of @ViewBag.pager.TotalRecord items</span>
                 </div>
                 <div class="col-md-2">
                 </div>
@@ -408,7 +408,7 @@
                                 @if (k == @ViewBag.pager.CurrentPage)
                                 {
                                     <li class="page-item">
-                                        <a class="btn btn-warning" asp-controller="Admin" asp-route-page="1"
+                                        <a class="btn btn-warning" asp-controller="Admin" asp-route-page="@k"
                                            asp-route-rowperpage="@ViewBag.pager.PageSize"
                                            asp-route-searchString="@ViewBag.pager.SearchString">@k</a>
                                     </li>
@@ -453,12 +453,14 @@
 @section Scripts{
 
     <script>
-        document.querySelectorAll('.btn-outline-danger').forEach(function (button) {
-            button.addEventListener('click', function (event) {
+        [document].forEach(function (root) {
+            root.addEventListener('click', function (event) {
+                var button = event.target.closest('.btn-outline-danger[data-issue-id]');
+                if (!button) { return; }
                 event.preventDefault();
 
-                var issueId = this.getAttribute('data-issue-id');
-                var rowToDelete = this.closest('tr');
+                var issueId = button.getAttribute('data-issue-id');
+                var rowToDelete = button.closest('tr');
 
                 // Show confirmation dialog
                 var isConfirmed = confirm('Are you sure you want to delete this item?');
@@ -496,14 +498,17 @@
     <script>
         $(document).ready(function () {
             // Search input and Row per page select change event listener
-            $("#searchInput, #rowsPerPageSelect").on('input change', function () {
+            $("#searchInput").on('input', function () {
+                triggerPagination();
+            });
+            $("#rowsPerPageSelect").on('change', function () {
                 triggerPagination();
             });
 
             // Function to trigger pagination
             function triggerPagination() {
                 var searchString = $("#searchInput").val();
-                var currentPage = @current_page; // Assuming this variable is accessible in JavaScript
+                var currentPage = 1; // a new search or page size starts on the first page
                 var rowPerPage = $("#rowsPerPageSelect").val();
                 var url = '@Url.Action("AdminView", "Admin")' + '?page=' + currentPage + '&rowperpage=' + rowPerPage + '&searchString=' + encodeURIComponent(searchString);
 

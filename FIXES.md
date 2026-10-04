@@ -60,8 +60,37 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 - The AJAX delete calls and some POST forms carry no anti-forgery token.
 - The old scaffolding controllers/views were kept (admin-only now); `api/UserControllers/*` is still public.
 
+## 7. Second pass: menu, wording, and more bugs
+
+**"Customize XFL CSMS" panel removed.** It was AdminLTE's demo script (`dist/js/demo.js`) plus the grid button in the top bar; both are gone from every layout and page.
+
+**Sidebar menu rebuilt** as one shared partial, `Views/Shared/_SidebarMenu.cshtml`, used by all four layouts and all four dashboards (eight hand-copied menus before, each slightly different).
+- Order: Dashboard / **Tickets** (Create, list, Assigned to Me, Unassigned, Closed, Ticket Report) / **To-Do** (List, All, Completed, Report, Team To-Dos, Team Report) / **Administration** (Users, Brokerage Houses, Branches, Support Types, Categories, Sub-Categories, Affected Sections).
+- The Ticket Report page had no menu entry at all (only a button at the bottom of the dashboard).
+- The To-Do sub-menu only opened in the Maker layout; the admin's second sub-menu reused the same element id and never opened.
+- The current page is highlighted. The search box above the menu did nothing (the AdminLTE widget never started); it now filters the menu.
+
+**Spelling and labels** (visible text only - URLs, action names and stored values such as `Dashbord`, `SupportManegar`, `"Support Maneger"`, `"Inprogress"` are unchanged so links and existing data keep working):
+- Brocarage -> Brokerage, Catagory/Caragory -> Category, Manegar/Maneger -> Manager, Dashbord -> Dashboard, "Phon Number", "Emai", "Sowing 1 to 10 form 27 items" -> "Showing 1 to 10 of 27 items", "one step a way", "Total Inque Tickets", "Todo" -> "To-Do", etc.
+- Raw property names used as labels/headers (`TNumber`, `UserId`, `SupportCatagoryId`, `BrokerageHouseName`, `SType`, ...) replaced by readable text; models got `[Display(Name = ...)]`, so validation messages read "The Support Type field is required." instead of "The SType field is required."
+- Status values are shown as "In Progress", "In Queue", "Closed" (`Services/DisplayText.cs`).
+- The Edit Ticket save button was labelled "Upload"; it is "Save Changes".
+
+**Bugs found by driving the pages in a browser**
+- Admin ticket lists: **Delete did not work** - the script read `data-issue-id`, which the link never had, and called `/Admin/DeleteTicket/null`.
+- After a search or page-size change the table is replaced by AJAX and the Delete buttons lost their handlers (plain link to a DELETE-only URL). Handlers are now delegated.
+- The search box listened to `input` and `change`: every search ran twice and the second one redrew the table while Delete was being clicked.
+- Searching from page 2+ kept the old page number and showed an empty table; the highlighted page number always linked to page 1.
+- **Print Results killed the report page**: it replaced the whole `<body>` and pasted the HTML back, destroying all event handlers, so Search was dead after printing. It now prints the result block through a print style.
+- Report pages passed the wrong model to the result partial (`Html.Partial(..., Model.Issues)`); also removes the MVC1000 build warnings.
+- Pie chart legend showed "NaN%" on a database without tickets.
+- The file picker refused .docx/.xlsx although the server accepts them.
+
+**Still open:** `dotnet build` reports NU1902 for MailKit 4.3.0 (moderate advisory). Updating the package needs a NuGet restore, which could not be done or tested here.
+
 ## New files
 
 `Controllers/CsmsController.cs`, `Infrastructure/SessionAuthorizeAttribute.cs`, `Services/TicketService.cs`,
 `Services/PasswordHasher.cs`, `Services/HtmlSanitizer.cs`, `Data/DbInitializer.cs`,
-`Views/SupportEngineer/Profile.cshtml`, `Views/SupportManegar/Profile.cshtml`
+`Views/SupportEngineer/Profile.cshtml`, `Views/SupportManegar/Profile.cshtml`,
+`Views/Shared/_SidebarMenu.cshtml`, `Services/DisplayText.cs`

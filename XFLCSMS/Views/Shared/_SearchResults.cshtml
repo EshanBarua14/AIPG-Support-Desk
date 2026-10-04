@@ -25,7 +25,7 @@
                     <!-- Column 1 -->
                     
                     <p style="font-size: 16px; font-family: Arial;">    <b>Brokerage House Name: </b>  <span id="brokerageHouseNamePlaceholder"> @Model.HeaderInfo.BrokerageHouseName</span></p>
-                    <p style="font-size: 16px; font-family: Arial;">   <b>EmployeeName: </b>  <span id="employeeNamePlaceholder">@Model.HeaderInfo.EmployeeName</span></p>
+                    <p style="font-size: 16px; font-family: Arial;">   <b>Employee Name: </b>  <span id="employeeNamePlaceholder">@Model.HeaderInfo.EmployeeName</span></p>
                     <p style="font-size: 16px; font-family: Arial;">  <b>Total  Tickets: </b>   <span id="totalTicketPlaceholder">@Model.HeaderInfo.TotalTicket</span></p>
                 </div>
 
@@ -34,7 +34,7 @@
                    
                     <p> <span style="font-size: 16px; font-family: Arial;"> <b>Total Open Tickets: </b> </span> <span id="totalOpenReportsPlaceholder">@Model.HeaderInfo.TotalOpenTicket</span></p>
                     <p><span style="font-size: 16px; font-family: Arial;"> <b>Total Closed Tickets: </b> </span> <span id="totalClosedReportsPlaceholder">@Model.HeaderInfo.TotalCloseTicket</span></p>
-                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total Inque Tickets: </b> </span> <span id="totalInQueueReportsPlaceholder">@Model.HeaderInfo.TotalInque</span></p>
+                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total In-Queue Tickets: </b> </span> <span id="totalInQueueReportsPlaceholder">@Model.HeaderInfo.TotalInque</span></p>
                 </div>
             </div>
         </div>
@@ -58,7 +58,7 @@
                 <thead>
                     <tr>
 
-                        <th style="font-size: 16px; font-family: Arial;">TNumber</th>
+                        <th style="font-size: 16px; font-family: Arial;">Ticket No.</th>
                         <th style="font-size: 16px; font-family: Arial;">Tickets</th>
                         <th style="font-size: 16px; font-family: Arial;">Approval Status</th>
                         <th style="font-size: 16px; font-family: Arial;">Priority</th>
@@ -80,8 +80,8 @@
                                 <br />
                                 <small>
                                     <b>Created on:</b> @Html.DisplayFor(modelItem => item.TDate)<br/>
-                                    <b>Update On:</b> @Html.DisplayFor(modelItem => item.UpdatedOn)<br />
-                                    <b>Update By:</b> @Html.DisplayFor(modelItem => item.UpdatedBy)
+                                    <b>Updated On:</b> @Html.DisplayFor(modelItem => item.UpdatedOn)<br />
+                                    <b>Updated By:</b> @Html.DisplayFor(modelItem => item.UpdatedBy)
 
                                 </small>
                             </td>
@@ -105,7 +105,7 @@
                             </td>
                             <td style="font-size: 14px; font-family: Arial;">@Html.DisplayFor(modelItem => item.Priority)</td>
                             <td class="project-state" style="font-size: 14px; font-family: Arial;">
-                                <span > @Html.DisplayFor(modelItem => item.IStatus)</span>
+                                <span > @DisplayText.Status(item.IStatus)</span>
                             </td>
                         </tr>
 

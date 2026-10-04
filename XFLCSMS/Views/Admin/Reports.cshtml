@@ -42,14 +42,14 @@
 
                                 <div class="col-4">
                                     <div class="form-group">
-                                        <label for="assigningStatus">Assigning Status</label>
+                                        <label for="assigningStatus">Ticket Status</label>
                                         <select asp-for="@Model.search.AStatus" class="form-control" name="search.AStatus" id="assigningStatus">
                                             <option value="">--Select--</option>
                                             <option value="">All</option>
                                             <option value="Open">Open</option>
                                             <option value="Close">Close</option>
-                                            <option value="Inqueue">Inqueue</option>
-                                            <option value="Inprogress">Inprogress</option>
+                                            <option value="Inqueue">In Queue</option>
+                                            <option value="Inprogress">In Progress</option>
                                         </select>
                                     </div>
                                 </div>
@@ -112,7 +112,7 @@
             <div id="searchResults">
                 @if (Model.Issues != null)
                 {
-                    @Html.Partial("_SearchResults", Model.Issues)
+                    <partial name="_SearchResults" model="Model" />
                 }
                 else
                 {
@@ -162,17 +162,21 @@
 
 <script>
     function printResults() {
-        var printContents = document.getElementById("searchResults").innerHTML;
-        var originalContents = document.body.innerHTML;
+        // Print only the result block. The old version replaced the whole <body> and put the HTML back
+        // afterwards, which destroyed every event handler - the Search button was dead after printing.
+        if (!document.getElementById("printResultsStyle")) {
+            var style = document.createElement("style");
+            style.id = "printResultsStyle";
+            style.textContent = "@@media print {" +
+                " body.print-results-only * { visibility: hidden !important; }" +
+                " body.print-results-only #searchResults, body.print-results-only #searchResults * { visibility: visible !important; }" +
+                " body.print-results-only #searchResults { position: absolute; left: 0; top: 0; width: 100%; } }";
+            document.head.appendChild(style);
+        }
 
-        // Replace the whole body with the content to be printed
-        document.body.innerHTML = printContents;
-
-        // Print the content
+        document.body.classList.add("print-results-only");
         window.print();
-
-        // Restore the original body content
-        document.body.innerHTML = originalContents;
+        document.body.classList.remove("print-results-only");
     }
 </script>
 

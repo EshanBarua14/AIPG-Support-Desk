@@ -11,8 +11,9 @@ namespace XFLCSMS.Models.Branch
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int BranchId { get; set; }
 
-        [Required(ErrorMessage = "BrokerageHouseName is required")]
+        [Required(ErrorMessage = "The name is required.")]
         [RegularExpression(@"^[a-z A-Z.]+$", ErrorMessage = "Only letters allowed.")]
+        [Display(Name = "Branch Name")]
         public string BranchName { get; set; }=string.Empty;
       
         [ForeignKey("Brokerage")]

@@ -168,11 +168,6 @@
                         <i class="fas fa-expand-arrows-alt"></i>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
-                        <i class="fas fa-th-large"></i>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.navbar -->
@@ -180,7 +175,7 @@
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
             <!-- Brand Logo -->
             <a href="~/" class="brand-link">
-                <img src="~/img/XFLlogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
+                <img src="~/img/XFLlogo.png" alt="XFL Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
                 <span class="brand-text font-weight-light">XFL CSMS</span>
             </a>
 
@@ -415,7 +410,7 @@
 
                                         <div class="form-group">
                                             <label for="exampleInputEmail1">Ticket Status</label>
-                                            <input type="text" value="@Model.TicketStatus" class="form-control" id="TicketStatus" placeholder="Ticket Status" readonly>
+                                            <input type="text" value="@DisplayText.Status(Model.TicketStatus)" class="form-control" id="TicketStatus" placeholder="Ticket Status" readonly>
                                         </div>
 
                                     </div>
@@ -440,7 +435,7 @@
                         <div class="card-body">
                             <label>Ticket Details</label>
 
-                            <textarea class="form-control" rows="3" placeholder="Details Regarding Ticket from input" id="editor" readonly>
+                            <textarea class="form-control" rows="3" placeholder="Ticket details" id="editor" readonly>
 
                                 @Html.Raw(XFLCSMS.Services.HtmlSanitizer.Sanitize(Model.TicketDetails))
 
@@ -450,7 +445,7 @@
 
                         <div class="card-body">
                             <label>Comments Regarding Ticket</label>
-                            <textarea class="form-control" rows="3" placeholder="Comments Regarding Ticket from input" readonly>@Model.Command </textarea>
+                            <textarea class="form-control" rows="3" placeholder="Comments regarding the ticket" readonly>@Model.Command </textarea>
                         </div>
 
                         <div class="card-body">
@@ -518,11 +513,6 @@
             <strong>Copyright &copy; 2023 <a href="https://xpertfintech.com">XFL</a>.</strong> All rights reserved.
         </footer>
 
-        <!-- Control Sidebar -->
-        <aside class="control-sidebar control-sidebar-dark">
-            <!-- Control sidebar content goes here -->
-        </aside>
-        <!-- /.control-sidebar -->
     </div>
     <!-- ./wrapper -->
     <!-- jQuery -->
@@ -533,8 +523,6 @@
     <script src="~/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
     <!-- AdminLTE App -->
     <script src="~/js/adminlte.min.js"></script>
-    <!-- AdminLTE for demo purposes -->
-    <script src="../../dist/js/demo.js"></script>
     <!-- Page specific script -->
     <script>
         $(function () {

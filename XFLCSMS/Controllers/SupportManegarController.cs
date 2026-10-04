@@ -472,7 +472,7 @@ namespace XFLCSMS.Controllers
                 var issue = await _context.Issues.FirstOrDefaultAsync(a => a.IssueId == makerView.IssueId);
                 if (issue == null || !CanAccessIssue(issue))
                 {
-                    return NotFound("Edit is not done");
+                    return NotFound("The ticket was not found.");
                 }
 
                 Tickets.ApplyStaffEdit(issue, makerView, editor, canApprove: editor.UType);
@@ -1000,7 +1000,7 @@ namespace XFLCSMS.Controllers
                     TotalInprogress = TotalInprogressTodo,
                     TotalCanseled = TotalCancledTodo,
                     TotalCompleteTodo = TotalCompletedTodoo,
-                    ReportName = "Support Maneger"
+                    ReportName = "Support Manager"
 
 
                 };
@@ -1107,7 +1107,7 @@ namespace XFLCSMS.Controllers
                 TotalOpenTicket = TotalOpenTickett,
                 TotalCloseTicket = TotalCloseTickett,
                 TotalInque = TotalInquee,
-                ReportName= "Support Manegar"
+                ReportName = "Support Manager"
 
 
             };

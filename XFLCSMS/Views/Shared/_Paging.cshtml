@@ -15,7 +15,7 @@
             @if (k == Model.CurrentPage)
             {
                 <li class="page-item">
-                    <a class="btn btn-warning" asp-controller="Maker" asp-route-page="1" asp-route-rowperpage="@Model.PageSize" asp-route-searchString="@Model.SearchString">@k</a>
+                    <a class="btn btn-warning" asp-controller="Maker" asp-route-page="@k" asp-route-rowperpage="@Model.PageSize" asp-route-searchString="@Model.SearchString">@k</a>
                 </li>
             }
             else

@@ -12,26 +12,31 @@ namespace XFLCSMS.Models.Register
         //[RegularExpression(@"^[a-zA-Z.]+$", ErrorMessage = "Only letters are allowed.")]
         [RegularExpression(@"^[a-zA-Z\s.]+$", ErrorMessage = "Only letters and spaces are allowed.")]
 
+        [Display(Name = "Full Name")]
         public String FullName { get; set; } = string.Empty;
 
         [Required, EmailAddress(ErrorMessage = "Required")]
         public string Email { get; set; } = string.Empty;
         [Required(ErrorMessage = "Required")]
         [RegularExpression("^[0-9+-]+$", ErrorMessage = "Invalid Phone Number")]
+        [Display(Name = "Phone Number")]
         public string PhonNumber { get; set; } = string.Empty;
     
 
         public string Designation { get; set; } = string.Empty;
         [Required]
+        [Display(Name = "Organization")]
         public int BrokerageHouseName { get; set; }
         [Required]
         public int Branch { get; set; }
 
         [Required]
-        [StringLength(15, MinimumLength = 1, ErrorMessage = "EmployeeId must be 1 to 15 characters")]
+        [StringLength(15, MinimumLength = 1, ErrorMessage = "Employee ID must be 1 to 15 characters.")]
+        [Display(Name = "Employee ID")]
         public string EmployeeId { get; set; } = string.Empty;
         [Required]
-        [StringLength(25, MinimumLength = 5, ErrorMessage = "Username must be 5 to 25 characters")]
+        [StringLength(25, MinimumLength = 5, ErrorMessage = "User name must be 5 to 25 characters.")]
+        [Display(Name = "User Name")]
         public string UserName { get; set; } = string.Empty;
         [Required(ErrorMessage = "Password is required")]
         [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
@@ -45,6 +50,7 @@ namespace XFLCSMS.Models.Register
         [DataType(DataType.Password)]
         [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
         [NotMapped]
+        [Display(Name = "Confirm Password")]
         public string ConfirmPassword { get; set; } = string.Empty;
 
         // [Required] on a bool is always satisfied, so an unticked box used to be accepted.

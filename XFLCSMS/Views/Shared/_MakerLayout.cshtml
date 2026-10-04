@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>XFL CSMS | Layout</title>
+    <title>XFL CSMS</title>
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
     <!-- Font Awesome -->
@@ -90,11 +90,6 @@
                         <i class="fas fa-expand-arrows-alt"></i>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
-                        <i class="fas fa-th-large"></i>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.navbar -->
@@ -131,7 +126,7 @@
 
                 <!-- SidebarSearch Form -->
                 <div class="form-inline">
-                    <div class="input-group" data-widget="sidebar-search">
+                    <div class="input-group" id="sidebarMenuFilter">
                         <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
                         <div class="input-group-append">
                             <button class="btn btn-sidebar">
@@ -143,85 +138,7 @@
 
                 <!-- Sidebar Menu -->
                 <nav class="mt-2">
-                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                        <!-- Add icons to the links using the .nav-icon class with font-awesome or any other icon font library -->
-                        <li class="nav-item menu-open">
-                            <!-- This is the parent item that is open by default -->
-                            <a href="#" class="nav-link">
-                                <i class="nav-icon fas fa-book"></i>
-                                <p>
-                                    Pages
-                                    <i class="fas fa-angle-left right"></i>
-                                </p>
-                            </a>
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a asp-action="Dashbord" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Dashbord</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a asp-action="IssueRaiseFrom" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Create Ticket</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="MackerTicketList" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="UnassignedTicketList" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Unassigned Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="ClosedTicketList" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Closed Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#" id="toggleSubMenu">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>View To-Do List</p>
-                                    </a>
-                                    <ul class="ml-5 nav nav-treeview custom-treeview" id="subMenu" style="display: none;">
-                                        <!-- Initially hidden -->
-                                        <li class="nav-item">
-                                            <a asp-action="ViewTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>To-Do List</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="AllTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>All To-Do</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="CompletedTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>Complete Task</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="TodoReports" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>To-Do Report</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </li>
-                    </ul>
+                    <partial name="_SidebarMenu" />
                 </nav>
                 <!-- /.sidebar-menu -->
             </div>
@@ -253,11 +170,6 @@
             <strong>Copyright &copy; 2024 <a href="https://xpertfintech.com">Xpert Fintech Limited</a>.</strong> All rights reserved.
         </footer>
         <!-- /.footer -->
-        <!-- Control Sidebar -->
-        <aside class="control-sidebar control-sidebar-dark">
-            <!-- Control sidebar content goes here -->
-        </aside>
-        <!-- /.control-sidebar -->
     </div>
     <!-- /.wrapper -->
     <!-- jQuery -->

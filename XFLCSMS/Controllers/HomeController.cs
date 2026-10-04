@@ -62,7 +62,7 @@ namespace XFLCSMS.Controllers
                await file.CopyToAsync(stream);
             }
 
-            ViewBag.Messege = fileName + " Uplodaed Successfully";
+            ViewBag.Messege = fileName + " uploaded successfully";
             return View();
               
         }

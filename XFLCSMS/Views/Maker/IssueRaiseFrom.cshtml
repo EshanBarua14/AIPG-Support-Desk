@@ -146,7 +146,7 @@
                             <div class="form-group">
                                 <label>Upload Files (Multiple-If required)</label>
                                 <div id="fileInputsContainer">
-                                    <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files(+)</button>
+                                    <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files (+)</button>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -228,7 +228,7 @@
             newFileInput.addEventListener("change", function () {
                 if (!validateFileType(this)) {
                     fileInputsContainer.removeChild(fileInputContainer);
-                    alert('Invalid file type! Only TXT, DOC, PDF, JPG, and PNG files are allowed.');
+                    alert('Invalid file type! Allowed: TXT, DOC, DOCX, PDF, JPG, PNG, XLS, XLSX and CSV.');
                     return;
                 }
                 updateFileList();
@@ -249,7 +249,7 @@
         }
 
         function validateFileType(input) {
-            var allowedExtensions = ['txt', 'doc', 'pdf', 'jpg', 'png'];
+            var allowedExtensions = ['txt', 'doc', 'docx', 'pdf', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'csv'];
             var fileName = input.value.toLowerCase();
             var fileExtension = fileName.split('.').pop();
             return allowedExtensions.includes(fileExtension);

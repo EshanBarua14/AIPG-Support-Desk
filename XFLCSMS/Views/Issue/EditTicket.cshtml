@@ -166,11 +166,6 @@
                         <i class="fas fa-expand-arrows-alt"></i>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
-                        <i class="fas fa-th-large"></i>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.navbar -->
@@ -178,7 +173,7 @@
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
             <!-- Brand Logo -->
             <a href="~/" class="brand-link">
-                <img src="~/img/XFLlogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
+                <img src="~/img/XFLlogo.png" alt="XFL Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
                 <span class="brand-text font-weight-light">XFL CSMS</span>
             </a>
 
@@ -367,7 +362,7 @@
                                             @* <input type="text" asp-for = "@Model.AssgnBy" class="form-control" id="exampleInputEmail1" placeholder="Assigned By" readonly> *@
                                             <select asp-for="@Model.AssgnBy" id="brokerageCodes" name="AssgnBy" class="form-control">
                                             @* <option value="@Model.AssgnBy">Select a support Engineer</option> *@
-                                            <option value="">Unassign</option>
+                                            <option value="">Unassigned</option>
                                             @foreach (var item in @Model.SupportEngineers)
                                             {
                                                 <option value="@item.FullName" >@item.FullName</option>
@@ -422,9 +417,9 @@
                                         <div class="form-group">
                                             <label for="exampleInputEmail1">Ticket Status</label>
                                             <select asp-for="@Model.IStatus" id="brokerageCodes" name="IStatus" class="form-control">
-                                            @* <input type="text" asp-for="@Model.TicketStatus" value="@Model.TicketStatus" class="form-control" id="TicketStatus" placeholder="Ticket Status" readonly> *@
+                                            @* <input type="text" asp-for="@Model.TicketStatus" value="@DisplayText.Status(Model.TicketStatus)" class="form-control" id="TicketStatus" placeholder="Ticket Status" readonly> *@
                                             <option value="Open">Open</option>
-                                            <option value ="Inqueue">Inqueue</option>
+                                            <option value ="Inqueue">In Queue</option>
                                             <option value="Inprogress">In Progress</option>
                                             <option value="Close">Close</option>
                                             </select>
@@ -462,7 +457,7 @@
                                     <label>Upload Files (Multiple-If required)</label>
 
                                     <div id="fileInputsContainer">
-                                        <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files(+)</button>
+                                        <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files (+)</button>
 
                                     </div>
                                     @* <button type="button" class="btn btn-outline-primary mt-3" onclick="uploadFiles()">Upload</button> *@
@@ -516,11 +511,6 @@
             <strong>Copyright &copy; 2023 <a href="https://xpertfintech.com">XFL</a>.</strong> All rights reserved.
         </footer>
 
-        <!-- Control Sidebar -->
-        <aside class="control-sidebar control-sidebar-dark">
-            <!-- Control sidebar content goes here -->
-        </aside>
-        <!-- /.control-sidebar -->
     </div>
     <!-- ./wrapper -->
     <!-- jQuery -->
@@ -531,8 +521,6 @@
     <script src="~/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
     <!-- AdminLTE App -->
     <script src="~/js/adminlte.min.js"></script>
-    <!-- AdminLTE for demo purposes -->
-    <script src="../../dist/js/demo.js"></script>
     <!-- Page specific script -->
     <script>
         $(function () {

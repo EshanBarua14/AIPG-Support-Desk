@@ -12,6 +12,7 @@ namespace XFLCSMS.Models.Support
         [Required]
         [StringLength(100, MinimumLength = 4, ErrorMessage = "The name must be 4 to 100 characters long.")]
         [RegularExpression(@"^[a-zA-Z.]+$", ErrorMessage = "Only letters allowed.")]
+        [Display(Name = "Support Sub-Category")]
         public string SubCatagory { get; set; } = string.Empty;
         public ICollection<IssueTable> issue { get; set; }
     }

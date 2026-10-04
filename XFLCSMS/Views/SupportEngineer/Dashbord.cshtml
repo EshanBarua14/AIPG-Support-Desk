@@ -73,11 +73,6 @@
                         <i class="fas fa-expand-arrows-alt"></i>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
-                        <i class="fas fa-th-large"></i>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.navbar -->
@@ -85,7 +80,7 @@
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
             <!-- Brand Logo -->
             <a asp-action="Dashbord" class="brand-link">
-                <img src="~/img/XFLlogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
+                <img src="~/img/XFLlogo.png" alt="XFL Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
                 <span class="brand-text font-weight-light">XFL CSMS</span>
             </a>
 
@@ -113,7 +108,7 @@
                 </nav>
 
                 <div class="form-inline">
-                    <div class="input-group" data-widget="sidebar-search">
+                    <div class="input-group" id="sidebarMenuFilter">
                         <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
                         <div class="input-group-append">
                             <button class="btn btn-sidebar">
@@ -127,90 +122,7 @@
 
                 <!-- Sidebar Menu -->
                 <nav class="mt-2">
-                    <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-                        <!-- Add icons to the links using the .nav-icon class
-                             with font-awesome or any other icon font library -->
-
-                        <li class="nav-item menu-open">
-                            <a href="#" class="nav-link active">
-                                <i class="nav-icon fas fa-book"></i>
-                                <p>
-                                    Pages
-                                    <i class="fas fa-angle-left right"></i>
-                                </p>
-                            </a>
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a asp-action="IssueRaiseFrom" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Create Ticket</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a asp-action="AllTicketList" class="nav-link ">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>All Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="AssignedTicketList" class="nav-link ">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Assign Tickets</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="UnassignedTicketList" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Unassigned Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a asp-action="ClosedTicketList" class="nav-link">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Closed Ticket List</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="#" id="toggleSubMenu">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>View To-Do List</p>
-                                    </a>
-                                    <ul class="ml-5 nav nav-treeview custom-treeview" id="subMenu" style="display: none;">
-                                        <!-- Initially hidden -->
-                                        <li class="nav-item">
-                                            <a asp-action="ViewTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>To-Do List</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="AllTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>All To-Do</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="CompletedTodo" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>Complete Task</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a asp-action="TodoReports" class="nav-link small">
-                                                <i class="far fa-circle nav-icon"></i>
-                                                <p>To-Do Report</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-
-                            </ul>
-                        </li>
-
-
-                    </ul>
+                    <partial name="_SidebarMenu" />
                 </nav>
                 <!-- /.sidebar-menu -->
             </div>
@@ -288,7 +200,7 @@
                         <section class="col-md-6 connectedSortable">
                             <div class="card card-success">
                                 <div class="card-header">
-                                    <h3 class="card-title">Timeline wise Graphical view (Last 1 Year)</h3>
+                                    <h3 class="card-title">Timeline-wise Graphical View (Last 1 Year)</h3>
                                     <div class="card-tools">
                                         <button type="button" class="btn btn-tool" data-card-widget="collapse">
                                             <i class="fas fa-minus"></i>
@@ -370,8 +282,8 @@
                                         var inQueueTickets = @Model.TotalQueue; // Replace with your actual in-queue tickets count
                                         var closedTickets = @Model.TotalClosed; // Replace with your actual closed tickets count
 
-                                        var percentageInQueue = ((inQueueTickets / totalTickets) * 100).toFixed(2);
-                                        var percentageClosed = ((closedTickets / totalTickets) * 100).toFixed(2);
+                                        var percentageInQueue = totalTickets ? ((inQueueTickets / totalTickets) * 100).toFixed(2) : "0.00";
+                                        var percentageClosed = totalTickets ? ((closedTickets / totalTickets) * 100).toFixed(2) : "0.00";
 
                                         // Sample data for pie chart
                                         var pieChartData = {
@@ -417,7 +329,7 @@
                         <section class="col-md-12">
                             <div class="card card-success">
                                 <div class="card-header">
-                                    <h3 class="card-title">Brokerage House wise graphical view</h3>
+                                    <h3 class="card-title">Brokerage House-wise Graphical View</h3>
 
                                     <div class="card-tools">
                                         <button type="button" class="btn btn-tool" data-card-widget="collapse">
@@ -510,7 +422,7 @@
                                 </div>
                                 <!-- /.card-header -->
                                 <div class="card-body">
-                                    <a asp-action="Reports" class="btn btn-outline-info btn-block">All Type of Reports</a>
+                                    <a asp-action="Reports" class="btn btn-outline-info btn-block">All Types of Reports</a>
                                 </div>
                                 <!-- /.card-body -->
                             </div>
@@ -532,11 +444,6 @@
             </div>
         </footer>
 
-        <!-- Control Sidebar -->
-        <aside class="control-sidebar control-sidebar-dark">
-            <!-- Control sidebar content goes here -->
-        </aside>
-        <!-- /.control-sidebar -->
     </div>
     <!-- ./wrapper -->
     <!-- jQuery -->
@@ -567,8 +474,6 @@
     <script src="~/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
     <!-- AdminLTE App -->
     <script src="~/dist/js/adminlte.js"></script>
-    <!-- AdminLTE for demo purposes -->
-    <script src="~/dist/js/demo.js"></script>
     <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
     <script>
         // AdminLTE's demo script (dist/js/pages/dashboard.js) was included here. Only its "draggable cards"

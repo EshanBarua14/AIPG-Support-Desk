@@ -6,13 +6,13 @@
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editTodoModalLabel">Edit Todo</h5>
+                <h5 class="modal-title" id="editTodoModalLabel">Edit To-Do</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="cancelEdit()" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="editTodoForm" asp-action="Updatetodo" asp-controller="SupportEngineer" method="post">
                     <div class="form-group">
-                        <label for="todoName">Todo Name</label>
+                        <label for="todoName">To-Do Name</label>
                         <input type="text" class="form-control" value="@Model.Todoname" name="Todoname" id="todoName" required>
                     </div>
                     <div class="form-group">

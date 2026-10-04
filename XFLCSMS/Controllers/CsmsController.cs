@@ -154,7 +154,7 @@ namespace XFLCSMS.Controllers
 
                 if (!PasswordHasher.Verify(password.CurrentPassword, user.PasswordHash, user.PasswordSalt))
                 {
-                    ViewBag.message = "Current Password is not Correct";
+                    ViewBag.message = "The current password is not correct.";
                     return View(password);
                 }
 
@@ -166,7 +166,7 @@ namespace XFLCSMS.Controllers
 
                 if (password.NewPassword != password.ConNewPassword)
                 {
-                    ViewBag.message = "New Password and Confirm Password are not the same";
+                    ViewBag.message = "New password and confirm password are not the same.";
                     return View(password);
                 }
 

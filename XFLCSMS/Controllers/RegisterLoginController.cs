@@ -175,7 +175,7 @@ namespace XFLCSMS.Controllers
                 (u.Email == login || u.UserName == login));
             if (user == null)
             {
-                ViewBag.Message = "Invalid token or Email";
+                ViewBag.Message = "Invalid token or email.";
                 return View(verify);
             }
 

@@ -11,7 +11,7 @@
             <div class="container">
                 <div class="row">
                     <div class="col-md-6">
-                        <h4>User list</h4>
+                        <h4>User List</h4>
                     </div>
                     <div class="col-md-6 text-right">
                         <div class="card-tools">
@@ -32,10 +32,10 @@
                     <thead>
                         <tr>
                             <th style="width:5%">
-                                UserId
+                                User ID
                             </th>
                             <th style="width: 15%">
-                                FullName
+                                Full Name
                             </th>
                             <th style="width: 15%">
                                 User Name
@@ -101,12 +101,14 @@
     <!-- /.content -->
 
     <script>
-    document.querySelectorAll('.btn-outline-danger').forEach(function (button) {
-            button.addEventListener('click', function (event) {
+    [document].forEach(function (root) {
+            root.addEventListener('click', function (event) {
+                var button = event.target.closest('.btn-outline-danger[data-issue-id]');
+                if (!button) { return; }
                 event.preventDefault();
 
-                var issueId = this.getAttribute('data-issue-id');
-                var rowToDelete = this.closest('tr');
+                var issueId = button.getAttribute('data-issue-id');
+                var rowToDelete = button.closest('tr');
 
                 // Show confirmation dialog
                 var isConfirmed = confirm('Are you sure you want to delete this item?');

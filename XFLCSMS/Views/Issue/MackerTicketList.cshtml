@@ -151,11 +151,6 @@
                         <i class="fas fa-expand-arrows-alt"></i>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-widget="control-sidebar" data-slide="true" href="#" role="button">
-                        <i class="fas fa-th-large"></i>
-                    </a>
-                </li>
             </ul>
         </nav>
         <!-- /.navbar -->
@@ -163,7 +158,7 @@
         <aside class="main-sidebar sidebar-dark-primary elevation-4">
             <!-- Brand Logo -->
             <a href="~/" class="brand-link">
-                <img src="~/img/XFLlogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
+                <img src="~/img/XFLlogo.png" alt="XFL Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
                 <span class="brand-text font-weight-light">XFL CSMS</span>
             </a>
 
@@ -369,7 +364,7 @@
                                             <span class="badge badge-danger"> @Html.DisplayFor(modelItem => item.Priority)</span>
                                     </td>
                                     <td class="project-state">
-                                            <span class="badge badge-success"> @Html.DisplayFor(modelItem => item.IStatus)</span>
+                                            <span class="badge badge-success"> @DisplayText.Status(item.IStatus)</span>
                                     </td>
                                     <td class="project-actions text-right">
                                             <a class="btn btn-outline-primary btn-sm" asp-action="TicketView" asp-route-id="@item.IssueId">
@@ -407,11 +402,6 @@
             <strong>Copyright &copy; 2023 <a href="https://xpertfintech.com">XFL</a>.</strong> All rights reserved.
         </footer>
 
-        <!-- Control Sidebar -->
-        <aside class="control-sidebar control-sidebar-dark">
-            <!-- Control sidebar content goes here -->
-        </aside>
-        <!-- /.control-sidebar -->
     </div>
     <!-- ./wrapper -->
     <!-- jQuery -->
@@ -422,8 +412,6 @@
     <script src="~/plugins/bs-custom-file-input/bs-custom-file-input.min.js"></script>
     <!-- AdminLTE App -->
     <script src="~/js/adminlte.min.js"></script>
-    <!-- AdminLTE for demo purposes -->
-    <script src="../../dist/js/demo.js"></script>
     <script src="~/js/maket_datatable.js"></script>
 
     <script src="~/datatable/jquery.datatables.js"></script>

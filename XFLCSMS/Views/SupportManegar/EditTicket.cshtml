@@ -64,7 +64,7 @@
                                 @* <input type="text" asp-for = "@Model.AssgnBy" class="form-control" id="exampleInputEmail1" placeholder="Assigned By" readonly> *@
                                 <select asp-for="@Model.AssgnBy" id="brokerageCodes" name="AssgnBy" class="form-control">
                                     @* <option value="@Model.AssgnBy">Select a support Engineer</option> *@
-                                    <option value="">Unassign</option>
+                                    <option value="">Unassigned</option>
                                     @if (!string.IsNullOrEmpty(Model.AssgnBy) && (Model.SupportEngineers == null || !Model.SupportEngineers.Any(e => e.FullName == Model.AssgnBy)))
                                     {
                                         @* keep the current assignee selectable even if he is no longer in the engineer list *@
@@ -135,10 +135,10 @@
                                     @if (!string.IsNullOrEmpty(Model.IStatus) && !new[] { "Open", "Inqueue", "Inprogress", "Close" }.Contains(Model.IStatus))
                                     {
                                         @* a status saved by an older version: keep it instead of silently switching the ticket to Open *@
-                                        <option value="@Model.IStatus">@Model.IStatus</option>
+                                        <option value="@Model.IStatus">@DisplayText.Status(Model.IStatus)</option>
                                     }
                                     <option value="Open">Open</option>
-                                    <option value="Inqueue">Inqueue</option>
+                                    <option value="Inqueue">In Queue</option>
                                     <option value="Inprogress">In Progress</option>
                                     <option value="Close">Close</option>
                                 </select>
@@ -177,7 +177,7 @@
                     <div class="form-group">
                         <label>Upload Files (Multiple-If required)</label>
                         <div id="fileInputsContainer">
-                            <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files(+)</button>
+                            <button type="button" class="btn btn-outline-success mt-3" onclick="addFileInput()">Add Files (+)</button>
                         </div>
                     </div>
 
@@ -207,7 +207,7 @@
                         }
                         else
                         {
-                            <p>No Attachment found</p>
+                            <p>No attachments found</p>
                         }
 
 
@@ -218,7 +218,7 @@
             </div>
             <div>
                 <br />
-                <input type="submit" value="Upload" class="btn btn-primary " />
+                <input type="submit" value="Save Changes" class="btn btn-primary " />
             </div>
 
 
@@ -247,7 +247,7 @@
             newFileInput.addEventListener("change", function () {
                 if (!validateFileType(this)) {
                     fileInputsContainer.removeChild(fileInputContainer);
-                    alert('Invalid file type! Only TXT, DOC, PDF, JPG, and PNG files are allowed.');
+                    alert('Invalid file type! Allowed: TXT, DOC, DOCX, PDF, JPG, PNG, XLS, XLSX and CSV.');
                     return;
                 }
                 updateFileList();
@@ -268,7 +268,7 @@
         }
 
         function validateFileType(input) {
-            var allowedExtensions = ['txt', 'doc', 'pdf', 'jpg', 'png'];
+            var allowedExtensions = ['txt', 'doc', 'docx', 'pdf', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'csv'];
             var fileName = input.value.toLowerCase();
             var fileExtension = fileName.split('.').pop();
             return allowedExtensions.includes(fileExtension);

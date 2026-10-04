@@ -665,7 +665,7 @@ namespace XFLCSMS.Controllers
                 var issue = await _context.Issues.FirstOrDefaultAsync(a => a.IssueId == makerView.IssueId);
                 if (issue == null || !CanAccessIssue(issue))
                 {
-                    return NotFound("Edit is not done");
+                    return NotFound("The ticket was not found.");
                 }
 
                 Tickets.ApplyOwnerEdit(issue, makerView, editor);

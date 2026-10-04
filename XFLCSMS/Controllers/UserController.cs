@@ -68,8 +68,8 @@ namespace XFLCSMS.Controllers
                     var Mail = new EmailDto
                     {
                         To = request.Email,
-                        Subject = "Registation",
-                        Body = "Dear valuable Customer your Registation is Complete and your varification token is:" +
+                        Subject = "Registration",
+                        Body = "Dear valued customer, your registration is complete and your verification token is: " +
                         user.VerificationToken
                     };
                     _EmailServices.SendEmail(Mail);

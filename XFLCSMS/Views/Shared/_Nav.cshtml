@@ -1,0 +1,112 @@
+@*
+    Side menu. One list for the four roles; the entries depend on the role.
+    (text, action, icon) - an empty action starts a new group.
+*@
+@{
+    var role = Ui.Role(ViewContext);
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    int unassigned = ViewBag.UnassignedCount ?? 0;
+    int mine = ViewBag.AssignedToMeCount ?? 0;
+
+    var menu = new List<(string Text, string Action, string Icon)>
+    {
+        ("Dashboard", "Dashbord", "layout-dashboard"),
+        ("Tickets", "", "")
+    };
+
+    if (role.CanCreateTicket)
+    {
+        menu.Add(("Create ticket", "IssueRaiseFrom", "ticket-plus"));
+    }
+
+    menu.Add((role.IsMaker ? "My tickets" : "All tickets", role.TicketList, "ticket"));
+
+    if (role.IsEngineer)
+    {
+        menu.Add(("Assigned to me", "AssignedTicketList", "user-check"));
+    }
+
+    menu.Add(("Unassigned", "UnassignedTicketList", "inbox"));
+    menu.Add(("Closed", "ClosedTicketList", "circle-check-big"));
+    menu.Add(("Ticket report", "Reports", "chart-column"));
+
+    menu.Add(("To-do", "", ""));
+    menu.Add(("In progress", "ViewTodo", "list-todo"));
+    menu.Add(("All to-dos", "AllTodo", "list"));
+    menu.Add(("Completed", "CompletedTodo", "list-checks"));
+    menu.Add(("To-do report", "TodoReports", "file-text"));
+
+    if (role.IsAdmin)
+    {
+        menu.Add(("Team to-dos", "ViewAllTodo", "users"));
+        menu.Add(("Team to-do report", "AllTodoReports", "clipboard-check"));
+
+        menu.Add(("Administration", "", ""));
+        menu.Add(("Users", "UserList", "user-cog"));
+        menu.Add(("Brokerage houses", "BrocarageHouseList", "building-2"));
+        menu.Add(("Branches", "BranchList", "map-pin"));
+        menu.Add(("Support types", "SupportTypeList", "headset"));
+        menu.Add(("Support categories", "SupportCatagoryList", "folder"));
+        menu.Add(("Support sub-categories", "SupportSubCatagoryList", "folder-tree"));
+        menu.Add(("Affected sections", "AffectedSectionList", "puzzle"));
+    }
+
+    // pages that have no menu entry of their own light up the entry they belong to
+    var parents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["TicketView"] = role.TicketList, ["EditTicket"] = role.TicketList, ["Pagination"] = role.TicketList,
+        ["GetTodo"] = "ViewTodo",
+        ["UserView"] = "UserList", ["EditUser"] = "UserList",
+        ["CreateBrocarage"] = "BrocarageHouseList", ["EditBrocarage"] = "BrocarageHouseList", ["ViewBrocarageHouse"] = "BrocarageHouseList",
+        ["CreateBranch"] = "BranchList", ["EditBranch"] = "BranchList", ["ViewBranch"] = "BranchList",
+        ["CreateSupportType"] = "SupportTypeList", ["EditSupportType"] = "SupportTypeList", ["ViewSupportType"] = "SupportTypeList",
+        ["CreateSupportCatagory"] = "SupportCatagoryList", ["EditSupportCatagory"] = "SupportCatagoryList", ["ViewSupportCatagory"] = "SupportCatagoryList",
+        ["CreateSupportSubCatagory"] = "SupportSubCatagoryList", ["EditSupportSubCatagory"] = "SupportSubCatagoryList", ["ViewSupportSubCatagory"] = "SupportSubCatagoryList",
+        ["CreateAffectedSection"] = "AffectedSectionList", ["EditAffectedSection"] = "AffectedSectionList", ["ViewAffectedSection"] = "AffectedSectionList"
+    };
+    var activeAction = parents.TryGetValue(currentAction, out var parent) ? parent : currentAction;
+
+    // split the flat list into groups
+    var groups = new List<(string Label, List<(string Text, string Action, string Icon)> Items)>();
+    foreach (var entry in menu)
+    {
+        if (entry.Action.Length == 0 || groups.Count == 0)
+        {
+            groups.Add((entry.Action.Length == 0 ? entry.Text : string.Empty, new List<(string Text, string Action, string Icon)>()));
+        }
+        if (entry.Action.Length > 0)
+        {
+            groups[groups.Count - 1].Items.Add(entry);
+        }
+    }
+}
+<a class="nav-brand" asp-controller="@role.Controller" asp-action="Dashbord">
+    <img src="~/img/XFLlogo.png" alt="" width="36" height="36">
+    <span><b>XFL CSMS</b><span>@role.Label</span></span>
+</a>
+
+@foreach (var group in groups)
+{
+    <div class="nav-group">
+        @if (group.Label.Length > 0)
+        {
+            <div class="nav-label">@group.Label</div>
+        }
+        @foreach (var item in group.Items)
+        {
+            var active = string.Equals(item.Action, activeAction, StringComparison.OrdinalIgnoreCase);
+            <a asp-controller="@role.Controller" asp-action="@item.Action" class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
+                <icon name="@item.Icon" />
+                <span>@item.Text</span>
+                @if (item.Action == "UnassignedTicketList" && unassigned > 0)
+                {
+                    <span class="nav-count @(role.IsStaff ? "hot" : "")" title="@unassigned open tickets without an engineer">@unassigned</span>
+                }
+                @if (item.Action == "AssignedTicketList" && mine > 0)
+                {
+                    <span class="nav-count" title="@mine open tickets assigned to you">@mine</span>
+                }
+            </a>
+        }
+    </div>
+}

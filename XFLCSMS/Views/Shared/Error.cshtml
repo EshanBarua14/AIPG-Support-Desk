@@ -1,6 +1,6 @@
-﻿@model ErrorViewModel
+@* Shown when something failed on the server. It has no layout on purpose: it must work without a session. *@
+@model XFLCSMS.Models.ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
     Layout = null;
 }
 <!DOCTYPE html>
@@ -8,26 +8,25 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>XFL CSMS | Error</title>
-    <link rel="stylesheet" href="~/css/all.min.css">
-    <link rel="stylesheet" href="~/css/adminlte.min.css">
+    <title>Something went wrong - XFL CSMS</title>
+    <partial name="_Theme" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
 </head>
-<body class="hold-transition">
-    <div class="container mt-5">
-        <div class="card card-outline card-danger">
-            <div class="card-body">
-                <h1 class="text-danger">Something went wrong.</h1>
-                <p>An error occurred while processing your request. Nothing was lost on your account; please go back and try again.</p>
-                @if (Model != null && Model.ShowRequestId)
-                {
-                    <p>
-                        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-                    </p>
-                }
-                <a href="javascript:history.back()" class="btn btn-outline-secondary">Go back</a>
-                <a href="~/" class="btn btn-outline-primary">Sign-in page</a>
+<body>
+    <main class="error-page">
+        <div class="card">
+            <icon name="triangle-alert" />
+            <h1>Something went wrong</h1>
+            <p>The page could not be completed. Go back and try again. If it keeps happening, tell the XFL team what you were doing.</p>
+            @if (Model != null && Model.ShowRequestId)
+            {
+                <p class="small muted">Request ID: <code>@Model.RequestId</code></p>
+            }
+            <div class="row" style="justify-content: center">
+                <a class="btn" href="javascript:history.back()"><icon name="arrow-left" /> Go back</a>
+                <a class="btn btn-primary" href="~/">Start page</a>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>

@@ -1,0 +1,42 @@
+@* Edit one to-do: text and status. *@
+@model XFLCSMS.Models.Todos.Todo
+@{
+    ViewData["Title"] = "Edit to-do";
+    ViewData["PageClass"] = "narrow";
+    var statuses = (ViewBag.StatusOptions as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)?.Select(option => option.Value).ToList()
+        ?? new List<string> { "In progress", "Done", "Canceled" };
+}
+<a class="back" asp-action="ViewTodo"><icon name="arrow-left" /> To-do</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Edit to-do</h1>
+        <p class="page-sub">Added on @Ui.Stamp(Model.CreatedOn)</p>
+    </div>
+</header>
+
+<form class="card" id="editTodoForm" asp-action="Updatetodo" method="post">
+    <div class="card-body stack">
+        <input type="hidden" name="Id" value="@Model.Id" id="todoId">
+        <input type="hidden" name="UserId" value="@Model.UserId" id="UserId">
+
+        <div class="field">
+            <label for="todoName">To-do</label>
+            <input class="input" type="text" name="Todoname" id="todoName" value="@Model.Todoname" required maxlength="500">
+        </div>
+
+        <div class="field">
+            <span class="label" id="statusLabel">Status</span>
+            <div class="seg" role="radiogroup" aria-labelledby="statusLabel">
+                @foreach (var status in statuses)
+                {
+                    <label><input type="radio" name="Status" value="@status" checked="@(status == Model.Status)" required><span>@status</span></label>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="ViewTodo">Cancel</a>
+    </div>
+</form>

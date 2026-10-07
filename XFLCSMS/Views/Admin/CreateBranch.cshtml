@@ -1,53 +1,39 @@
-﻿@model XFLCSMS.Models.Branch.BranchView;
-<!-- Main content -->
-<section class="content">
+@model XFLCSMS.Models.Branch.BranchView
+@{
+    ViewData["Title"] = "New branch";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="BranchList"><icon name="arrow-left" /> Branches</a>
 
-    <h1>Create</h1>
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New branch</h1>
+    </div>
+</header>
 
-    <h4>Branch</h4>
-    <hr />
-    <div class="row">
-        <div class="col-md-4">
-            <form asp-controller="Admin" asp-action="CreateBranch" method="post" >
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-group">
-                    <label asp-for="@Model.BranchName" class="control-label"></label>
-                    <input asp-for="@Model.BranchName" class="form-control" />
-                    <span asp-validation-for="@Model.BranchName" class="text-danger"></span>
-                </div>
-                <div class="form-group">
-                    <label asp-for="@Model.BrokerageId" class="control-label"></label>
-                    <select asp-for="@Model.BrokerageId" id="BrokerageId" name="BrokerageId" class="form-control">
-                        @foreach (var item in @Model.brocarage)
-                        {
-                            <option  value="@item.BrokerageId">@item.BrokerageHouseName</option>
-                        }
-                    </select>
-                </div>
-                <div class="form-group">
-                    <input type="submit" value="Create" class="btn btn-primary" />
-                </div>
-            </form>
+<form class="card" asp-action="CreateBranch" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="field">
+            <label asp-for="BranchName">Branch name</label>
+            <input class="input" asp-for="BranchName" placeholder="For example: Motijheel" autocomplete="off" required>
+            <span class="hint">Letters, spaces and dots.</span>
+            <span asp-validation-for="BranchName"></span>
+        </div>
+        <div class="field">
+            <label asp-for="BrokerageId">Brokerage house</label>
+            <select class="select" asp-for="BrokerageId" required>
+                <option value="">Choose a house</option>
+                @foreach (var house in Model.brocarage ?? new List<XFLCSMS.Models.Brocarage.Brokerage>())
+                {
+                    <option value="@house.BrokerageId">@house.BrokerageHouseName</option>
+                }
+            </select>
+            <span asp-validation-for="BrokerageId"></span>
         </div>
     </div>
-
-    <div>
-        <a asp-controller="Admin" asp-action="BranchList">Back to List</a>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create branch</button>
+        <a class="btn" asp-action="BranchList">Cancel</a>
     </div>
-
-</section>
-            <!-- /.content -->
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-      
+</form>

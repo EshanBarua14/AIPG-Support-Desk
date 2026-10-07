@@ -1,0 +1,11 @@
+@model XFLCSMS.Models.Todos.TodoviewModel
+@{
+    ViewData["Title"] = "All to-dos";
+    ViewData["ListSub"] = "Everything you have added: in progress, done and canceled.";
+    ViewData["ListAction"] = "AllTodo";
+    ViewData["CanAdd"] = true;
+    ViewData["CanEdit"] = true;
+    ViewData["ShowOwner"] = false;
+    ViewData["EmptyText"] = "You have not added a to-do yet";
+}
+<partial name="_TodoList" />

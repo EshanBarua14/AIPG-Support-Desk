@@ -1,0 +1,8 @@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    ViewData["Title"] = "Assigned to me";
+    ViewData["ListSub"] = "Open tickets you are working on. Closed ones move to Closed.";
+    ViewData["ListAction"] = "AssignedTicketList";
+    ViewData["EmptyText"] = "Nothing is assigned to you right now";
+}
+<partial name="_TicketList" />

@@ -1,0 +1,104 @@
+@*
+    Ticket report of every role. The filters differ per role, and so does the name the controller
+    binds them to: search.* (admin, support manager), SESearch.* (support engineer), MakerSearch.* (maker).
+*@
+@model XFLCSMS.Models.Admin.ReportView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Ticket report";
+    var prefix = role.IsMaker ? "MakerSearch" : role.IsEngineer ? "SESearch" : "search";
+    var allTickets = !role.IsMaker && !role.IsEngineer;
+    var houses = Model.brocarages?.ToList() ?? new List<XFLCSMS.Models.Brocarage.Brokerage>();
+    var engineers = Model.EmployeeNames?.ToList() ?? new List<string>();
+    var scope = role.IsMaker ? "The tickets you raised."
+        : role.IsEngineer ? "The tickets assigned to you or closed by you."
+        : "All tickets of all brokerage houses.";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Ticket report</h1>
+        <p class="page-sub">@scope <span class="no-print">Leave a filter empty to include everything.</span></p>
+    </div>
+    <div class="page-actions" data-needs-report hidden>
+        <button type="button" class="btn" data-export-csv="#issuesTable" data-file="ticket-report"><icon name="file-down" /> Export CSV</button>
+        <button type="button" class="btn" data-print><icon name="printer" /> Print</button>
+    </div>
+</header>
+
+<form class="card no-print" id="advancedSearchForm" action="@Url.Action("Search")" method="get" data-report="#searchResults">
+    <div class="card-body">
+        <div class="form-grid three">
+            @if (!role.IsMaker)
+            {
+                <div class="field">
+                    <label for="brokerageCodes">Brokerage house</label>
+                    <select class="select" id="brokerageCodes" name="@(prefix).BrokerageId">
+                        <option value="">All houses</option>
+                        @foreach (var house in houses)
+                        {
+                            <option value="@house.BrokerageId">@house.BrokerageHouseName</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field">
+                <label for="Priority">Priority</label>
+                <select class="select" id="Priority" name="@(prefix).Priority">
+                    <option value="">Any priority</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            @if (!role.IsEngineer)
+            {
+                <div class="field">
+                    <label for="assigningStatus">Status</label>
+                    <select class="select" id="assigningStatus" name="@(prefix).AStatus">
+                        <option value="">Any status</option>
+                        <option value="Open">Open</option>
+                        <option value="Inqueue">In queue</option>
+                        <option value="Inprogress">In progress</option>
+                        <option value="Close">Closed</option>
+                    </select>
+                </div>
+            }
+            @if (allTickets)
+            {
+                <div class="field">
+                    <label for="closedBy">Closed by</label>
+                    <select class="select" id="closedBy" name="@(prefix).EmployeeName">
+                        <option value="">Anyone</option>
+                        @foreach (var engineer in engineers)
+                        {
+                            <option value="@engineer">@engineer</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field">
+                <label for="search_FromDate">Raised from</label>
+                <input class="input" type="date" id="search_FromDate" name="@(prefix).FromDate">
+            </div>
+            <div class="field">
+                <label for="search_ToDate">Raised to</label>
+                <input class="input" type="date" id="search_ToDate" name="@(prefix).ToDate">
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary" id="searchButton"><icon name="search" /> Run report</button>
+        <button type="reset" class="btn btn-quiet">Clear filters</button>
+    </div>
+</form>
+
+<div id="searchResults" style="margin-top: 18px" aria-live="polite">
+    @if (Model.Issues != null)
+    {
+        <partial name="_SearchResults" model="Model" />
+    }
+    else
+    {
+        <div class="card"><div class="empty"><icon name="chart-column" /><b>No report yet</b><span>Choose the filters and press Run report.</span></div></div>
+    }
+</div>

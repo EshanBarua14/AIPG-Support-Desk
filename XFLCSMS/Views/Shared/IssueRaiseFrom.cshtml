@@ -1,0 +1,128 @@
+@* Create a ticket (makers, support engineers and support managers). *@
+@model XFLCSMS.Models.Issue.IssueViewModel
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Create ticket";
+}
+<a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @(role.IsMaker ? "My tickets" : "All tickets")</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Create ticket</h1>
+        <p class="page-sub">Say what is wrong and how urgent it is. The XFL support team picks it up from here.</p>
+    </div>
+</header>
+
+<form asp-action="IssueRaiseFrom" method="post" enctype="multipart/form-data" id="uploadForm">
+    <div class="split">
+        <div class="stack">
+            <section class="card">
+                <div class="card-body stack">
+                    <div class="field">
+                        <label for="ITitle">Title <span class="req" aria-hidden="true">*</span></label>
+                        <input class="input" asp-for="issueFrom.ITitle" id="ITitle" required maxlength="250" autofocus placeholder="One line that says what is wrong">
+                    </div>
+
+                    <div class="field">
+                        <span class="label" id="priorityLabel">Priority <span class="req" aria-hidden="true">*</span></span>
+                        <div class="seg" role="radiogroup" aria-labelledby="priorityLabel" id="prioritySelect">
+                            <label><input type="radio" name="issueFrom.Priority" value="Low" required><span><i class="dot p-low"></i>Low</span></label>
+                            <label><input type="radio" name="issueFrom.Priority" value="Medium"><span><i class="dot p-medium"></i>Medium</span></label>
+                            <label><input type="radio" name="issueFrom.Priority" value="High"><span><i class="dot p-high"></i>High</span></label>
+                        </div>
+                        <span class="hint">Choose High only when work is blocked.</span>
+                    </div>
+
+                    <div class="field">
+                        <label for="editor" id="editorLabel">Details</label>
+                        <textarea class="textarea" name="issueFrom.IssueDetails" id="editor" data-rte rows="8" aria-label="Details"
+                                  placeholder="What happened, where, and what you expected instead"></textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="Commands">Comments</label>
+                        <textarea class="textarea" asp-for="issueFrom.Commands" id="Commands" rows="3" placeholder="Anything else the support team should know"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>What it is about</h2><span class="sub">Optional. Helps the ticket reach the right engineer.</span></div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="SupportTypeId">Support type</label>
+                            <select class="select" asp-for="issueFrom.SupportTypeId" id="SupportTypeId">
+                                <option value="">Not sure</option>
+                                @foreach (var item in Model.SupportTypes)
+                                {
+                                    <option value="@item.SupportTypeId">@item.SType</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="SupportCatagoryId">Category</label>
+                            <select class="select" asp-for="issueFrom.SupportCatagoryId" id="SupportCatagoryId">
+                                <option value="">Not sure</option>
+                                @foreach (var item in Model.SupportCatagories)
+                                {
+                                    <option value="@item.SupportCatagoryId">@item.SCatagory</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="SupportSubCatagoryID">Sub-category</label>
+                            <select class="select" asp-for="issueFrom.SupportSubCatagoryID" id="SupportSubCatagoryID">
+                                <option value="">Not sure</option>
+                                @foreach (var item in Model.SupportSubCatagories)
+                                {
+                                    <option value="@item.SupportSubCatagoryId">@item.SubCatagory</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="AffectedSectionId">Affected section</label>
+                            <select class="select" asp-for="issueFrom.AffectedSectionId" id="AffectedSectionId">
+                                <option value="">Not sure</option>
+                                @foreach (var item in Model.AffectedSections)
+                                {
+                                    <option value="@item.AffectedSectionId">@item.ASection</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-body">
+                    <partial name="_Attachments" />
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <button id="submitButton" type="submit" class="btn btn-primary"><icon name="send" /> Create ticket</button>
+                <a class="btn" asp-action="@role.TicketList">Cancel</a>
+            </div>
+        </div>
+
+        <aside class="stack">
+            <section class="card">
+                <div class="card-head"><h2>Raised as</h2></div>
+                <div class="card-body">
+                    <dl class="facts">
+                        <dt>Ticket number</dt>
+                        <dd>@Ui.Sym(Model.LoginInfo?.TicketID)</dd>
+                        <dt>Brokerage house</dt>
+                        <dd>@(Model.LoginInfo?.BrocarageHouseName)</dd>
+                        <dt>Branch</dt>
+                        <dd>@(Model.LoginInfo?.BranchName)</dd>
+                        <dt>Raised by</dt>
+                        <dd>@(ViewBag.Profile?.FullName)</dd>
+                    </dl>
+                    <p class="hint small muted" style="margin-top: 12px">The number is reserved when you create the ticket; it can differ if a colleague is quicker.</p>
+                </div>
+            </section>
+        </aside>
+    </div>
+</form>

@@ -1,0 +1,43 @@
+@* "My profile" of every role (read-only; an administrator changes roles under Users). *@
+@model XFLCSMS.Models.Admin.UserView
+@{
+    ViewData["Title"] = "My profile";
+    ViewData["PageClass"] = "narrow";
+    var roleName = Ui.RoleOf(Model.UCatagory, Model.UType, Model.Department);
+}
+<header class="page-head">
+    <div class="row" style="gap: 16px; flex-wrap: nowrap">
+        <span class="avatar lg" aria-hidden="true">@Ui.Initials(Model.FullName)</span>
+        <div>
+            <h1 class="page-title">@Model.FullName</h1>
+            <p class="page-sub">@Ui.RolePill(roleName) <span class="muted">@Model.UserName</span></p>
+        </div>
+    </div>
+    <div class="page-actions">
+        <a class="btn" asp-action="ChangePassword"><icon name="key-round" /> Change password</a>
+    </div>
+</header>
+
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>User name</dt>
+            <dd>@Model.UserName</dd>
+            <dt>Email</dt>
+            <dd>@Model.Email</dd>
+            <dt>Phone</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.PhonNumber) ? "none" : "")">@(string.IsNullOrEmpty(Model.PhonNumber) ? "Not set" : Model.PhonNumber)</dd>
+            <dt>Employee ID</dt>
+            <dd>@Model.EmployeeId</dd>
+            <dt>Brokerage house</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.BrokerageHouseName) ? "none" : "")">@(string.IsNullOrEmpty(Model.BrokerageHouseName) ? "Not set" : Model.BrokerageHouseName)</dd>
+            <dt>Branch</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.Branch) ? "none" : "")">@(string.IsNullOrEmpty(Model.Branch) ? "Not set" : Model.Branch)</dd>
+            <dt>Designation</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.Designation) ? "none" : "")">@(string.IsNullOrEmpty(Model.Designation) ? "Not set" : Model.Designation)</dd>
+            <dt>Account</dt>
+            <dd>@(Model.UStatus ? "Active" : "Disabled")</dd>
+        </dl>
+    </div>
+</section>
+<p class="muted small" style="margin-top: 12px">Something wrong here? An administrator can correct your role; your name and contact details were set when you registered.</p>

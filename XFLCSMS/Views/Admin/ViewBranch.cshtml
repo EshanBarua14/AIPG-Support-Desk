@@ -1,64 +1,29 @@
-﻿@model XFLCSMS.Models.Branch.BranchView;
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Branch ID</label>
-                                <input type="text" value="@Model.BranchId" class="form-control" id="exampleInputEmail1" placeholder="Brokerage ID" readonly>
-                            </div>
+@model XFLCSMS.Models.Branch.BranchView
+@{
+    ViewData["Title"] = Model.BranchName;
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="BranchList"><icon name="arrow-left" /> Branches</a>
 
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Branch Name</label>
-                                <input type="text" value="@Model.BranchName" class="form-control" id="exampleInputEmail1" placeholder="Brokerage House Name" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Brokerage House Name</label>
-                                <input type="text" class="form-control" value="@Model.BrokerageHouseName" id="exampleInputEmail1" placeholder="Brokerage House Acronym" readonly>
-                            </div>
-
-
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-            <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-        <!-- /.card-body -->
-
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@Model.BranchName</h1>
+        <p class="page-sub">Branch</p>
     </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="EditBranch" asp-route-id="@Model.BranchId"><icon name="pencil" /> Edit</a>
+    </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>ID</dt>
+            <dd>@Model.BranchId</dd>
+            <dt>Branch</dt>
+            <dd>@Model.BranchName</dd>
+            <dt>Brokerage house</dt>
+            <dd>@Model.BrokerageHouseName</dd>
+        </dl>
+    </div>
 </section>
-<!-- /.content -->
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>  

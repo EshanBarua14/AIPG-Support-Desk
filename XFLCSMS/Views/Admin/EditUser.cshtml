@@ -1,156 +1,111 @@
-﻿@model XFLCSMS.Models.Admin.UserView;
+@*
+    Change what a user may do. Three settings decide the role at sign-in (see RegisterLoginController.Login):
+    administrator -> Administrator; XFL staff + position -> Support Manager / Support Engineer; everything else -> Maker.
+*@
+@model XFLCSMS.Models.Admin.UserView
+@{
+    ViewData["Title"] = "Edit " + Model.FullName;
+    ViewData["PageClass"] = "narrow";
+    var positions = new[] { ("Maker", "Maker"), ("Support Engineer", "Support Engineer"), ("Support Maneger", "Support Manager") };
+}
+<a class="back" asp-action="UserList"><icon name="arrow-left" /> Users</a>
 
-
-
-<section class="content">
-    <form asp-controller="Admin" asp-action="UpdateUser" method="post">
-        <div class="container-fluid">
-@*             <br />
-            <div class="row card card-primary text-center">
-                <h4>Edit User</h4>
-            </div> *@
-            <br />
-            <div class="row">
-                <!-- left column -->
-                <div class="col-md-6">
-                    <!-- general form elements -->
-                    <div class="card card-primary">
-                        <!-- /.card-header -->
-                        <!-- form start -->
-                                
-                            <div class="card-body">
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">User ID</label>
-                                    <input type="text" asp-for= "@Model.Id"  value="@Model.Id" class="form-control" id="exampleInputEmail1" placeholder="User ID" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Full Name</label>
-                                    <input type="text" asp-for="@Model.FullName" value="@Model.FullName" class="form-control" id="exampleInputEmail1" placeholder="Full Name" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">User Name</label>
-                                    <input type="text" asp-for="@Model.UserName" class="form-control" value="@Model.UserName" id="exampleInputEmail1" placeholder="User Name" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Email</label>
-                                    <input type="text" asp-for="@Model.Email" value="@Model.Email" class="form-control" id="exampleInputEmail1" placeholder="Email" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Phone Number</label>
-                                    <input type="text" asp-for="@Model.PhonNumber" value="@Model.PhonNumber" class="form-control" id="exampleInputEmail1" placeholder="Phone Number" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Designation</label>
-                                    @* <input type="text" asp-for="@Model.Designation" value="@Model.Designation" class="form-control" id="exampleInputEmail1" placeholder="Designation" readonly> *@
-                                <select type="text" asp-for="@Model.Department" class="form-control" id="UCatagory" name="Department">
-                                    <option value="Maker">Maker</option>
-                                    <option value="Support Maneger">Support Manager</option>
-                                    <option value="Support Engineer">Support Engineer</option>
-
-                                    <!-- Add more options as needed -->
-                                </select>
-                                </div>
-
-                            </div>
-                            <!-- /.card-body -->
-                                
-                    </div>
-                    <!-- /.card -->
-                </div>
-                <!--/.col (left) -->
-                <!-- right column -->
-                <div class="col-md-6">
-                    <!-- Form Element sizes -->
-                    <div class="card card-primary">
-
-                                
-
-                            <div class="card-body">
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Employee ID</label>
-                                    <input type="text" asp-for="@Model.EmployeeId" value="@Model.EmployeeId" class="form-control" id="exampleInputEmail1" placeholder="Employee ID" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Brokerage House Name</label>
-                                    <input type="text" asp-for="@Model.BrokerageHouseName" value="@Model.BrokerageHouseName" class="form-control" id="exampleInputEmail1" placeholder="Brokerage House Name" readonly>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exampleInputEmail1">Branch</label>
-                                    <input type="text" asp-for="@Model.Branch" value="@Model.Branch" class="form-control" id="exampleInputEmail1" placeholder="Branch" readonly>
-                                </div>
-
-                                     
-
-                                <div class="form-group">
-                                    <label for="UCatagory">User Category</label>
-                                    <select asp-for="@Model.UCatagory" class="form-control" id="UCatagory" name="UCatagory">
-                                        <option value="False">Normal User</option>
-                                        <option value="True">Admin</option>
-                                        <!-- Add more options as needed -->
-                                    </select>
-                                </div>
-
-
-                                <div class="form-group">
-                                    <label for="UType">User Type</label>
-                                    <select asp-for="@Model.UType" class="form-control" id="UType" name="UType">
-                                        <option value="False">Outside User</option>
-                                        <option value="True">XFL User</option>
-                                        <!-- Add more options as needed -->
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="UStatus">User Status</label>
-                                    <select asp-for="@Model.UStatus" class="form-control" id="UStatus" name="UStatus">
-                                        <option value="True">Enable</option>
-                                        <option value= "False">Disable</option>
-                                        <!-- Add more options as needed -->
-                                    </select>
-                                </div>
-
-
-
-                            </div>
-                            <!-- /.card-body -->
-                                
-
-                        <!-- /.card-body -->
-                    </div>
-                        <div class="form-group float-right">
-                            <input type="submit" value="Update User" class="btn btn-primary" />
-                        </div>
-                    <!-- /.card -->
-                </div>
-                <!--/.col (right) -->
-            </div>
-            <!-- /.row -->
-            <!-- /.card-body -->
-
+<header class="page-head">
+    <div class="row" style="gap: 16px; flex-wrap: nowrap">
+        <span class="avatar lg" aria-hidden="true">@Ui.Initials(Model.FullName)</span>
+        <div>
+            <h1 class="page-title">@Model.FullName</h1>
+            <p class="page-sub">@Model.UserName, @Model.Email</p>
         </div>
+    </div>
+</header>
 
+<form class="card" asp-action="UpdateUser" method="post" id="userForm">
+    <input type="hidden" asp-for="Id">
+    <div class="card-head">
+        <h2>Role and access</h2>
+        <span class="sub right">Signs in as <b id="rolePreview">@Ui.RoleOf(Model.UCatagory, Model.UType, Model.Department)</b></span>
+    </div>
+    <div class="card-body">
+        <div class="form-grid">
+            <div class="field">
+                <label for="UType">Team</label>
+                <select class="select" name="UType" id="UType">
+                    <option value="False" selected="@(!Model.UType)">Brokerage house user</option>
+                    <option value="True" selected="@Model.UType">XFL staff</option>
+                </select>
+                <span class="hint">Only XFL staff can be support engineers or managers.</span>
+            </div>
+            <div class="field">
+                <label for="Department">Position</label>
+                <select class="select" name="Department" id="Department">
+                    @if (!string.IsNullOrEmpty(Model.Department) && !positions.Any(position => position.Item1 == Model.Department))
+                    {
+                        <option value="@Model.Department" selected>@Model.Department</option>
+                    }
+                    @foreach (var position in positions)
+                    {
+                        <option value="@position.Item1" selected="@(position.Item1 == Model.Department)">@position.Item2</option>
+                    }
+                </select>
+                <span class="hint">Tickets can be assigned to support engineers.</span>
+            </div>
+            <div class="field">
+                <label for="UCatagory">Administrator</label>
+                <select class="select" name="UCatagory" id="UCatagory">
+                    <option value="False" selected="@(!Model.UCatagory)">No</option>
+                    <option value="True" selected="@Model.UCatagory">Yes</option>
+                </select>
+                <span class="hint">Administrators manage users and master data and can delete tickets.</span>
+            </div>
+            <div class="field">
+                <label for="UStatus">Account</label>
+                <select class="select" name="UStatus" id="UStatus">
+                    <option value="True" selected="@Model.UStatus">Active</option>
+                    <option value="False" selected="@(!Model.UStatus)">Disabled</option>
+                </select>
+                <span class="hint">A disabled user cannot sign in. Tickets and to-dos are kept.</span>
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="UserList">Cancel</a>
+    </div>
+</form>
 
-    </form>
-        <!-- /.container-fluid -->
+<section class="card" style="margin-top: 18px">
+    <div class="card-head"><h2>Registered details</h2><span class="sub">Entered by the user at registration</span></div>
+    <div class="card-body">
+        <dl class="facts">
+            <dt>Employee ID</dt>
+            <dd>@Model.EmployeeId</dd>
+            <dt>Brokerage house</dt>
+            <dd>@Model.BrokerageHouseName</dd>
+            <dt>Branch</dt>
+            <dd>@Model.Branch</dd>
+            <dt>Phone</dt>
+            <dd>@Model.PhonNumber</dd>
+        </dl>
+    </div>
 </section>
-    <!-- /.content -->
 
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
+@section Scripts {
+    <script>
+        // shows the role the choices add up to, before saving
+        (function () {
+            var form = document.getElementById('userForm');
+            var preview = document.getElementById('rolePreview');
+            function update() {
+                var admin = form.UCatagory.value === 'True';
+                var staff = form.UType.value === 'True';
+                var position = form.Department.value;
+                preview.textContent = admin ? 'Administrator'
+                    : staff && position === 'Support Maneger' ? 'Support Manager'
+                    : staff && position === 'Support Engineer' ? 'Support Engineer'
+                    : 'Maker';
+            }
+            form.addEventListener('change', update);
+        })();
+    </script>
+}

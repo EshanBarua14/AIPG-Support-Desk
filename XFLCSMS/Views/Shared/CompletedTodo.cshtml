@@ -1,0 +1,11 @@
+@model XFLCSMS.Models.Todos.TodoviewModel
+@{
+    ViewData["Title"] = "Completed to-dos";
+    ViewData["ListSub"] = "To-dos you marked as done.";
+    ViewData["ListAction"] = "CompletedTodo";
+    ViewData["CanAdd"] = false;
+    ViewData["CanEdit"] = false;
+    ViewData["ShowOwner"] = false;
+    ViewData["EmptyText"] = "Nothing completed yet";
+}
+<partial name="_TodoList" />

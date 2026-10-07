@@ -1,0 +1,141 @@
+@*
+    To-do list of every role: In progress / All / Completed, and the admin's team list.
+    The calling view sets ViewData["Title"], ["ListSub"], ["ListAction"], ["CanAdd"], ["CanEdit"], ["ShowOwner"].
+*@
+@model XFLCSMS.Models.Todos.TodoviewModel
+@{
+    var role = Ui.Role(ViewContext);
+    var action = ViewData["ListAction"] as string ?? "ViewTodo";
+    var canAdd = ViewData["CanAdd"] is true;
+    var canEdit = ViewData["CanEdit"] is true;
+    var showOwner = ViewData["ShowOwner"] is true;
+    XFLCSMS.Models.Common.Pager pager = ViewBag.pager ?? new XFLCSMS.Models.Common.Pager(0, 1);
+    string? sortField = ViewBag.CurrentSortField;
+    bool ascending = ViewBag.CurrentSortAscending ?? true;
+    var rows = Model.Todos ?? new List<XFLCSMS.Models.Todos.Todo>();
+    ViewData["ShownCount"] = rows.Count;
+    ViewData["SearchHint"] = "Search to-dos";
+
+    var tabs = new List<(string Text, string Action)> { ("In progress", "ViewTodo"), ("All", "AllTodo"), ("Completed", "CompletedTodo") };
+    if (role.IsAdmin) { tabs.Add(("Team", "ViewAllTodo")); }
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-sub">@ViewData["ListSub"]</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" asp-action="@(action == "ViewAllTodo" ? "AllTodoReports" : "TodoReports")"><icon name="file-text" /> To-do report</a>
+    </div>
+</header>
+
+<nav class="tabs" aria-label="To-do lists">
+    @foreach (var tab in tabs)
+    {
+        var current = tab.Action == action;
+        <a class="tab @(current ? "active" : "")" asp-action="@tab.Action" aria-current="@(current ? "page" : null)">@tab.Text</a>
+    }
+</nav>
+
+<div class="card flush" data-list data-url="@Url.Action(action)">
+    @if (canAdd)
+    {
+        <form class="todo-add" asp-action="AddTodo" method="post">
+            <input class="input" type="text" name="Todo.Todoname" placeholder="Add a to-do, for example: call the branch about the settlement file" aria-label="New to-do" required maxlength="500" autocomplete="off">
+            <button class="btn btn-primary" type="submit"><icon name="plus" /> Add</button>
+        </form>
+    }
+    <partial name="_ListToolbar" />
+
+    <div data-list-region>
+        <span data-sort-field="@sortField" data-sort-ascending="@(ascending ? "true" : "false")" hidden></span>
+        @if (rows.Count == 0)
+        {
+            <div class="empty">
+                <icon name="list-checks" />
+                @if (!string.IsNullOrEmpty(pager.SearchString))
+                {
+                    <b>No to-dos match &ldquo;@pager.SearchString&rdquo;</b>
+                }
+                else
+                {
+                    <b>@(ViewData["EmptyText"] ?? "Nothing here")</b>
+                    @if (canAdd)
+                    {
+                        <span>Type a to-do in the box above and press Add.</span>
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table" id="issueTable">
+                    <thead>
+                        <tr>
+                            @if (canEdit && !showOwner)
+                            {
+                                <th scope="col" style="width: 1%"><span class="sr-only">Done</span></th>
+                            }
+                            <th scope="col">@Ui.SortLink(Url, action, "To-do", "Task", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            @if (showOwner)
+                            {
+                                <th scope="col">Owner</th>
+                            }
+                            <th scope="col">@Ui.SortLink(Url, action, "Added", "CreatedOn", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Status", "Status", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            @if (canEdit)
+                            {
+                                <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody id="todo-list">
+                        @foreach (var todo in rows)
+                        {
+                            var done = todo.Status == "Done";
+                            var canceled = todo.Status == "Canceled";
+                            <tr class="@(done || canceled ? "todo-done" : "")">
+                                @if (canEdit && !showOwner)
+                                {
+                                    <td>
+                                        @if (done)
+                                        {
+                                            <span class="tick-btn is-done" title="Done"><icon name="check" /></span>
+                                        }
+                                        else if (canceled)
+                                        {
+                                            <span class="tick-btn is-off" title="Canceled"><icon name="x" /></span>
+                                        }
+                                        else
+                                        {
+                                            <form asp-action="Updatetodo" method="post">
+                                                <input type="hidden" name="Id" value="@todo.Id">
+                                                <input type="hidden" name="Status" value="Done">
+                                                <button type="submit" class="tick-btn" title="Mark as done" aria-label="Mark &ldquo;@todo.Todoname&rdquo; as done"><icon name="check" /></button>
+                                            </form>
+                                        }
+                                    </td>
+                                }
+                                <td><span class="t-title" style="max-width: 70ch; white-space: normal">@todo.Todoname</span></td>
+                                @if (showOwner)
+                                {
+                                    <td>@Ui.Person(todo.User?.FullName ?? "Unknown user")</td>
+                                }
+                                <td class="nowrap num">@Ui.Date(todo.CreatedOn)</td>
+                                <td>@Ui.TodoPill(todo.Status)</td>
+                                @if (canEdit)
+                                {
+                                    <td class="t-actions">
+                                        <a class="btn btn-icon btn-sm" asp-action="GetTodo" asp-route-id="@todo.Id" title="Edit" aria-label="Edit &ldquo;@todo.Todoname&rdquo;"><icon name="pencil" /></a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <partial name="_Pager" />
+    </div>
+</div>

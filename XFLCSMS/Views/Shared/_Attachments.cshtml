@@ -1,0 +1,14 @@
+@* File picker of the create / edit ticket forms. The allowed types are the ones TicketService accepts. *@
+@{
+    var extensions = TicketService.AllowedExtensions.Select(extension => extension.TrimStart('.')).ToArray();
+}
+<div class="field">
+    <span class="label" id="filesLabel">Attach files</span>
+    <label class="drop" data-drop data-accept="@string.Join(",", extensions)" aria-labelledby="filesLabel">
+        <icon name="upload" />
+        <span><b>Choose files</b> or drop them here</span>
+        <span class="small muted">@string.Join(", ", extensions.Select(extension => extension.ToUpperInvariant()))</span>
+        <input type="file" name="files" multiple accept="@string.Join(",", TicketService.AllowedExtensions)">
+    </label>
+    <ul class="files" aria-label="Files to attach"></ul>
+</div>

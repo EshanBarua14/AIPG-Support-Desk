@@ -1,0 +1,26 @@
+@* "What it is about" box on the view and edit pages of a ticket. *@
+@model XFLCSMS.Models.Issue.MakerView
+@{
+    var facts = new (string Label, string? Value)[]
+    {
+        ("Brokerage house", Model.BrokerageHouse),
+        ("Raised by", Model.CreatedBy),
+        ("Raised on", Ui.Stamp(Model.CreatedOn)),
+        ("Support type", Model.SupportType),
+        ("Category", Model.SupportCatagory),
+        ("Sub-category", Model.SupportSubCatagory),
+        ("Affected section", Model.AffectedSection)
+    };
+}
+<section class="card">
+    <div class="card-head"><h2>About this ticket</h2></div>
+    <div class="card-body">
+        <dl class="facts">
+            @foreach (var fact in facts)
+            {
+                <dt>@fact.Label</dt>
+                <dd class="@(string.IsNullOrEmpty(fact.Value) ? "none" : "")">@(string.IsNullOrEmpty(fact.Value) ? "Not set" : fact.Value)</dd>
+            }
+        </dl>
+    </div>
+</section>

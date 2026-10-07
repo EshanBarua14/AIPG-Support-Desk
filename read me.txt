@@ -42,4 +42,10 @@ Registration and "forgot password" send a token by e-mail using EmailHost / Emai
 in appsettings.json (Gmail SMTP, port 587). If the mail cannot be sent the user now sees a message instead
 of an error page, and a registration whose mail failed is rolled back.
 
-See FIXES.md for the list of what was changed.
+5. Interface
+------------
+The pages no longer use AdminLTE, Bootstrap, jQuery or any CDN: everything is in wwwroot (css/app.css,
+js/app.js, fonts, img/icons.svg), so the application also runs on a network without internet access.
+Colours and fonts are variables at the top of css/app.css. Pages shared by all roles are in Views/Shared.
+
+See WORKFLOWS.md for what each role can do, and FIXES.md for the list of what was changed.

@@ -1,48 +1,27 @@
-﻿@model XFLCSMS.Models.Affected.AffectedSection;
+@model XFLCSMS.Models.Affected.AffectedSection
+@{
+    ViewData["Title"] = "New affected section";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="AffectedSectionList"><icon name="arrow-left" /> Affected sections</a>
 
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New affected section</h1>
+    </div>
+</header>
 
-<!-- Main content -->
-<section class="content">
-
-    <h1>Create</h1>
-
-    <h4>Affected Section</h4>
-    <hr />
-    <div class="row">
-        <div class="col-md-4">
-            <form asp-controller="Admin" asp-action="CreateAffectedSection">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-group">
-                    <label asp-for="@Model.ASection" class="control-label"></label>
-                    <input asp-for="@Model.ASection" class="form-control" />
-                    <span asp-validation-for="@Model.ASection" class="text-danger"></span>
-                </div>
-
-                <div class="form-group">
-                    <input type="submit" value="Create" class="btn btn-primary" />
-                </div>
-            </form>
+<form class="card" asp-action="CreateAffectedSection" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="field">
+            <label asp-for="ASection">Name</label>
+            <input class="input" asp-for="ASection" placeholder="For example: Settlement" autocomplete="off" required>
+            <span asp-validation-for="ASection"></span>
         </div>
     </div>
-
-    <div>
-        <a asp-controller="Admin" asp-action="AffectedSectionList">Back to List</a>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create affected section</button>
+        <a class="btn" asp-action="AffectedSectionList">Cancel</a>
     </div>
-
-</section>
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-
-       
+</form>

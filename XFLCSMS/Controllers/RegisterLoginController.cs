@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
 using XFLCSMS.Infrastructure;
 using XFLCSMS.Models.Email;
@@ -44,6 +44,22 @@ namespace XFLCSMS.Controllers
 
         public IActionResult Login()
         {
+            // Already signed in (for example after pressing "Start page"): go to the dashboard, not back to this form.
+            var roles = new (string Key, string Controller)[]
+            {
+                (SessionAuthorizeAttribute.Admin, "Admin"),
+                (SessionAuthorizeAttribute.SupportManager, "SupportManegar"),
+                (SessionAuthorizeAttribute.SupportEngineer, "SupportEngineer"),
+                (SessionAuthorizeAttribute.Maker, "Maker")
+            };
+            foreach (var role in roles)
+            {
+                if (!string.IsNullOrEmpty(HttpContext.Session.GetString(role.Key)))
+                {
+                    return RedirectToAction("Dashbord", role.Controller);
+                }
+            }
+
             return View();
         }
 

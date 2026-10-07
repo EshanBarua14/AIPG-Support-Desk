@@ -1,0 +1,38 @@
+@* "Not found" and similar: shown instead of an empty response (see Program.cs). *@
+@{
+    Layout = null;
+    int code = ViewBag.StatusCode ?? 404;
+    var notFound = code == 404;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@(notFound ? "Not found" : "Request refused") - XFL CSMS</title>
+    <partial name="_Theme" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+</head>
+<body>
+    <main class="error-page">
+        <div class="card">
+            <icon name="circle-alert" />
+            <h1>@(notFound ? "This page does not exist" : "The request could not be handled")</h1>
+            <p>
+                @if (notFound)
+                {
+                    <text>The ticket or page may have been deleted, or it belongs to someone else. Check the address or go back to your list.</text>
+                }
+                else
+                {
+                    <text>The server answered with code @code. Go back and try again.</text>
+                }
+            </p>
+            <div class="row" style="justify-content: center">
+                <a class="btn" href="javascript:history.back()"><icon name="arrow-left" /> Go back</a>
+                <a class="btn btn-primary" href="~/">Start page</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

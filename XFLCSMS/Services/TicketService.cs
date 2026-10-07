@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.StaticFiles;
 using XFLCSMS.Models.Issue;
 using XFLCSMS.Models.Register;
 
@@ -96,7 +96,7 @@ namespace XFLCSMS.Services
                 TNumber = ticketNumber,
                 Priority = form.Priority,
                 ITitle = form.ITitle.Trim(),
-                Details = form.IssueDetails,
+                Details = CleanRichText(form.IssueDetails),
                 Comments = form.Commands,
                 UserId = user.Id,
                 BrokerageId = user.BrokerageHouseName,
@@ -306,7 +306,8 @@ namespace XFLCSMS.Services
                 issue.ITitle = form.IssueTitle.Trim();
             }
 
-            issue.Details = form.TicketDetails;
+            // Rich text from the editor: cleaned before it is stored and again when it is shown.
+            issue.Details = CleanRichText(form.TicketDetails);
             issue.Comments = form.Command;
 
             if (!string.IsNullOrWhiteSpace(form.Priority))
@@ -316,6 +317,12 @@ namespace XFLCSMS.Services
 
             issue.UpdatedOn = DateTime.Now;
             issue.UpdatedBy = editor.FullName;
+        }
+
+        // Empty stays empty (null); anything else is stored without scripts, event handlers and page-breaking styles.
+        private static string? CleanRichText(string? html)
+        {
+            return string.IsNullOrWhiteSpace(html) ? null : HtmlSanitizer.Sanitize(html);
         }
 
         private static string LastSegment(string? path)

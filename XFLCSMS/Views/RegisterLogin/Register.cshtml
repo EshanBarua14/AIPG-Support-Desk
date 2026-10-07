@@ -1,454 +1,142 @@
-﻿
-@model XFLCSMS.Models.Register.RegisterViewModel;
-
+@model XFLCSMS.Models.Register.RegisterViewModel
 @{
-    // ViewData["Title"] = "Register";
-    Layout = null;
-    
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Register";
+    ViewData["CardClass"] = "wide";
+    var houses = Model.Brokerages ?? new List<XFLCSMS.Models.Brocarage.Brokerage>();
+    var branches = Model.Branchhs ?? new List<XFLCSMS.Models.Branch.Branchh>();
+    var chosenHouse = Model.userRegisterRequest?.BrokerageHouseName ?? 0;
+    var chosenBranch = Model.userRegisterRequest?.Branch ?? 0;
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>XFL CSMS | Registration</title>
+<h2>Register an account</h2>
+<p class="lead">For staff of brokerage houses that use XFL systems. We email you a token to activate the account.</p>
 
-    <!-- Google Font: Source Sans Pro -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="~/css/all.min.css">
-    <!-- icheck bootstrap -->
-    <link rel="stylesheet" href="~/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
-    <!-- Theme style -->
-    <link rel="stylesheet" href="~/css/adminlte.min.css">
-    <style>
-        .form-toggle {
-            display: none;
-        }
+<partial name="_Messages" />
 
-            .form-toggle.active {
-                display: inherit;
-            }
-    </style>
-</head>
+<form asp-controller="RegisterLogin" asp-action="Register" method="post" id="form1">
+    <div asp-validation-summary="ModelOnly"></div>
 
-
-<body class="hold-transition register-page">
-
-    <div class="register-box">
-        <!-- Register Logo -->
-        <div class="card card-outline card-primary">
-            <div class="card-header text-center">
-                <a href="~/" class="h1"><b>XFL</b>CSMS</a>
-                <br>
-                <p class="register-box-msg">Register a New Account</p>
-
-
-
-            </div>
-
-            <div class="card-body">
-                <form asp-controller="RegisterLogin" asp-action="Register" method="post" id="form1" class="form-toggle active">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
-                    <div class="card">
-                        <div class="card-body register-card-body">
-                            <p class="register-box-msg"><b>Personal Information</b></p>
-
-                            <div  class="input-group mb-3">
-                                <input asp-for="@Model.userRegisterRequest.FullName" id="fullname" name="userRegisterRequest.FullName" type="text" class="form-control" placeholder="Full Name">
-                                <div  class="input-group-append">
-                                    <div  class="input-group-text">
-                                        <span   class="fas fa-user"></span>
-                                    </div>
-                                </div>
-                                
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.FullName" class="text-danger"></span>
-
-                            <div class="input-group mb-3">
-                                <input asp-for="userRegisterRequest.Email" type="email" id="email" name="userRegisterRequest.Email" class="form-control" placeholder="Email">
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        <span   class="fas fa-envelope"></span>
-                                    </div>
-                                </div>
-                                
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.Email" class="text-danger"></span>
-
-                            <div class="input-group mb-3">
-                                <input asp-for="userRegisterRequest.PhonNumber" id="PhonNumber" name="userRegisterRequest.PhonNumber" type="text" class="form-control" placeholder="Phone Number">
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        <span  class="fa fa-mobile"></span>
-                                    </div>
-                                </div>
-                                
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.PhonNumber" class="text-danger"></span>
-
-
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body register-card-body">
-                            <p class="login-box-msg"><b>Company Information</b></p>
-
-
-                            <div class="input-group mb-3">
-
-                                <select asp-for="userRegisterRequest.BrokerageHouseName" id="brokerageCodes"  name="userRegisterRequest.BrokerageHouseName" class="form-control">
-
-                                        <option value="0">Select Your Organization</option>
-                                        @foreach (var item in Model.Brokerages)
-                                        {
-                                            <option value="@item.BrokerageId" data-acronym="@item.BrokerageHouseAcronym">@item.BrokerageHouseName</option>
-                                        }
-
-                                </select>
-
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        <span  class="fa fa-home"></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.BrokerageHouseName" class="text-danger"></span>
-
-
-                            <div class="input-group mb-3">
-
-                                    <input id="BrokerageHouseAcronym" name="userRegisterRequest.BrokerageHouseAcronym" type="text"
-                                           class="form-control" placeholder=" Acronym" readonly>
-                                
-
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        @if(@Model.Acronyme !=null)
-                                        {
-                                            <span id="Acronym"> @Model.Acronyme </span>
-                                        }
-                                        else
-                                        {
-                                            <span id="Acronym"> </span>
-                                        }
-                                        
-                                    </div>
-                                </div>
-
-                      
-                            </div>
-
-                            @if(Model.Branchhs != null)
-                            {
-
-                                <div class="input-group mb-3">
-                                    <select asp-for="userRegisterRequest.Branch" id="Branch" name="userRegisterRequest.Branch" class="form-control">
-                                        <option value="0">Select Your Branch</option>
-                                        @foreach (var item in Model.Branchhs)
-                                        {
-                                            <option value="@item.BranchId">@item.BranchName</option>
-                                        }
-
-                                    </select>
-                                    <div class="input-group-append">
-                                        <div class="input-group-text">
-                                            <span class="fa fa-building"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <span asp-validation-for="userRegisterRequest.Branch" class="text-danger"></span>
-
-                            }
-                            else
-                            {
-                                <div class="input-group mb-3">
-                                    <select asp-for="userRegisterRequest.Branch" id="Branch" name="userRegisterRequest.Branch" class="form-control">
-                                        <option value="0">Select Your Branch</option>
-                                    </select>
-                                    <div class="input-group-append">
-                                        <div class="input-group-text">
-                                            <span class="fa fa-building"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <span asp-validation-for="userRegisterRequest.Branch" class="text-danger"></span>
-
-                                
-                            }
-
-
-
-
-
-                            @if(Model.Branchhs !=null)
-                            {
-                                <div class="input-group mb-3">
-                                    <input asp-for="userRegisterRequest.EmployeeId" id="EmployeeId" name="userRegisterRequest.EmployeeId" type="text" class="form-control" placeholder="Employee ID">
-                                    <div class="input-group-append">
-                                        <div class="input-group-text">
-                                            <span class="fas fa-id-card"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="input-group mb-3">
-                                    <input asp-for="userRegisterRequest.EmployeeId" id="EmployeeId" name="userRegisterRequest.EmployeeId" type="text" class="form-control" placeholder="Employee ID">
-                                    <div class="input-group-append">
-                                        <div class="input-group-text">
-                                            <span class="fas fa-id-card"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                            }
- 
-                            <span asp-validation-for="userRegisterRequest.EmployeeId" class="text-danger"></span>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-body register-card-body">
-                            <p class="login-box-msg"><b>Account Credentials</b></p>
-
-                            <div class="input-group mb-3">
-                                <input asp-for="userRegisterRequest.UserName" type="text" id="Username" name="userRegisterRequest.UserName" class="form-control" placeholder="User Name">
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        <span class="fas fa-user"></span>
-                                    </div>
-                                </div>
-                                
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.UserName" class="text-danger"></span>
-                            
-
-
-                            <div class="input-group mb-3">
-                                <input asp-for="userRegisterRequest.Password" type="password" class="form-control" id="password" name="userRegisterRequest.Password" aria-describedby="passwordToggle" placeholder="Password">
-                                <button class="btn btn-outline-secondary" type="button" id="passwordToggle" onclick="togglePassword()">Show</button>
-                            </div>
-                            <span asp-validation-for="userRegisterRequest.Password" class="text-danger"></span>
-                            <div class="input-group mb-3">
-                                <input  type="password" class="form-control" id="Confirmpassword" name="userRegisterRequest.ConfirmPassword" aria-describedby="ConfirmpasswordToggle" placeholder="Confirm Password">
-                                <button class="btn btn-outline-secondary" type="button" id="ConfirmpasswordToggle" onclick="ConfirmtogglePassword()">Show</button>
-                            </div>
-                            <span id="passwordMismatchError" class="text-danger" style="display: none;">Passwords do not match.</span>
-                            <span asp-validation-for="userRegisterRequest.ConfirmPassword" class="text-danger"></span>
-
-
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body register-card-body">
-                            <div class="">
-                                <div class="icheck-primary">
-                                    <input asp-for="userRegisterRequest.Terms" id="Terms" type="checkbox" name="userRegisterRequest.Terms">
-                                    <label for="Terms">
-                                        I agree to the <a href="#">terms & conditions</a>
-                                    </label>
-                                </div>
-                                <span asp-validation-for="userRegisterRequest.Terms" class="text-danger"></span>
-                            </div>
-                            <!-- /.col -->
-                            <div class="mb-3">
-                                <button type="submit" class="btn btn-outline-primary btn-block">Register</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-              
-
-                <div align="center">
-                    <a asp-action="Login" class="text-center">I already have a membership</a>
-                </div>
-                <!-- /.col -->
-
-            </div>
-
+    <div class="auth-section">About you</div>
+    <div class="form-grid">
+        <div class="field wide">
+            <label for="fullname">Full name</label>
+            <input class="input" asp-for="userRegisterRequest.FullName" id="fullname" required autocomplete="name">
+            <span asp-validation-for="userRegisterRequest.FullName"></span>
+        </div>
+        <div class="field">
+            <label for="email">Email</label>
+            <input class="input" type="email" asp-for="userRegisterRequest.Email" id="email" required autocomplete="email">
+            <span asp-validation-for="userRegisterRequest.Email"></span>
+        </div>
+        <div class="field">
+            <label for="PhonNumber">Phone</label>
+            <input class="input" type="tel" asp-for="userRegisterRequest.PhonNumber" id="PhonNumber" required pattern="[0-9+\-]+" title="Digits, + and - only" autocomplete="tel">
+            <span asp-validation-for="userRegisterRequest.PhonNumber"></span>
         </div>
     </div>
-    
 
-
-
-    
-
-
-    <!-- jQuery -->
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/js/bootstrap.bundle.min.js"></script>
-    <!-- AdminLTE App -->
-    <script src="~/js/adminlte.min.js"></script>
-    <!-- Password -->
-    <script>
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const passwordToggle = document.getElementById('passwordToggle');
-
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                passwordToggle.textContent = 'Hide';
-            } else {
-                passwordInput.type = 'password';
-                passwordToggle.textContent = 'Show';
-            }
-        }
-
-        function togglePassword2() {
-            const passwordInput = document.getElementById('password2');
-            const passwordToggle = document.getElementById('passwordToggle2');
-
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                passwordToggle.textContent = 'Hide';
-            } else {
-                passwordInput.type = 'password';
-                passwordToggle.textContent = 'Show';
-            }
-        }
-    </script>
-    <!-- Confirm Password -->
-    <script>
-        function ConfirmtogglePassword() {
-            const passwordInput = document.getElementById('Confirmpassword');
-            const passwordToggle = document.getElementById('ConfirmpasswordToggle');
-
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                passwordToggle.textContent = 'Hide';
-            } else {
-                passwordInput.type = 'password';
-                passwordToggle.textContent = 'Show';
-            }
-        }
-
-        function ConfirmtogglePassword2() {
-            const passwordInput = document.getElementById('Confirmpassword2');
-            const passwordToggle = document.getElementById('ConfirmpasswordToggle2');
-
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                passwordToggle.textContent = 'Hide';
-            } else {
-                passwordInput.type = 'password';
-                passwordToggle.textContent = 'Show';
-            }
-        }
-    </script>
-
-    <!--Form Toogle-->
-    <script>
-        function toggleForm(form1) {
-            // Hide all forms
-            document.querySelectorAll('.form-toggle').forEach(form => form.classList.remove('active'));
-
-            // Show the selected form
-            document.getElementById(form1).classList.add('active');
-        }
-    </script>
-
-    <script>
-        function toggleForm(formId) {
-            // Hide all forms
-            document.querySelectorAll('.form-toggle').forEach(form => form.classList.remove('active'));
-
-            // Show the selected form
-            document.getElementById(formId).classList.add('active');
-
-
-        }
-    </script>
-
-    <script>
-        // Get references to the select element and the Acronym span
-        var selectElement = document.getElementById('brokerageCodes');
-        var acronymSpan = document.getElementById('Acronym');
-        var acc = document.getElementById('BrokerageHouseAcronym');
-
-        // Add an event listener to the select element
-        selectElement.addEventListener('change', function () {          
-            // Get the selected option
-            var selectedOption = selectElement.options[selectElement.selectedIndex];
-
-            // Update the Acronym span with the data-acronym attribute of the selected option
-            acronymSpan.textContent = selectedOption.getAttribute('data-acronym');
-            
-            
-            
-        });
-    </script>
-
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-
-
-    <script>
-        $(document).ready(function () {
-            // Handle brokerage dropdown change event
-            $("#brokerageCodes").change(function () {
-                var selectedBrokerageId = $(this).val();
-                var branchDropdown = $("#Branch");
-
-                // Clear existing options
-                branchDropdown.empty();
-
-                // Add the default "Select Your Branch" option
-                branchDropdown.append('<option value="0">Select Your Branch</option>');
-
-                // Fetch branches based on the selected brokerage using AJAX
-                $.ajax({
-                    url: '@Url.Action("GetBranches", "RegisterLogin")',
-                    type: 'GET',
-                    data: { brokerageId: selectedBrokerageId },
-                    dataType: 'json',
-                    success: function (branches) {
-                        // Log fetched branches to the console
-                        console.log('Fetched branches:', branches);
-
-                        // Populate the branch dropdown with fetched branches
-                        $.each(branches, function (index, branch) {
-                            branchDropdown.append('<option value="' + branch.branchId + '">' + branch.branchName + '</option>');
-                        });
-
-                        // Show the branch dropdown
-                        branchDropdown.show();
-                    },
-                    error: function (xhr, status, error) {
-                        console.error('Failed to fetch branches. Status:', status, 'Error:', error);
-                    }
-                });
-            });
-        });
-    </script>
-
-
-    <script>
-        $(document).ready(function () {
-            $('#Confirmpassword').on('keyup', function () {
-                var password = $('#password').val();
-                var confirmPassword = $(this).val();
-                if (password === confirmPassword) {
-                    $('#passwordMismatchError').hide();
-                } else {
-                    $('#passwordMismatchError').show();
+    <div class="auth-section">Where you work</div>
+    <div class="form-grid">
+        <div class="field">
+            <label for="brokerageCodes">Organization</label>
+            <select class="select" name="userRegisterRequest.BrokerageHouseName" id="brokerageCodes" required>
+                <option value="">Choose your brokerage house</option>
+                @foreach (var house in houses)
+                {
+                    <option value="@house.BrokerageId" data-acronym="@house.BrokerageHouseAcronym" selected="@(house.BrokerageId == chosenHouse)">@house.BrokerageHouseName</option>
                 }
+            </select>
+            <span class="hint" id="Acronym">@(string.IsNullOrEmpty(Model.Acronyme) ? "" : "Ticket numbers will start with " + Model.Acronyme)</span>
+            <span asp-validation-for="userRegisterRequest.BrokerageHouseName"></span>
+        </div>
+        <div class="field">
+            <label for="Branch">Branch</label>
+            <select class="select" name="userRegisterRequest.Branch" id="Branch" required>
+                <option value="">@(branches.Count == 0 ? "Choose the organization first" : "Choose your branch")</option>
+                @foreach (var branch in branches)
+                {
+                    <option value="@branch.BranchId" selected="@(branch.BranchId == chosenBranch)">@branch.BranchName</option>
+                }
+            </select>
+            <span asp-validation-for="userRegisterRequest.Branch"></span>
+        </div>
+        <div class="field">
+            <label for="EmployeeId">Employee ID</label>
+            <input class="input" asp-for="userRegisterRequest.EmployeeId" id="EmployeeId" required maxlength="15">
+            <span asp-validation-for="userRegisterRequest.EmployeeId"></span>
+        </div>
+    </div>
+
+    <div class="auth-section">Sign-in details</div>
+    <div class="form-grid">
+        <div class="field wide">
+            <label for="Username">User name</label>
+            <input class="input" asp-for="userRegisterRequest.UserName" id="Username" required minlength="5" maxlength="25" autocomplete="username" autocapitalize="none" spellcheck="false">
+            <span class="hint">5 to 25 characters. You can also sign in with your email.</span>
+            <span asp-validation-for="userRegisterRequest.UserName"></span>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+                <input class="input" type="password" name="userRegisterRequest.Password" id="password" required minlength="6" autocomplete="new-password">
+                <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+            </div>
+            <span class="hint">6 or more characters with a small letter, a capital letter, a digit and one of @@ $ ! % * ? &amp;</span>
+            <span asp-validation-for="userRegisterRequest.Password"></span>
+        </div>
+        <div class="field">
+            <label for="Confirmpassword">Password again</label>
+            <div class="input-wrap">
+                <input class="input" type="password" name="userRegisterRequest.ConfirmPassword" id="Confirmpassword" required data-match="#password" autocomplete="new-password">
+                <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+            </div>
+            <span asp-validation-for="userRegisterRequest.ConfirmPassword"></span>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="check">
+            <input type="checkbox" name="userRegisterRequest.Terms" id="Terms" value="true" required checked="@(Model.userRegisterRequest?.Terms == true)">
+            <span>I agree to the terms and conditions of XFL support.</span>
+        </label>
+        <span asp-validation-for="userRegisterRequest.Terms"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Register</button>
+</form>
+
+<div class="auth-links">
+    <span>Already registered? <a asp-action="Login">Sign in</a></span>
+</div>
+
+@section Scripts {
+    <script>
+        // the branch list depends on the chosen brokerage house
+        (function () {
+            var house = document.getElementById('brokerageCodes');
+            var branch = document.getElementById('Branch');
+            var note = document.getElementById('Acronym');
+            house.addEventListener('change', function () {
+                var option = house.options[house.selectedIndex];
+                var acronym = option ? option.getAttribute('data-acronym') : '';
+                note.textContent = acronym ? 'Ticket numbers will start with ' + acronym : '';
+                branch.innerHTML = '<option value="">' + (house.value ? 'Loading branches...' : 'Choose the organization first') + '</option>';
+                if (!house.value) { return; }
+                fetch('@Url.Action("GetBranches", "RegisterLogin")?brokerageId=' + encodeURIComponent(house.value), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (response) { return response.json(); })
+                    .then(function (branches) {
+                        branch.innerHTML = '<option value="">' + (branches.length ? 'Choose your branch' : 'This organization has no branches yet') + '</option>';
+                        branches.forEach(function (item) {
+                            var entry = document.createElement('option');
+                            entry.value = item.branchId;
+                            entry.textContent = item.branchName;
+                            branch.appendChild(entry);
+                        });
+                    })
+                    .catch(function () {
+                        branch.innerHTML = '<option value="">Could not load the branches. Choose the organization again.</option>';
+                    });
             });
-        });
+        })();
     </script>
-
-
-
-
-
- 
-    
-</body>
-</html>
-
-
+}

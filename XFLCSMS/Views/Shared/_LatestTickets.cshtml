@@ -1,0 +1,35 @@
+@* "Latest tickets" box on the dashboard. *@
+@model List<XFLCSMS.Models.Issue.IssueTable>
+@{
+    var role = Ui.Role(ViewContext);
+}
+<section class="card flush">
+    <div class="card-head">
+        <h2>Latest tickets</h2>
+        <a class="btn btn-sm right" asp-action="@role.TicketList">@(role.IsMaker ? "All my tickets" : "All tickets")</a>
+    </div>
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <icon name="ticket" />
+            <b>No tickets yet</b>
+            @if (role.CanCreateTicket)
+            {
+                <div><a class="btn btn-primary" asp-action="IssueRaiseFrom"><icon name="plus" /> Create ticket</a></div>
+            }
+        </div>
+    }
+    else
+    {
+        <ul class="mini-list">
+            @foreach (var ticket in Model)
+            {
+                <li>
+                    @Ui.Sym(ticket.TNumber)
+                    <a class="t-title" asp-action="TicketView" asp-route-id="@ticket.IssueId">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a>
+                    @Ui.StatusPill(ticket.IStatus)
+                </li>
+            }
+        </ul>
+    }
+</section>

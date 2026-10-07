@@ -1,0 +1,22 @@
+@* Search box + rows-per-page above a list. ViewData["SearchHint"] is the placeholder text. *@
+@{
+    XFLCSMS.Models.Common.Pager pager = ViewBag.pager ?? new XFLCSMS.Models.Common.Pager(0, 1);
+    int[] sizes = { 5, 10, 20, 50, 100 };
+    var hint = ViewData["SearchHint"] as string ?? "Search";
+}
+<div class="toolbar">
+    <div class="input-wrap">
+        <icon name="search" />
+        <input class="input" type="search" data-list-search value="@pager.SearchString" placeholder="@hint" aria-label="@hint" autocomplete="off">
+    </div>
+    <span class="spacer"></span>
+    <label>
+        Rows
+        <select class="select select-sm" data-list-size aria-label="Rows per page">
+            @foreach (var size in sizes)
+            {
+                <option value="@size" selected="@(size == pager.PageSize)">@size</option>
+            }
+        </select>
+    </label>
+</div>

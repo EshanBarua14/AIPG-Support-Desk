@@ -1,0 +1,8 @@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    ViewData["Title"] = "Unassigned";
+    ViewData["ListSub"] = (Ui.Role(ViewContext).IsMaker ? "Your tickets that are still waiting for a support engineer." : "Tickets waiting for a support engineer. Open one and choose who takes it.");
+    ViewData["ListAction"] = "UnassignedTicketList";
+    ViewData["EmptyText"] = "No tickets are waiting for an engineer";
+}
+<partial name="_TicketList" />

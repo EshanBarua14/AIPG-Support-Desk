@@ -1,0 +1,43 @@
+@* Frame of the pages before sign-in: brand panel on the left, the form on the right. *@
+@{
+    var title = ViewData["Title"] as string;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@(string.IsNullOrEmpty(title) ? "XFL CSMS" : title + " - XFL CSMS")</title>
+    <meta name="app-base" content="@Url.Content("~/")">
+    <meta name="icon-sprite" content="@Url.Content("~/img/icons.svg")?v=@IconTagHelper.SpriteVersion">
+    <partial name="_Theme" />
+    <link rel="icon" href="~/favicon.ico">
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+</head>
+<body>
+    <div class="auth">
+        <aside class="auth-brand">
+            <div class="globe" aria-hidden="true"></div>
+            <a class="mark" asp-controller="RegisterLogin" asp-action="Login">
+                <img src="~/img/XFLlogo.png" alt="" width="44" height="44">
+                <span><b>XFL CSMS</b><span>Customer Support Management System</span></span>
+            </a>
+            <h1>Support for the brokerage houses running on XFL.</h1>
+            <p>Raise a ticket, follow who is working on it, and see it through to closed.</p>
+            <div class="xfl">Xpert Fintech Limited</div>
+        </aside>
+
+        <main class="auth-main">
+            <div class="auth-card @ViewData["CardClass"]">
+                <a class="auth-mark-s" asp-controller="RegisterLogin" asp-action="Login">
+                    <img src="~/img/XFLlogo.png" alt="" width="38" height="38"><b>XFL CSMS</b>
+                </a>
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+
+    <script src="~/js/app.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,137 +1,66 @@
-﻿@model IEnumerable<XFLCSMS.Models.Affected.AffectedSection>
+@model IEnumerable<XFLCSMS.Models.Affected.AffectedSection>
+@{
+    ViewData["Title"] = "Affected sections";
+    var rows = Model.ToList();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Affected sections</h1>
+        <p class="page-sub">The part of the system a ticket is about.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="CreateAffectedSection"><icon name="plus" /> New affected section</a>
+    </div>
+</header>
 
-<h1>Affected Section List</h1>
-
-<!-- Main content -->
-<section class="content">
-
-    <!-- Default box -->
-    <div class="card">
-        <div class="card-header">
-            <div class="card-tools">
-                <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button type="button" class="btn btn-tool" data-card-widget="remove" title="Remove">
-                    <i class="fas fa-times"></i>
-                </button>
+<div class="card flush">
+    @if (rows.Count == 0)
+    {
+        <div class="empty">
+            <icon name="layers" />
+            <b>No affected sections yet</b>
+            <div><a class="btn btn-primary" asp-action="CreateAffectedSection"><icon name="plus" /> New affected section</a></div>
+        </div>
+    }
+    else
+    {
+        <div class="toolbar">
+            <div class="input-wrap">
+                <icon name="search" />
+                <input class="input" type="search" data-filter="#issuesTable" data-count="#shownCount" placeholder="Filter affected sections" aria-label="Filter affected sections" autocomplete="off">
             </div>
+            <span class="spacer"></span>
+            <span class="muted small num"><span id="shownCount">@rows.Count</span> of <span data-total>@rows.Count</span></span>
         </div>
-        <div class="card-body">
-            <a class="btn btn-outline-success" asp-controller="Admin" asp-action="CreateAffectedSection">
-                <i class="fas fa-plus"></i> Create
-            </a>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-striped projects" id="issuesTable">
+        <div class="table-wrap">
+            <table class="table" id="issuesTable">
                 <thead>
                     <tr>
-                        <th style="width:10%">
-                            Affected Section ID
-                        </th>
-                        <th style="width: 30%">
-                            Affected Section Name
-                        </th>
-
-                        <th style="width: 30%; text-align: center;">
-                            Modify
-                        </th>
-
-
+                        <th scope="col" class="t-id">ID</th>
+                    <th scope="col">Name</th>
+                        <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
-
                 <tbody>
-                    @foreach (var item in Model)
+                    @foreach (var item in rows)
                     {
-
-
                         <tr id="row-@item.AffectedSectionId">
-                            <!-- Your table cells -->
-                            <td>@Html.DisplayFor(modelItem => @item.AffectedSectionId)</td>
-                            <td>@Html.DisplayFor(modelItem => item.ASection)</td>
-
-                            <td class="project-actions text-right">
-                                <a class="btn btn-outline-primary btn-sm" asp-controller="Admin" asp-action="ViewAffectedSection" asp-route-id="@item.AffectedSectionId">
-                                    <i class="fas fa-folder"></i> View
-                                </a>
-                                <a class="btn btn-outline-info btn-sm" asp-controller="Admin" asp-action="EditAffectedSection" asp-route-id="@item.AffectedSectionId">
-                                    <i class="fas fa-pencil-alt"></i> Edit
-                                </a>
-                                <a class="btn btn-outline-danger btn-sm" href="#" data-issue-id="@item.AffectedSectionId">
-                                    <i class="fas fa-trash-alt"></i>
-                                    Delete
-                                </a>
+                            <td class="t-id">@item.AffectedSectionId</td>
+                        <td class="c-title"><span class="t-title">@item.ASection</span></td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="ViewAffectedSection" asp-route-id="@item.AffectedSectionId" title="View" aria-label="View @item.ASection"><icon name="eye" /></a>
+                                <a class="btn btn-icon btn-sm" asp-action="EditAffectedSection" asp-route-id="@item.AffectedSectionId" title="Edit" aria-label="Edit @item.ASection"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.ASection"
+                                        data-delete data-url="@Url.Action("DeleteAffectedSection", new { id = item.AffectedSectionId })"
+                                        data-confirm="Delete @item.ASection?" data-confirm-text="A section that tickets use cannot be deleted." data-issue-id="@item.AffectedSectionId">
+                                    <icon name="trash-2" />
+                                </button>
                             </td>
                         </tr>
-                        <!-- Additional rows go here -->
                     }
-
-
+                    <tr data-empty hidden><td colspan="3" class="muted">Nothing matches the filter.</td></tr>
                 </tbody>
             </table>
         </div>
-        <!-- /.card-body -->
-    </div>
-    <!-- /.card -->
-
-</section>
-            <!-- /.content -->
-       
-<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-
-    <!-- Your JavaScript/jQuery code -->
-      <script>
-    [document].forEach(function (root) {
-            root.addEventListener('click', function (event) {
-                var button = event.target.closest('.btn-outline-danger[data-issue-id]');
-                if (!button) { return; }
-                event.preventDefault();
-
-                var issueId = button.getAttribute('data-issue-id');
-                var rowToDelete = button.closest('tr');
-
-                // Show confirmation dialog
-                var isConfirmed = confirm('Are you sure you want to delete this item?');
-
-                if (isConfirmed) {
-                    // Perform the DELETE request using JavaScript
-                    fetch(`/Admin/DeleteAffectedSection/${issueId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                            // Add any additional headers as needed, e.g., for CSRF protection
-                        }
-                    })
-                        .then(response => {
-                            if (response.ok) {
-                                // Remove the deleted row from the table
-                                rowToDelete.remove();
-                            } else {
-                                // Handle errors, e.g., show an error message
-                                response.text().then(function (message) {
-                                    alert(message || ('Delete failed: ' + response.statusText));
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                        });
-                }
-            });
-        });
-    </script>
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
     }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-
+</div>

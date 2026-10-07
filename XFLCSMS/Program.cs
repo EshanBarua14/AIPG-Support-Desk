@@ -14,6 +14,12 @@ builder.Services.AddControllersWithViews(options =>
     // reference property (navigation collections, Designation, Department, ...) is treated
     // as [Required] by model binding, so ModelState.IsValid can never be true for most forms.
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+
+    // Every POST / PUT / DELETE must carry the anti-forgery token: forms get it from the <form> tag helper,
+    // fetch() calls send it as a header (see wwwroot/js/app.js). Another site can then no longer make a
+    // signed-in user's browser delete a ticket or change a password.
+    options.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute());
+    options.Filters.Add(new XFLCSMS.Infrastructure.AntiforgeryFailureFilter());
 });
 
 builder.Services.AddDistributedMemoryCache();
@@ -64,6 +70,9 @@ app.Use(async (context, next) =>
 });
 
 app.UseStaticFiles();
+
+// A bare 404 (ticket not found, wrong address) gets a readable page instead of an empty browser tab.
+app.UseStatusCodePagesWithReExecute("/Home/Status/{0}");
 
 app.UseRouting();
 

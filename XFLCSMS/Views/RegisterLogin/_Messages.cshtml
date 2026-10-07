@@ -1,0 +1,13 @@
+@* Messages on the pages before sign-in: an error from this request, or a note carried over from the previous page. *@
+@if (ViewBag.Message != null)
+{
+    <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@ViewBag.Message</span></div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@TempData["ErrorMessage"]</span></div>
+}
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success" role="status"><icon name="check" /><span>@TempData["Message"]</span></div>
+}

@@ -1,0 +1,11 @@
+@* Sets light/dark before the page is drawn (no flash). The choice is kept per browser; without one the system setting decides. *@
+<script>
+    (function () {
+        var theme = null;
+        try { theme = localStorage.getItem('csms-theme'); } catch (e) { }
+        if (theme !== 'light' && theme !== 'dark') {
+            theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+</script>

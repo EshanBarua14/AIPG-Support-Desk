@@ -1,105 +1,69 @@
-﻿@model XFLCSMS.Models.Todos.TodoReportView;
+@* Result of the to-do reports (loaded into the report page, and what gets printed). *@
+@model XFLCSMS.Models.Todos.TodoReportView
 @{
-   int i=1;
+    var info = Model.TodoHederInfo ?? new XFLCSMS.Models.Todos.TodoHederInfo();
+    var todos = Model.Todos?.OrderByDescending(todo => todo.Id).ToList() ?? new List<XFLCSMS.Models.Todos.Todo>();
+    var showOwner = todos.Any(todo => todo.User != null);
+    var number = 1;
 }
-
-<section class="content">
-    <div class="container">
-        <div class="section">
-            <div class="row mt-3">
-                <div class="col-md-12 text-center">
-                    <h2><b> @Model.TodoHederInfo.ReportName To-Do Report</b></h2>
-                </div>
-                <div class="col-md-12 text-right">
-                    @* <p>Date: @DateTime.Now +(@DateTime.Now.TimeOfDay)</p> *@
-                    <p>
-                        Date: @{
-                            var now = DateTime.Now;
-                        }@(now.Date.ToShortDateString() + " ( " + now.ToShortTimeString()) )
-                    </p>
-
-
-
-                </div>
-
-            </div>
+<section class="card flush">
+    <div class="card-head">
+        <div>
+            <h2>@info.ReportName to-do report</h2>
+            <span class="sub">Created @Ui.Stamp(DateTime.Now)</span>
         </div>
-        <div class="section">
-            <div class="row ml-3">
-                <div class="col-6" id="section1">
-                    <!-- Column 1 -->
-
-                    <p style="font-size: 16px; font-family: Arial;">    <b>Brokerage House Name: </b>  <span id="brokerageHouseNamePlaceholder"> @Model.TodoHederInfo.BrokerageHouseName</span></p>
-                    <p style="font-size: 16px; font-family: Arial;">   <b>Employee Name: </b>  <span id="employeeNamePlaceholder">@Model.TodoHederInfo.EmployeeName</span></p>
-                    <p style="font-size: 16px; font-family: Arial;">  <b>Total To-Dos: </b>   <span id="totalTicketPlaceholder">@Model.TodoHederInfo.TotalTodo</span></p>
-                </div>
-
-                <div class="col-6" id="section2">
-                    <!-- Column 2 -->
-
-                    <p> <span style="font-size: 16px; font-family: Arial;"> <b>Total In-Progress To-Dos: </b> </span> <span id="totalOpenReportsPlaceholder">@Model.TodoHederInfo.TotalInprogress</span></p>
-                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total Completed To-Dos: </b> </span> <span id="totalClosedReportsPlaceholder">@Model.TodoHederInfo.TotalCompleteTodo</span></p>
-                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total Canceled To-Dos: </b> </span> <span id="totalInQueueReportsPlaceholder">@Model.TodoHederInfo.TotalCanseled</span></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Section 3: Search Results -->
-@*         <div class="section ml-3" id="section3">
-            <h4> <b>Search Results:</b></h4>
-            <div id="searchResultsPlaceholder"></div>
-        </div> *@
     </div>
-</section>
-<!-- Main content -->
-<section class="content">
+    <div class="card-body">
+        <div class="queue-side" style="margin: 0">
+            <div class="kpi"><span class="fig num" id="totalTicketPlaceholder">@(info.TotalTodo ?? todos.Count)</span><span>to-dos</span></div>
+            <div class="kpi"><span class="fig num" id="totalOpenReportsPlaceholder">@(info.TotalInprogress ?? 0)</span><span>in progress</span></div>
+            <div class="kpi"><span class="fig num" id="totalClosedReportsPlaceholder">@(info.TotalCompleteTodo ?? 0)</span><span>done</span></div>
+            <div class="kpi"><span class="fig num" id="totalInQueueReportsPlaceholder">@(info.TotalCanseled ?? 0)</span><span>canceled</span></div>
+        </div>
+        <dl class="facts" style="margin-top: 16px; max-width: 520px">
+            <dt>Brokerage house</dt>
+            <dd id="brokerageHouseNamePlaceholder">@(string.IsNullOrEmpty(info.BrokerageHouseName) ? "All" : info.BrokerageHouseName)</dd>
+            <dt>User</dt>
+            <dd id="employeeNamePlaceholder">@(string.IsNullOrEmpty(info.EmployeeName) ? "All" : info.EmployeeName)</dd>
+        </dl>
+    </div>
 
-
-    <!-- Default box -->
-    <div class="card">
-
-        <div class="card-body p-0">
-            <table class="table table-striped projects" id="issuesTable">
+    @if (todos.Count == 0)
+    {
+        <div class="empty" style="border-top: 1px solid var(--line)"><icon name="list-checks" /><b>No to-dos match these filters</b><span>Widen the dates or clear a filter and run the report again.</span></div>
+    }
+    else
+    {
+        <div class="table-wrap" style="border-top: 1px solid var(--line)">
+            <table class="table" id="issuesTable">
                 <thead>
                     <tr>
-                        <th style="font-size: 16px; font-family: Arial;">
-                            #SL
-                        </th>
-                        <th style="font-size: 16px; font-family: Arial;">To-Do Name</th>
-                        <th style="font-size: 16px; font-family: Arial;">Created On</th>
-                        <th style="font-size: 16px; font-family: Arial;">Status</th>
-                        
+                        <th scope="col" class="t-id">No.</th>
+                        <th scope="col">To-do</th>
+                        @if (showOwner)
+                        {
+                            <th scope="col">Owner</th>
+                        }
+                        <th scope="col">Added</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var item in Model.Todos)
+                    @foreach (var item in todos)
                     {
                         <tr>
-                           
-                            <td style="font-size: 14px; font-family: Arial;">@i</td>
-                            <td style="font-size: 14px; font-family: Arial;">
-                                <a>
-                                    <b>@item.Todoname</b>
-                                </a>
-                            </td>
-                            <td style="font-size: 14px; font-family: Arial;">@item.CreatedOn.ToString("yyyy-MM-dd")</td>
-
-                            <td style="font-size: 14px; font-family: Arial;">@item.Status</td>
-                          
+                            <td class="t-id">@(number++)</td>
+                            <td><span class="t-title" style="max-width: 70ch; white-space: normal">@item.Todoname</span></td>
+                            @if (showOwner)
+                            {
+                                <td>@(item.User?.FullName)</td>
+                            }
+                            <td class="nowrap num">@Ui.Date(item.CreatedOn)</td>
+                            <td>@Ui.TodoPill(item.Status)</td>
                         </tr>
-                        i++;
                     }
                 </tbody>
             </table>
         </div>
-        <!-- /.card-body -->
-    </div>
-    <!-- /.card -->
-
+    }
 </section>
-
-
-
-
-
-

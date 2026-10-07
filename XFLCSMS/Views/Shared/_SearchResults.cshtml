@@ -1,139 +1,75 @@
-﻿@model XFLCSMS.Models.Admin.ReportView;
-
-<section class="content">
-    <div class="container">
-<div class="section">
-    <div class="row mt-3">
-        <div class="col-md-12 text-center">
-            <h2><b> @Model.HeaderInfo.ReportName Results</b></h2>
-        </div>
-        <div class="col-md-12 text-right">
-            @* <p>Date: @DateTime.Now +(@DateTime.Now.TimeOfDay)</p> *@
-                    <p>Date: @{
-                            var now = DateTime.Now;
-                        }@(now.Date.ToShortDateString() + " ( " + now.ToShortTimeString()) )
-                    </p>
-
-
-
+@* Result of the ticket report (loaded into the report page, and what gets printed). *@
+@model XFLCSMS.Models.Admin.ReportView
+@{
+    var info = Model.HeaderInfo ?? new XFLCSMS.Models.Admin.HeaderInfo();
+    var issues = Model.Issues?.OrderByDescending(issue => issue.IssueId).ToList() ?? new List<XFLCSMS.Models.Issue.IssueTable>();
+    var total = info.TotalTicket ?? issues.Count;
+    var open = info.TotalOpenTicket ?? 0;
+    var closed = info.TotalCloseTicket ?? 0;
+    var other = info.TotalInque ?? 0;
+}
+<section class="card flush">
+    <div class="card-head">
+        <div>
+            <h2>@info.ReportName ticket report</h2>
+            <span class="sub">Created @Ui.Stamp(DateTime.Now)</span>
         </div>
     </div>
-</div>
-            <div class="section">
-            <div class="row ml-3">
-                <div class="col-6" id="section1">
-                    <!-- Column 1 -->
-                    
-                    <p style="font-size: 16px; font-family: Arial;">    <b>Brokerage House Name: </b>  <span id="brokerageHouseNamePlaceholder"> @Model.HeaderInfo.BrokerageHouseName</span></p>
-                    <p style="font-size: 16px; font-family: Arial;">   <b>Employee Name: </b>  <span id="employeeNamePlaceholder">@Model.HeaderInfo.EmployeeName</span></p>
-                    <p style="font-size: 16px; font-family: Arial;">  <b>Total  Tickets: </b>   <span id="totalTicketPlaceholder">@Model.HeaderInfo.TotalTicket</span></p>
-                </div>
-
-                <div class="col-6" id="section2">
-                    <!-- Column 2 -->
-                   
-                    <p> <span style="font-size: 16px; font-family: Arial;"> <b>Total Open Tickets: </b> </span> <span id="totalOpenReportsPlaceholder">@Model.HeaderInfo.TotalOpenTicket</span></p>
-                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total Closed Tickets: </b> </span> <span id="totalClosedReportsPlaceholder">@Model.HeaderInfo.TotalCloseTicket</span></p>
-                    <p><span style="font-size: 16px; font-family: Arial;"> <b>Total In-Queue Tickets: </b> </span> <span id="totalInQueueReportsPlaceholder">@Model.HeaderInfo.TotalInque</span></p>
-                </div>
-            </div>
+    <div class="card-body">
+        <div class="queue-side" style="margin: 0">
+            <div class="kpi"><span class="fig num" id="totalTicketPlaceholder">@total</span><span>tickets</span></div>
+            <div class="kpi"><span class="fig num" id="totalOpenReportsPlaceholder">@open</span><span>open</span></div>
+            <div class="kpi"><span class="fig num" id="totalInQueueReportsPlaceholder">@other</span><span>in queue or in progress</span></div>
+            <div class="kpi"><span class="fig num" id="totalClosedReportsPlaceholder">@closed</span><span>closed</span></div>
         </div>
-
-        <!-- Section 3: Search Results -->
-        <div class="section ml-3" id="section3">
-            <h4> <b>Search Results:</b></h4>
-            <div id="searchResultsPlaceholder"></div>
-        </div>
+        <dl class="facts" style="margin-top: 16px; max-width: 520px">
+            <dt>Brokerage house</dt>
+            <dd id="brokerageHouseNamePlaceholder">@(string.IsNullOrEmpty(info.BrokerageHouseName) ? "All" : info.BrokerageHouseName)</dd>
+            <dt>Employee</dt>
+            <dd id="employeeNamePlaceholder">@(string.IsNullOrEmpty(info.EmployeeName) ? "All" : info.EmployeeName)</dd>
+        </dl>
     </div>
-</section>
-<!-- Main content -->
-<section class="content">
 
-
-    <!-- Default box -->
-    <div class="card">
-
-        <div class="card-body p-0">
-            <table class="table table-striped projects" id="issuesTable">
+    @if (issues.Count == 0)
+    {
+        <div class="empty" style="border-top: 1px solid var(--line)"><icon name="inbox" /><b>No tickets match these filters</b><span>Widen the dates or clear a filter and run the report again.</span></div>
+    }
+    else
+    {
+        <div class="table-wrap" style="border-top: 1px solid var(--line)">
+            <table class="table tickets" id="issuesTable">
                 <thead>
                     <tr>
-
-                        <th style="font-size: 16px; font-family: Arial;">Ticket No.</th>
-                        <th style="font-size: 16px; font-family: Arial;">Tickets</th>
-                        <th style="font-size: 16px; font-family: Arial;">Approval Status</th>
-                        <th style="font-size: 16px; font-family: Arial;">Priority</th>
-                        <th style="font-size: 16px; font-family: Arial;">Status</th>
-                       
-
+                        <th scope="col">Ticket</th>
+                        <th scope="col">Title</th>
+                        <th scope="col">Raised</th>
+                        <th scope="col">Assigned to</th>
+                        <th scope="col">Closed by</th>
+                        <th scope="col">Priority</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
-
                 <tbody>
-                    @foreach (var item in Model.Issues)
+                    @foreach (var item in issues)
                     {
                         <tr>
-                            <td style="font-size: 14px; font-family: Arial;">@Html.DisplayFor(modelItem => item.TNumber)</td>
-                            <td style="font-size: 14px; font-family: Arial;">
-                                <a>
-                                    <b>@Html.DisplayFor(modelItem => item.ITitle)</b>
-                                </a>
-                                <br />
-                                <small>
-                                    <b>Created on:</b> @Html.DisplayFor(modelItem => item.TDate)<br/>
-                                    <b>Updated On:</b> @Html.DisplayFor(modelItem => item.UpdatedOn)<br />
-                                    <b>Updated By:</b> @Html.DisplayFor(modelItem => item.UpdatedBy)
-
-                                </small>
-                            </td>
-
-                            <td>
-
-                                @if (item.AssignBy != null)
+                            <td class="tick p-@Ui.PriorityKey(item.Priority)" data-export="@item.TNumber">@Ui.Sym(item.TNumber)</td>
+                            <td class="c-title" data-export="@item.ITitle">
+                                <span class="t-title">@(string.IsNullOrWhiteSpace(item.ITitle) ? "(no title)" : item.ITitle)</span>
+                                @if (item.UpdatedOn.HasValue)
                                 {
-                                    <small>
-                                        <b>Assigned on:</b> @Html.DisplayFor(modelItem => item.AssignOn)
-                                        <br><b>Assigned To:</b> @Html.DisplayFor(modelItem => item.AssignBy)
-                                        <br><b>Closed By:</b> @Html.DisplayFor(modelItem => item.ClosedBy)
-                                    </small>
-                                }
-                                else
-                                {
-                                    <b class="blinking-text" style="color: red; visibility: visible;">
-                                        Unassigned
-                                    </b>
+                                    <span class="t-meta">Edited @Ui.Stamp(item.UpdatedOn)@(string.IsNullOrEmpty(item.UpdatedBy) ? "" : " by " + item.UpdatedBy)</span>
                                 }
                             </td>
-                            <td style="font-size: 14px; font-family: Arial;">@Html.DisplayFor(modelItem => item.Priority)</td>
-                            <td class="project-state" style="font-size: 14px; font-family: Arial;">
-                                <span > @DisplayText.Status(item.IStatus)</span>
-                            </td>
+                            <td class="nowrap num">@Ui.Date(item.TDate)</td>
+                            <td class="c-who">@(string.IsNullOrEmpty(item.AssignBy) ? "Unassigned" : item.AssignBy)</td>
+                            <td>@item.ClosedBy</td>
+                            <td>@Ui.PriorityPill(item.Priority)</td>
+                            <td>@Ui.StatusPill(item.IStatus)</td>
                         </tr>
-
                     }
-
-
                 </tbody>
             </table>
         </div>
-        <!-- /.card-body -->
-    </div>
-    <!-- /.card -->
-
+    }
 </section>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var blinkingElements = document.querySelectorAll('.blinking-text');
-
-        blinkingElements.forEach(function (element) {
-            setInterval(function () {
-                element.style.visibility = (element.style.visibility === 'hidden') ? 'visible' : 'hidden';
-            }, 800); // Toggle visibility every 1000 milliseconds (1 second)
-        });
-    });
-</script>
-
-
-
-
-

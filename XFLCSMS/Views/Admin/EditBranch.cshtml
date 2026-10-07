@@ -1,74 +1,34 @@
-﻿@model XFLCSMS.Models.Branch.BranchView;
+@model XFLCSMS.Models.Branch.BranchView
+@{
+    ViewData["Title"] = "Edit branch";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="BranchList"><icon name="arrow-left" /> Branches</a>
 
-
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form asp-controller="Admin" asp-action="UpdateBranch" method="post">
-                        <div class="card-body">
-                            <div asp-validation-summary="All" class="text-danger"></div>
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Branch ID</label>
-                                <input type="text" asp-for="@Model.BranchId" value="@Model.BranchId" class="form-control" id="exampleInputEmail1" placeholder="Branch ID" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Branch Name</label>
-                                <input type="text" asp-for="@Model.BranchName" value="@Model.BranchName" class="form-control" id="exampleInputEmail1" placeholder="Branch Name">
-                            </div>
-
-                            <div class="form-group">
-                                <label asp-for="@Model.BrokerageHouseName" class="control-label"></label>
-                                <input type="text" class="form-control" asp-for="@Model.BrokerageHouseName" value="@Model.BrokerageHouseName" id="exampleInputEmail1" placeholder="Brokerage House Name" readonly>  
-                                            
-                                          
-                            </div>
-
-                            <div class="form-group">
-                                <input type="submit" value="Update User" class="btn btn-primary" />
-                            </div>
-
-
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-            <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-        <!-- /.card-body -->
-
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Edit branch</h1>
     </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
-</section>
-            <!-- /.content -->
-       
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
+<form class="card" asp-action="UpdateBranch" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <input type="hidden" asp-for="BranchId">
+        <div class="field">
+            <label asp-for="BranchName">Branch name</label>
+            <input class="input" asp-for="BranchName" placeholder="For example: Motijheel" autocomplete="off" required>
+            <span class="hint">Letters, spaces and dots.</span>
+            <span asp-validation-for="BranchName"></span>
+        </div>
+        <div class="field">
+            <label asp-for="BrokerageHouseName">Brokerage house</label>
+            <input class="input" asp-for="BrokerageHouseName" readonly>
+            <span class="hint">A branch stays with its house. To move it, delete it and create it under the other house.</span>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="BranchList">Cancel</a>
+    </div>
+</form>

@@ -1,0 +1,39 @@
+@*
+    "1-10 of 42" + page buttons under a list. Needs ViewBag.pager, ViewData["ListAction"] and ViewData["ShownCount"].
+    The links carry search, page size and sort order, so paging keeps all three.
+*@
+@{
+    XFLCSMS.Models.Common.Pager pager = ViewBag.pager ?? new XFLCSMS.Models.Common.Pager(0, 1);
+    var action = ViewData["ListAction"] as string;
+    string? sortField = ViewBag.CurrentSortField;
+    bool ascending = ViewBag.CurrentSortAscending ?? true;
+    var shown = ViewData["ShownCount"] is int count ? count : 0;
+    var from = shown == 0 ? 0 : pager.SerialStart;
+    var to = shown == 0 ? 0 : pager.SerialStart + shown - 1;
+    Func<int, string?> link = number => Url.Action(action, new { page = number, rowperpage = pager.PageSize, searchString = pager.SearchString, sortField, sortAscending = ascending });
+    var first = pager.CurrentPage <= 1;
+    var last = pager.CurrentPage >= pager.TotalPages;
+}
+<div class="pager">
+    <span class="num">@from&ndash;@to of @pager.TotalRecord</span>
+    @if (pager.TotalPages > 1)
+    {
+        <nav class="pager-pages" aria-label="Pages">
+            <a data-list-link class="@(first ? "off" : "")" href="@link(1)" aria-label="First page" title="First page"><icon name="chevrons-left" /></a>
+            <a data-list-link class="@(first ? "off" : "")" href="@link(pager.Previous)" aria-label="Previous page" title="Previous page"><icon name="chevron-left" /></a>
+            @for (var number = pager.StartButton; number <= pager.StopButton; number++)
+            {
+                if (number == pager.CurrentPage)
+                {
+                    <span class="current" aria-current="page">@number</span>
+                }
+                else
+                {
+                    <a data-list-link href="@link(number)" aria-label="Page @number">@number</a>
+                }
+            }
+            <a data-list-link class="@(last ? "off" : "")" href="@link(pager.Next)" aria-label="Next page" title="Next page"><icon name="chevron-right" /></a>
+            <a data-list-link class="@(last ? "off" : "")" href="@link(pager.LastPage)" aria-label="Last page" title="Last page"><icon name="chevrons-right" /></a>
+        </nav>
+    }
+</div>

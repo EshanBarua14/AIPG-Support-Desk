@@ -1,0 +1,8 @@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    ViewData["Title"] = "All tickets";
+    ViewData["ListSub"] = "Every ticket raised by any brokerage house, newest first.";
+    ViewData["ListAction"] = "AllTicketList";
+    ViewData["EmptyText"] = "No tickets have been raised yet";
+}
+<partial name="_TicketList" />

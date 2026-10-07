@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -32,106 +32,13 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("SMData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                // Total Ticket
-                int TotalInTicket = _context.Issues.Count();
-                int TotalInclosed = _context.Issues.Count(i => i.IStatus == "Close");
-                int TotalInQueue = TotalInTicket - TotalInclosed;
-                //Today
-                int TodayTotal = _context.Issues.Count(i => i.TDate.Date == DateTime.Now.Date);
-                int TodayClose = _context.Issues.Count(i => (i.TDate.Date == DateTime.Now.Date) && (i.IStatus == "Close"));
-                int TodayQueue = TodayTotal - TodayClose;
-                //Week
-                DateTime lastWeekStartDate = DateTime.Now.Date.AddDays(-7);
-                int LastWeekTotal = _context.Issues.Count(i => i.TDate.Date >= lastWeekStartDate && i.TDate.Date <= DateTime.Now.Date);
-                int LastWeekClosed = _context.Issues.Count(i => i.TDate.Date >= lastWeekStartDate && i.TDate.Date <= DateTime.Now.Date && i.IStatus == "Close");
-                int lastWeekQueue = LastWeekTotal - LastWeekClosed;
-
-                // Last month's total issues
-                DateTime lastMonthStartDate = DateTime.Now.Date.AddMonths(-1);
-                int LastMonthTotal = _context.Issues.Count(i => i.TDate.Date >= lastMonthStartDate && i.TDate.Date <= DateTime.Now.Date);
-                int LastMonthClosed = _context.Issues.Count(i => i.TDate.Date >= lastMonthStartDate && i.TDate.Date <= DateTime.Now.Date && i.IStatus == "Close");
-                int LastMonthQueue = LastMonthTotal - LastMonthClosed;
-
-                // Last year's total issues
-                DateTime lastYearStartDate = DateTime.Now.Date.AddYears(-1);
-                int LastYearTotal = _context.Issues.Count(i => i.TDate.Date >= lastYearStartDate && i.TDate.Date <= DateTime.Now.Date);
-                int LastYearClosed = _context.Issues.Count(i => i.TDate.Date >= lastYearStartDate && i.TDate.Date <= DateTime.Now.Date && i.IStatus == "Close");
-                int LastYearQueue = LastYearTotal - LastYearClosed;
-
-                ///for Brocarage Chart
-                ///
-                var brokerages = _context.Brokerages.Include(b => b.Issues).ToList();
-
-                var chartData = new
-                {
-                    labels = brokerages.Select(b => b.BrokerageHouseName),
-                    datasets = new[]
-                    {
-                new
-                {
-                    label = "Total Tickets",
-                    data = brokerages.Select(b => b.Issues.Count),
-                    backgroundColor = "rgba(75, 192, 192, 0.2)",
-                    borderColor = "rgba(75, 192, 192, 1)",
-                    borderWidth = 1
-                },
-                new
-                {
-                    label = "Close Tickets",
-                    data = brokerages.Select(b => b.Issues.Count(I=>I.IStatus=="Close")),
-                    backgroundColor = "rgba(0, 255, 0, 0.2)",
-                    borderColor = "rgba(0, 255, 0, 1)",
-                    borderWidth = 1
-                },
-                new
-                {
-                    label = "Inqueue Tickets",
-                    data = brokerages.Select(b => b.Issues.Count(I=>I.IStatus!="Close")),
-                    backgroundColor = "rgba(75, 192, 192, 0.2)",
-                    borderColor = "rgba(255, 206, 86, 1)",
-                    borderWidth = 1
-                },
-                // Repeat the structure for "In Queue" and "Closed Tickets" using relevant data
-            }
-                };
-
-
-
-
-                var TicketCount = new Dashboard
-                {
-                    TotalTicket = TotalInTicket,
-                    TotalClosed = TotalInclosed,
-                    TotalQueue = TotalInQueue,
-                    TodayTotalTicket = TodayTotal,
-                    TodayTotalClosed = TodayClose,
-                    TodayTotalQueue = TodayQueue,
-                    WeeklyTotalTicket = LastWeekTotal,
-                    WeeklyTotalClosed = LastWeekClosed,
-                    WeeklyTotalQueue = lastWeekQueue,
-                    MonthlyTotalTicket = LastMonthTotal,
-                    MonthlyTotalClosed = LastMonthClosed,
-                    MonthlyTotalQueue = LastMonthQueue,
-                    YearlyTotalTicket = LastYearTotal,
-                    YearlyTotalClosed = LastYearClosed,
-                    YearlyTotalQueue = LastYearQueue,
-                    ChartData = chartData
-
-
-                };
-                return View(TicketCount);
+                return View(await BuildDashboardAsync(includeHouses: true));
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
-
-
-
 
         public async Task<IActionResult> AllTicketList(int page, int rowperpage, string? searchString = null, string?
             sortField = null, bool sortAscending = true)
@@ -223,7 +130,7 @@ namespace XFLCSMS.Controllers
                 ViewBag.CurrentSortField = sortField;
                 ViewBag.CurrentSortAscending = sortAscending;
                 List<IssueTable> TicketList = _context.Issues.OrderByDescending(i => i.IssueId)
-                    .Where(i => i.AssignOn == null && i.AssignBy == null).ToList();
+                    .Where(i => i.AssignOn == null && i.AssignBy == null && i.IStatus != "Close").ToList();
                 if (!string.IsNullOrEmpty(searchString))
                 {
 
@@ -380,29 +287,7 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                var makerView = new MakerView
-                {
-                    IssueId = issueWithAttachments.IssueId,
-                    CreatedOn = issueWithAttachments.TDate,
-                    CreatedBy = UserName(issueWithAttachments.UserId),
-                    AssgnOn = issueWithAttachments.AssignOn,
-                    AssgnBy = issueWithAttachments.AssignBy,
-                    SupportType = SupportTypeName(issueWithAttachments.SupportTypeId),
-                    SupportCatagory = SupportCatagoryName(issueWithAttachments.SupportCatagoryId),
-                    SupportSubCatagory = SupportSubCatagoryName(issueWithAttachments.SupportSubCatagoryId),
-                    AffectedSection = AffectedSectionName(issueWithAttachments.AffectedSectionId),
-                    TicketDetails = issueWithAttachments.Details,
-                    Command = issueWithAttachments.Comments,
-                    TicketStatus = issueWithAttachments.IStatus,
-                    IStatus = issueWithAttachments.IStatus,
-                    Priority = issueWithAttachments.Priority,
-                    Attachments = issueWithAttachments.attachment,
-                    ApproveOn = issueWithAttachments.ApproveOn,
-                    ApproveBy = issueWithAttachments.ApproveBy,
-                    IssueTitle = issueWithAttachments.ITitle
-
-
-                };
+                var makerView = ToMakerView(issueWithAttachments, includeEngineers: false);
 
                 return View(makerView);
             }
@@ -423,7 +308,6 @@ namespace XFLCSMS.Controllers
                 var issueWithAttachments = _context.Issues
                     .Include(i => i.attachment)  // Include attachments in the query
                     .FirstOrDefault(i => i.IssueId == id);
-                var SupportEng = _context.Users.Where(i => i.Department == "Support Engineer").ToList();
 
                 if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
@@ -431,29 +315,7 @@ namespace XFLCSMS.Controllers
                 }
 
 
-                var EditView = new MakerView
-                {
-                    IssueId = issueWithAttachments.IssueId,
-                    CreatedOn = issueWithAttachments.TDate,
-                    CreatedBy = UserName(issueWithAttachments.UserId),
-                    AssgnOn = issueWithAttachments.AssignOn,
-                    AssgnBy = issueWithAttachments.AssignBy,
-                    SupportType = SupportTypeName(issueWithAttachments.SupportTypeId),
-                    SupportCatagory = SupportCatagoryName(issueWithAttachments.SupportCatagoryId),
-                    SupportSubCatagory = SupportSubCatagoryName(issueWithAttachments.SupportSubCatagoryId),
-                    AffectedSection = AffectedSectionName(issueWithAttachments.AffectedSectionId),
-                    TicketDetails = issueWithAttachments.Details,
-                    Command = issueWithAttachments.Comments,
-                    TicketStatus = issueWithAttachments.IStatus,
-                    IStatus = issueWithAttachments.IStatus,
-                    Attachments = issueWithAttachments.attachment,
-                    IssueTitle = issueWithAttachments.ITitle,
-                    Priority = issueWithAttachments.Priority,
-                    SupportEngineers = SupportEng,
-                    ApproveOn = issueWithAttachments.ApproveOn,
-                    ApproveBy = issueWithAttachments.ApproveBy,
-
-                };
+                var EditView = ToMakerView(issueWithAttachments, includeEngineers: true);
                 return View(EditView);
             }
             catch (Exception ex)
@@ -484,8 +346,12 @@ namespace XFLCSMS.Controllers
                     TempData["ErrorMessage"] = "The ticket was saved, but these files were not attached (file type not allowed): "
                         + string.Join(", ", rejected);
                 }
+                else
+                {
+                    TempData["SuccessMessage"] = "Ticket " + issue.TNumber + " was saved.";
+                }
 
-                return RedirectToAction("AllTicketList", "SupportManegar");
+                return RedirectToAction("TicketView", new { id = issue.IssueId });
             }
             catch (Exception ex)
             {
@@ -565,7 +431,7 @@ namespace XFLCSMS.Controllers
                     TempData["SuccessMessage"] = "Ticket " + result.Issue.TNumber + " was created.";
                 }
 
-                return RedirectToAction("AllTicketList");
+                return RedirectToAction("TicketView", new { id = result.Issue.IssueId });
             }
             catch (Exception ex)
             {
@@ -631,7 +497,7 @@ namespace XFLCSMS.Controllers
                 ViewBag.pager = P;
                 int skip_records = (Math.Max(P.CurrentPage, 1) - 1) * pagesize;
                 int take_records = pagesize;
-                List<Todo> todoss = todos.Skip(skip_records).Take(take_records).OrderByDescending(item => item.Id).ToList();
+                List<Todo> todoss = todos.Skip(skip_records).Take(take_records).ToList();
 
 
 

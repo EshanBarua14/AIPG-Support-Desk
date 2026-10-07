@@ -1,0 +1,152 @@
+@*
+    Edit one ticket. Makers change the text, priority and files of their own tickets;
+    XFL staff also assign the engineer and set the status (see TicketService.ApplyOwnerEdit / ApplyStaffEdit).
+*@
+@model XFLCSMS.Models.Issue.MakerView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Edit ticket " + Model.TicketNumber;
+    var attachments = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
+    var engineers = Model.SupportEngineers?.ToList() ?? new List<XFLCSMS.Models.Register.User>();
+    var statuses = new[] { ("Open", "Open"), ("Inqueue", "In queue"), ("Inprogress", "In progress"), ("Close", "Closed") };
+    var priorities = new[] { "Low", "Medium", "High" };
+}
+<a class="back" asp-action="TicketView" asp-route-id="@Model.IssueId"><icon name="arrow-left" /> Back to the ticket</a>
+
+<header class="page-head">
+    <div>
+        <div class="ticket-head">
+            @Ui.Sym(Model.TicketNumber, large: true)
+            @Ui.StatusPill(Model.IStatus)
+        </div>
+        <h1 class="page-title">Edit ticket</h1>
+    </div>
+</header>
+
+<form asp-action="EditTicketttt" method="post" enctype="multipart/form-data" id="uploadForm">
+    <input type="hidden" asp-for="IssueId">
+
+    <div class="split">
+        <div class="stack">
+            <section class="card">
+                <div class="card-body stack">
+                    <div class="field">
+                        <label for="ITitle">Title <span class="req" aria-hidden="true">*</span></label>
+                        <input class="input" asp-for="IssueTitle" id="ITitle" required maxlength="250" placeholder="One line that says what is wrong">
+                    </div>
+
+                    <div class="field">
+                        <label for="editor" id="editorLabel">Details</label>
+                        <textarea class="textarea" name="TicketDetails" id="editor" data-rte rows="8" aria-label="Details"
+                                  placeholder="What happened, where, and what you expected instead">@HtmlSanitizer.Sanitize(Model.TicketDetails)</textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="Command">Comments</label>
+                        <textarea class="textarea" asp-for="Command" rows="3" placeholder="Notes for whoever handles the ticket"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Attachments</h2></div>
+                <div class="card-body stack">
+                    @if (attachments.Count > 0)
+                    {
+                        <ul class="files" style="margin-top: 0" aria-label="Attached files">
+                            @foreach (var file in attachments)
+                            {
+                                <li class="file">
+                                    <icon name="@Ui.FileIcon(file.FileName)" />
+                                    <span class="file-name">@file.FileName</span>
+                                    <a class="btn btn-icon btn-sm right" asp-action="DownloadAttachment" asp-route-att="@file.AttachmentId" title="Download" aria-label="Download @file.FileName"><icon name="download" /></a>
+                                    <button type="button" class="btn btn-icon btn-sm danger delete-btn" title="Remove" aria-label="Remove @file.FileName"
+                                            data-delete data-method="POST" data-url="@Url.Action("DeleteAttachment")" data-body="attachmentId=@file.AttachmentId"
+                                            data-attachment-id="@file.AttachmentId" data-remove="li"
+                                            data-confirm="Remove @file.FileName?" data-confirm-text="The file is deleted from the ticket right away." data-action="Remove" data-done="File removed.">
+                                        <icon name="trash-2" />
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    <partial name="_Attachments" />
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+                <a class="btn" asp-action="TicketView" asp-route-id="@Model.IssueId">Cancel</a>
+            </div>
+        </div>
+
+        <aside class="stack">
+            <section class="card">
+                <div class="card-head"><h2>Handling</h2></div>
+                <div class="card-body stack">
+                    @if (role.IsStaff)
+                    {
+                        <div class="field">
+                            <label for="AssgnBy">Assigned to</label>
+                            <select class="select" name="AssgnBy" id="AssgnBy">
+                                <option value="">Unassigned</option>
+                                @if (!string.IsNullOrEmpty(Model.AssgnBy) && !engineers.Any(engineer => engineer.FullName == Model.AssgnBy))
+                                {
+                                    @* keep the current assignee selectable even when that user is no longer a support engineer *@
+                                    <option value="@Model.AssgnBy" selected>@Model.AssgnBy</option>
+                                }
+                                @foreach (var engineer in engineers)
+                                {
+                                    <option value="@engineer.FullName" selected="@(engineer.FullName == Model.AssgnBy)">@engineer.FullName</option>
+                                }
+                            </select>
+                            <span class="hint">The engineer finds the ticket under Assigned to me.</span>
+                        </div>
+
+                        <div class="field">
+                            <label for="IStatus">Status</label>
+                            <select class="select" name="IStatus" id="IStatus">
+                                @if (!string.IsNullOrEmpty(Model.IStatus) && !statuses.Any(status => status.Item1 == Model.IStatus))
+                                {
+                                    @* a status saved by an older version: keep it instead of silently switching the ticket to Open *@
+                                    <option value="@Model.IStatus" selected>@DisplayText.Status(Model.IStatus)</option>
+                                }
+                                @foreach (var status in statuses)
+                                {
+                                    <option value="@status.Item1" selected="@(status.Item1 == Model.IStatus)">@status.Item2</option>
+                                }
+                            </select>
+                            <span class="hint">Closed records your name and the time.</span>
+                        </div>
+                    }
+
+                    <div class="field">
+                        <label for="Priority">Priority</label>
+                        <select class="select" name="Priority" id="Priority">
+                            @if (!string.IsNullOrEmpty(Model.Priority) && !priorities.Contains(Model.Priority))
+                            {
+                                <option value="@Model.Priority" selected>@Model.Priority</option>
+                            }
+                            @foreach (var priority in priorities)
+                            {
+                                <option value="@priority" selected="@(priority == Model.Priority)">@priority</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (role.IsMaker)
+                    {
+                        <dl class="facts">
+                            <dt>Status</dt>
+                            <dd id="TicketStatus">@DisplayText.Status(Model.IStatus)</dd>
+                            <dt>Assigned to</dt>
+                            <dd class="@(string.IsNullOrEmpty(Model.AssgnBy) ? "none" : "")">@(string.IsNullOrEmpty(Model.AssgnBy) ? "Nobody yet" : Model.AssgnBy)</dd>
+                        </dl>
+                    }
+                </div>
+            </section>
+
+            <partial name="_TicketFacts" model="Model" />
+        </aside>
+    </div>
+</form>

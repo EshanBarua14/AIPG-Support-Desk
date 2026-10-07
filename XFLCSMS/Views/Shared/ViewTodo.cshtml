@@ -1,0 +1,11 @@
+@model XFLCSMS.Models.Todos.TodoviewModel
+@{
+    ViewData["Title"] = "To-do";
+    ViewData["ListSub"] = "Your own list. Only you see it; it is not linked to tickets.";
+    ViewData["ListAction"] = "ViewTodo";
+    ViewData["CanAdd"] = true;
+    ViewData["CanEdit"] = true;
+    ViewData["ShowOwner"] = false;
+    ViewData["EmptyText"] = "Nothing in progress";
+}
+<partial name="_TodoList" />

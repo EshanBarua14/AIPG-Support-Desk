@@ -1,0 +1,83 @@
+@*
+    Filter form + result area of the to-do reports. ViewData["SearchAction"] is TodoSearch (own to-dos)
+    or AllTodoSearch (team report, with house and user filters).
+*@
+@model XFLCSMS.Models.Todos.TodoReportView
+@{
+    var action = ViewData["SearchAction"] as string ?? "TodoSearch";
+    var team = action == "AllTodoSearch";
+    var houses = Model.brokerages?.ToList() ?? new List<XFLCSMS.Models.Brocarage.Brokerage>();
+    var users = Model.ListofEmployee?.OrderBy(user => user.FullName).ToList() ?? new List<XFLCSMS.Models.Register.User>();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-sub">@(team ? "The to-dos of every user." : "Your own to-dos.") <span class="no-print">Leave a filter empty to include everything.</span></p>
+    </div>
+    <div class="page-actions" data-needs-report hidden>
+        <button type="button" class="btn" data-export-csv="#issuesTable" data-file="to-do-report"><icon name="file-down" /> Export CSV</button>
+        <button type="button" class="btn" data-print><icon name="printer" /> Print</button>
+    </div>
+</header>
+
+<form class="card no-print" id="advancedSearchForm" action="@Url.Action(action)" method="get" data-report="#searchResults">
+    <div class="card-body">
+        <div class="form-grid three">
+            <div class="field">
+                <label for="assigningStatus">Status</label>
+                <select class="select" id="assigningStatus" name="search.Status">
+                    <option value="">Any status</option>
+                    <option value="In progress">In progress</option>
+                    <option value="Done">Done</option>
+                    <option value="Canceled">Canceled</option>
+                </select>
+            </div>
+            @if (team)
+            {
+                <div class="field">
+                    <label for="brokerageCodes">Brokerage house</label>
+                    <select class="select" id="brokerageCodes" name="search.BrocarageHouseName">
+                        <option value="">All houses</option>
+                        @foreach (var house in houses)
+                        {
+                            <option value="@house.BrokerageId">@house.BrokerageHouseName</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="supportEngineer">User</label>
+                    <select class="select" id="supportEngineer" name="search.EmployeeName">
+                        <option value="">All users</option>
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.Id">@user.FullName</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field">
+                <label for="search_FromDate">Added from</label>
+                <input class="input" type="date" id="search_FromDate" name="search.FromDate">
+            </div>
+            <div class="field">
+                <label for="search_ToDate">Added to</label>
+                <input class="input" type="date" id="search_ToDate" name="search.ToDate">
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary" id="searchButton"><icon name="search" /> Run report</button>
+        <button type="reset" class="btn btn-quiet">Clear filters</button>
+    </div>
+</form>
+
+<div id="searchResults" style="margin-top: 18px" aria-live="polite">
+    @if (Model.Todos != null)
+    {
+        <partial name="_todoSearchResult" model="Model" />
+    }
+    else
+    {
+        <div class="card"><div class="empty"><icon name="file-text" /><b>No report yet</b><span>Choose the filters and press Run report.</span></div></div>
+    }
+</div>

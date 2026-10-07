@@ -1,44 +1,28 @@
-﻿@model XFLCSMS.Models.Support.SupportType;
-           
-<section class="content">
+@model XFLCSMS.Models.Support.SupportType
+@{
+    ViewData["Title"] = "New support type";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="SupportTypeList"><icon name="arrow-left" /> Support types</a>
 
-    <h1>Create</h1>
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New support type</h1>
+    </div>
+</header>
 
-    <h4>Support Type</h4>
-    <hr />
-    <div class="row">
-        <div class="col-md-4">
-            <form asp-controller="Admin" asp-action="CreateSupportType">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-group">
-                    <label asp-for="@Model.SType" class="control-label"></label>
-                    <input asp-for="@Model.SType" class="form-control" />
-                    <span asp-validation-for="@Model.SType" class="text-danger"></span>
-                </div>
-                          
-                <div class="form-group">
-                    <input type="submit" value="Create" class="btn btn-primary" />
-                </div>
-            </form>
+<form class="card" asp-action="CreateSupportType" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="field">
+            <label asp-for="SType">Name</label>
+            <input class="input" asp-for="SType" placeholder="For example: Technical" autocomplete="off" required>
+            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span asp-validation-for="SType"></span>
         </div>
     </div>
-
-    <div>
-        <a asp-controller="Admin" asp-action="SupportTypeList">Back to List</a>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create support type</button>
+        <a class="btn" asp-action="SupportTypeList">Cancel</a>
     </div>
-
-</section>
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-      
+</form>

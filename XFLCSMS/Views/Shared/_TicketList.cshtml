@@ -1,0 +1,136 @@
+@*
+    The ticket list of every role: All / My / Assigned to me / Unassigned / Closed.
+    The calling view sets ViewData["Title"], ["ListSub"], ["ListAction"] and (optionally) ["EmptyText"].
+*@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    var role = Ui.Role(ViewContext);
+    var action = ViewData["ListAction"] as string ?? role.TicketList;
+    XFLCSMS.Models.Common.Pager pager = ViewBag.pager ?? new XFLCSMS.Models.Common.Pager(0, 1);
+    string? sortField = ViewBag.CurrentSortField;
+    bool ascending = ViewBag.CurrentSortAscending ?? true;
+    int unassigned = ViewBag.UnassignedCount ?? 0;
+    int mine = ViewBag.AssignedToMeCount ?? 0;
+    var rows = Model.ToList();
+    ViewData["ShownCount"] = rows.Count;
+    ViewData["SearchHint"] = "Search number, title, priority, status or engineer";
+
+    var tabs = new List<(string Text, string Action, int Count)> { (role.IsMaker ? "My tickets" : "All tickets", role.TicketList, 0) };
+    if (role.IsEngineer) { tabs.Add(("Assigned to me", "AssignedTicketList", mine)); }
+    tabs.Add(("Unassigned", "UnassignedTicketList", unassigned));
+    tabs.Add(("Closed", "ClosedTicketList", 0));
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-sub">@ViewData["ListSub"]</p>
+    </div>
+    @if (role.CanCreateTicket)
+    {
+        <div class="page-actions">
+            <a class="btn btn-primary" asp-action="IssueRaiseFrom"><icon name="plus" /> Create ticket</a>
+        </div>
+    }
+</header>
+
+<nav class="tabs" aria-label="Ticket lists">
+    @foreach (var tab in tabs)
+    {
+        var current = string.Equals(tab.Action, action, StringComparison.OrdinalIgnoreCase) || (action == "Pagination" && tab.Action == role.TicketList);
+        <a class="tab @(current ? "active" : "")" asp-action="@tab.Action" aria-current="@(current ? "page" : null)">
+            @tab.Text
+            @if (tab.Count > 0)
+            {
+                <span class="nav-count">@tab.Count</span>
+            }
+        </a>
+    }
+</nav>
+
+<div class="card flush" data-list data-url="@Url.Action(action)">
+    <partial name="_ListToolbar" />
+
+    <div data-list-region>
+        <span data-sort-field="@sortField" data-sort-ascending="@(ascending ? "true" : "false")" hidden></span>
+        @if (rows.Count == 0)
+        {
+            <div class="empty">
+                <icon name="inbox" />
+                @if (!string.IsNullOrEmpty(pager.SearchString))
+                {
+                    <b>No tickets match &ldquo;@pager.SearchString&rdquo;</b>
+                    <span>Try a ticket number, a word from the title, or a status such as Open.</span>
+                }
+                else
+                {
+                    <b>@(ViewData["EmptyText"] ?? "No tickets here")</b>
+                    @if (role.CanCreateTicket && action == role.TicketList)
+                    {
+                        <span>Tickets you raise show up in this list.</span>
+                        <div><a class="btn btn-primary" asp-action="IssueRaiseFrom"><icon name="plus" /> Create ticket</a></div>
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table tickets cards" id="issueTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">@Ui.SortLink(Url, action, "Ticket", "TNumber", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Title", "Tickets", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Assigned to", "Approval Status", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Priority", "Priority", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Status", "Status", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in rows)
+                        {
+                            var closed = item.IStatus == "Close";
+                            <tr>
+                                <td class="tick p-@Ui.PriorityKey(item.Priority)">@Ui.Sym(item.TNumber)</td>
+                                <td class="c-title">
+                                    <a class="t-title" asp-action="TicketView" asp-route-id="@item.IssueId">@(string.IsNullOrWhiteSpace(item.ITitle) ? "(no title)" : item.ITitle)</a>
+                                    <span class="t-meta">Raised @Ui.Stamp(item.TDate)</span>
+                                </td>
+                                <td class="c-who">
+                                    @if (!string.IsNullOrEmpty(item.AssignBy))
+                                    {
+                                        @Ui.Person(item.AssignBy, item.AssignOn.HasValue ? "since " + Ui.Date(item.AssignOn) : null)
+                                    }
+                                    else
+                                    {
+                                        @Ui.Pill("st-unassigned", "Unassigned")
+                                    }
+                                </td>
+                                <td class="c-prio">@Ui.PriorityPill(item.Priority)</td>
+                                <td class="c-status"><span data-status="@item.IStatus">@Ui.StatusPill(item.IStatus)</span></td>
+                                <td class="t-actions">
+                                    <a class="btn btn-icon btn-sm" asp-action="TicketView" asp-route-id="@item.IssueId" title="View" aria-label="View ticket @item.TNumber"><icon name="eye" /></a>
+                                    @if (!closed)
+                                    {
+                                        <a class="btn btn-icon btn-sm" asp-action="EditTicket" asp-route-id="@item.IssueId" title="Edit" aria-label="Edit ticket @item.TNumber"><icon name="pencil" /></a>
+                                        @if (role.IsAdmin)
+                                        {
+                                            <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete ticket @item.TNumber"
+                                                    data-delete data-url="@Url.Action("DeleteTicket", "Admin", new { id = item.IssueId })"
+                                                    data-confirm="Delete ticket @item.TNumber?"
+                                                    data-confirm-text="The ticket and its attachments are removed for good."
+                                                    data-done="Ticket @item.TNumber deleted.">
+                                                <icon name="trash-2" />
+                                            </button>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <partial name="_Pager" />
+    </div>
+</div>

@@ -55,10 +55,11 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 
 - **`appsettings.json` contains a Gmail app password and it is in the git history.** Revoke it and keep the new one in user-secrets / an environment variable.
 - .NET 6 is out of support (since Nov 2024). The project still targets `net6.0` with the same packages.
-- Pages load jQuery/Bootstrap/DataTables/CKEditor from public CDNs, so they need internet access.
+- ~~Pages load jQuery/Bootstrap/DataTables/CKEditor from public CDNs.~~ Done in section 8: nothing is loaded from the internet any more.
 - Passwords are a single salted HMAC-SHA512 (kept so existing accounts keep working).
-- The AJAX delete calls and some POST forms carry no anti-forgery token.
-- The old scaffolding controllers/views were kept (admin-only now); `api/UserControllers/*` is still public.
+- ~~The AJAX delete calls and some POST forms carry no anti-forgery token.~~ Done in section 8.
+- ~~The old scaffolding controllers/views were kept.~~ Removed in section 8.
+- **Correction:** earlier versions of this file said `api/UserControllers/*` is public. It is not reachable at all: the API class is nested inside `UserController`, and ASP.NET Core does not treat nested classes as controllers (every `api/...` address answers 404). `Controllers/UserController.cs` is dead code and can be deleted.
 
 ## 7. Second pass: menu, wording, and more bugs
 
@@ -88,9 +89,56 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 
 **Still open:** `dotnet build` reports NU1902 for MailKit 4.3.0 (moderate advisory). Updating the package needs a NuGet restore, which could not be done or tested here.
 
+## 8. Third pass: new interface, AdminLTE removed
+
+**What went:** AdminLTE, Bootstrap 4 and 5, three jQuery versions, DataTables, CKEditor, Chart.js, Font Awesome, Ionicons, the Google font and every CDN link. `wwwroot` (without the uploads) shrank from about 106 MB to about 0.3 MB. The application now works without internet access.
+
+**What came instead** (no framework, everything in the project):
+
+| File | Purpose |
+|---|---|
+| `wwwroot/css/app.css` | all styles; colours, radii and fonts are variables at the top (light and dark theme) |
+| `wwwroot/js/app.js` | all behaviour, switched on with `data-*` attributes (list search/sort/paging, confirm dialogs, editor, file picker, reports, CSV export) |
+| `wwwroot/fonts/*` | IBM Plex Sans / Sans Condensed / Mono (SIL Open Font License, see `OFL.txt`) |
+| `wwwroot/img/icons.svg` | icon sprite (Lucide icons, ISC licence); used through `<icon name="..." />` |
+| `Infrastructure/IconTagHelper.cs`, `Infrastructure/Ui.cs` | the `<icon>` tag and the shared display helpers (role, dates, ticket chip, status / priority pills) |
+| `Views/Shared/_Layout.cshtml`, `_Nav.cshtml`, `_AuthLayout.cshtml` | one page frame for the four roles, one for the pages before sign-in |
+
+**Views: 125 -> 72 files.** The role folders held four copies of most pages. Pages that are the same for every role now exist once in `Views/Shared` (the view engine looks there when `Views/<Controller>/` has no file), and what differs per role is decided by `Ui.Role(...)`: `Dashbord`, `TicketView`, `EditTicket`, `IssueRaiseFrom`, the ticket lists (`_TicketList`), the to-do lists (`_TodoList`), `GetTodo`, `Reports`, `TodoReports`, `Profile`, `ChangePassword`. The 24 master-data pages follow one pattern.
+
+**New in the interface**
+- Light and dark theme (follows the system, switch in the top bar, remembered per browser). Works on a phone: the menu becomes a drawer, the ticket list becomes cards.
+- Ticket lists: search, page size, sorting and paging without reloading the page; the address keeps the state, so reload and Back work. Tabs for All / Assigned to me / Unassigned / Closed. Counters in the menu for unassigned tickets and (engineers) "Assigned to me".
+- Dashboard: open tickets with the open/closed share, unassigned / high-priority / assigned-to-me counts, raised-and-closed per period as a table (today, week, month and year no longer share one chart axis), tickets waiting for an engineer (oldest first), load per brokerage house, latest tickets.
+- Ticket page: number, status, priority, progress steps (raised, assigned, in progress, closed), details shown as formatted text, who did what and when.
+- Create / edit ticket: small built-in text editor, drag-and-drop file picker that lists the chosen files and refuses other file types before sending, priority as three buttons.
+- To-dos: one click marks a to-do as done; the admin's team list shows the owner.
+- Reports: run in the page, print (only the report is printed) and export to CSV.
+- Users: role and account state in the list; the edit page shows which role the three settings add up to.
+- Delete asks in a dialog that names the item; the answer of the server (for example "used by existing tickets") is shown as a message.
+- A missing page or ticket shows a "does not exist" page instead of an empty tab.
+
+**Bugs and gaps fixed on the way**
+- **Anti-forgery on every POST / DELETE** (`Program.cs`): another website could make a signed-in admin's browser delete tickets or change roles. A page that is out of date now gets a message instead of an empty "400".
+- **Sign-out is a POST.** As a link, any page (or an image address inside a ticket) could sign users out.
+- **Ticket details are cleaned when saved as well as when shown, and the cleaner was rewritten** (`Services/HtmlSanitizer.cs`): the text is now printed inside the page instead of an editor frame, so classes, positioning and sizing styles are removed, tags are balanced (an unclosed link could turn the rest of the page into a link), images must carry their own data (an image address made the reader's browser call that address), links must be web or mail addresses. The old cleaner used regular expressions that took minutes on deliberately broken input of 100 KB; the new one is a single pass.
+- Signed-in pages are sent with `Cache-Control: no-store` (replaces the script that pushed the browser history forward and the scripts that blocked F12 / right click).
+- The four dashboards, and the eight "ticket to view model" blocks, were separate copies; they are one method each now (`CsmsController.BuildDashboardAsync`, `ToMakerView`).
+- "Unassigned" lists showed tickets that were closed without ever being assigned.
+- To-do lists: the chosen sort order was undone inside each page (re-sorted by id). Paging lost the sort order on all lists.
+- To-do report: the admin filter offered "Closed" and "Canceled" with wrong values (`Done` / `Completed`), the engineer filter sent `In Progress` while `In progress` is stored, and the engineer report counted "in progress" as 0 for the same reason.
+- After saving or creating a ticket the user lands on the ticket (with a confirmation) instead of a list.
+- After a password change the sign-in page says so. The sign-in page sends a signed-in user to the dashboard.
+- Removed: `IssueController`, `DataTableController`, `ServerDTController` and the scaffold actions of `HomeController` with their views (old prototypes, admin-only, not in any menu), the unused `jquery.datatables` package reference and the stale `<None Include="Views\...">` entries in the project file.
+
+**Checked with:** 250 server checks (`requests`), 80 browser checks in headless Chromium (every page of every role on desktop and phone width: no script errors, no failed or external requests, labelled controls; then the main flows clicked through), on a stand-in database. Not checked: real e-mail delivery, a real SQL Server, browsers other than Chromium.
+
 ## New files
 
 `Controllers/CsmsController.cs`, `Infrastructure/SessionAuthorizeAttribute.cs`, `Services/TicketService.cs`,
 `Services/PasswordHasher.cs`, `Services/HtmlSanitizer.cs`, `Data/DbInitializer.cs`,
 `Views/SupportEngineer/Profile.cshtml`, `Views/SupportManegar/Profile.cshtml`,
 `Views/Shared/_SidebarMenu.cshtml`, `Services/DisplayText.cs`
+
+Third pass: `Infrastructure/Ui.cs`, `Infrastructure/IconTagHelper.cs`, `Infrastructure/AntiforgeryFailureFilter.cs`, the shared views listed in section 8, `wwwroot/css/app.css`, `wwwroot/js/app.js`, `WORKFLOWS.md`.
+(`Views/Shared/_SidebarMenu.cshtml` became `_Nav.cshtml`; the two per-role `Profile.cshtml` copies are gone again.)

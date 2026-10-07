@@ -1,69 +1,29 @@
-﻿@model XFLCSMS.Models.Support.SupportCatagory;
+@model XFLCSMS.Models.Support.SupportCatagory
+@{
+    ViewData["Title"] = "Edit support category";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="SupportCatagoryList"><icon name="arrow-left" /> Support categories</a>
 
-
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form asp-controller="Admin" asp-action="UpdateSupportCatagory" method="post">
-                        <div class="card-body">
-                            <div asp-validation-summary="All" class="text-danger"></div>
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Support Category ID</label>
-                                <input type="text" asp-for="@Model.SupportCatagoryId" value="@Model.SupportCatagoryId" class="form-control" id="exampleInputEmail1" placeholder="Support Type ID" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Support Category Name</label>
-                                <input type="text" asp-for="@Model.SCatagory" value="@Model.SCatagory" class="form-control" id="exampleInputEmail1" placeholder="Support Category Name">
-                            </div>
-
-
-
-                            <div class="form-group">
-                                <input type="submit" value="Update" class="btn btn-primary" />
-                            </div>
-
-
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-            <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-        <!-- /.card-body -->
-
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Edit support category</h1>
     </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
-</section>
-            <!-- /.content -->
-        
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
+<form class="card" asp-action="UpdateSupportCatagory" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <input type="hidden" asp-for="SupportCatagoryId">
+        <div class="field">
+            <label asp-for="SCatagory">Name</label>
+            <input class="input" asp-for="SCatagory" placeholder="For example: Software" autocomplete="off" required>
+            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span asp-validation-for="SCatagory"></span>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="SupportCatagoryList">Cancel</a>
+    </div>
+</form>

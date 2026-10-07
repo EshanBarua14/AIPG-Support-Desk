@@ -1,0 +1,8 @@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    ViewData["Title"] = "Closed";
+    ViewData["ListSub"] = (Ui.Role(ViewContext).IsMaker ? "Your tickets that have been closed." : "Tickets that have been closed.");
+    ViewData["ListAction"] = "ClosedTicketList";
+    ViewData["EmptyText"] = "No closed tickets yet";
+}
+<partial name="_TicketList" />

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
@@ -8,7 +8,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="jquery.datatables" Version="1.10.15" />
 		<PackageReference Include="MailKit" Version="4.3.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.24" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.24">
@@ -26,82 +25,6 @@
 
 	<ItemGroup>
 	  <Folder Include="wwwroot\Uplods\" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Include="Views\Admin\AdminView.cshtml" />
-	  <None Include="Views\Admin\AffectedSectionList.cshtml" />
-	  <None Include="Views\Admin\BranchList.cshtml" />
-	  <None Include="Views\Admin\BrocarageHouseList.cshtml" />
-	  <None Include="Views\Admin\ChangePassword.cshtml" />
-	  <None Include="Views\Admin\ClosedTicketList.cshtml" />
-	  <None Include="Views\Admin\CreateAffectedSection.cshtml" />
-	  <None Include="Views\Admin\CreateBranch.cshtml" />
-	  <None Include="Views\Admin\CreateBrocarage.cshtml" />
-	  <None Include="Views\Admin\CreateSupportCatagory.cshtml" />
-	  <None Include="Views\Admin\CreateSupportSubCatagory.cshtml" />
-	  <None Include="Views\Admin\CreateSupportType.cshtml" />
-	  <None Include="Views\Admin\Dashbord.cshtml" />
-	  <None Include="Views\Admin\EditAffectedSection.cshtml" />
-	  <None Include="Views\Admin\EditBranch.cshtml" />
-	  <None Include="Views\Admin\EditBrocarage.cshtml" />
-	  <None Include="Views\Admin\EditSupportCatagory.cshtml" />
-	  <None Include="Views\Admin\EditSupportSubCatagory.cshtml" />
-	  <None Include="Views\Admin\EditSupportType.cshtml" />
-	  <None Include="Views\Admin\EditTicket.cshtml" />
-	  <None Include="Views\Admin\EditUser.cshtml" />
-	  <None Include="Views\Admin\Profile.cshtml" />
-	  <None Include="Views\Admin\Reports.cshtml" />
-	  <None Include="Views\Admin\SupportCatagoryList.cshtml" />
-	  <None Include="Views\Admin\SupportSubCatagoryList.cshtml" />
-	  <None Include="Views\Admin\SupportTypeList.cshtml" />
-	  <None Include="Views\Admin\TicketView.cshtml" />
-	  <None Include="Views\Admin\UnassignedTicketList.cshtml" />
-	  <None Include="Views\Admin\UserList.cshtml" />
-	  <None Include="Views\Admin\UserView.cshtml" />
-	  <None Include="Views\Admin\ViewAffectedSection.cshtml" />
-	  <None Include="Views\Admin\ViewBranch.cshtml" />
-	  <None Include="Views\Admin\ViewBrocarageHouse.cshtml" />
-	  <None Include="Views\Admin\ViewSupportCatagory.cshtml" />
-	  <None Include="Views\Admin\ViewSupportSubCatagory.cshtml" />
-	  <None Include="Views\Admin\ViewSupportType.cshtml" />
-	  <None Include="Views\Maker\ChangePassword.cshtml" />
-	  <None Include="Views\Maker\ClosedTicketList.cshtml" />
-	  <None Include="Views\Maker\Dashbord.cshtml" />
-	  <None Include="Views\Maker\EditTicket.cshtml" />
-	  <None Include="Views\Maker\IssueRaiseFrom.cshtml" />
-	  <None Include="Views\Maker\MackerTicketList.cshtml" />
-	  <None Include="Views\Maker\Pagination.cshtml" />
-	  <None Include="Views\Maker\Profile.cshtml" />
-	  <None Include="Views\Maker\Reports.cshtml" />
-	  <None Include="Views\Maker\TicketView.cshtml" />
-	  <None Include="Views\Maker\UnassignedTicketList.cshtml" />
-	  <None Include="Views\SupportEngineer\AllTicketList.cshtml" />
-	  <None Include="Views\SupportEngineer\AssignedTicketList.cshtml" />
-	  <None Include="Views\SupportEngineer\ChangePassword.cshtml" />
-	  <None Include="Views\SupportEngineer\ClosedTicketList.cshtml" />
-	  <None Include="Views\SupportEngineer\Dashbord.cshtml" />
-	  <None Include="Views\SupportEngineer\EditTicket.cshtml" />
-	  <None Include="Views\SupportEngineer\IssueRaiseFrom.cshtml" />
-	  <None Include="Views\SupportEngineer\Reports.cshtml" />
-	  <None Include="Views\SupportEngineer\TicketView.cshtml" />
-	  <None Include="Views\SupportEngineer\UnassignedTicketList.cshtml" />
-	  <None Include="Views\SupportManegar\AllTicketList.cshtml" />
-	  <None Include="Views\SupportManegar\ChangePassword.cshtml" />
-	  <None Include="Views\SupportManegar\ClosedTicketList.cshtml" />
-	  <None Include="Views\SupportManegar\Dashbord.cshtml" />
-	  <None Include="Views\SupportManegar\EditTicket.cshtml" />
-	  <None Include="Views\SupportManegar\IssueRaiseFrom.cshtml" />
-	  <None Include="Views\SupportManegar\Reports.cshtml" />
-	  <None Include="Views\SupportManegar\TicketView.cshtml" />
-	  <None Include="Views\SupportManegar\UnassignedTicketList.cshtml" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Content Update="Views\Maker\Reports.cshtml">
-	    <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-	    <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-	  </Content>
 	</ItemGroup>
 
 </Project>

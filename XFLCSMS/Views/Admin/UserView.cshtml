@@ -1,128 +1,50 @@
-﻿@model XFLCSMS.Models.Admin.UserView;
+@* One user, read-only. *@
+@model XFLCSMS.Models.Admin.UserView
+@{
+    ViewData["Title"] = Model.FullName;
+    ViewData["PageClass"] = "narrow";
+    var roleName = Ui.RoleOf(Model.UCatagory, Model.UType, Model.Department);
+}
+<a class="back" asp-action="UserList"><icon name="arrow-left" /> Users</a>
 
-
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <br />
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">User ID</label>
-                                <input type="text" value="@Model.Id" class="form-control" id="exampleInputEmail1" placeholder="User ID" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Full Name</label>
-                                <input type="text" value="@Model.FullName" class="form-control" id="exampleInputEmail1" placeholder="Full Name" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">User Name</label>
-                                <input type="text" class="form-control" value="@Model.UserName" id="exampleInputEmail1" placeholder="User Name" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Email</label>
-                                <input type="text" value="@Model.Email" class="form-control" id="exampleInputEmail1" placeholder="Email" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Phone Number</label>
-                                <input type="text" value="@Model.PhonNumber" class="form-control" id="exampleInputEmail1" placeholder="Phone Number" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Designation</label>
-                                <input type="text" value="@Model.Designation" class="form-control" id="exampleInputEmail1" placeholder="Designation" readonly>
-                            </div>
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-            <div class="col-md-6">
-                <!-- Form Element sizes -->
-                <div class="card card-primary">
-
-                    <form>
-
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Employee ID</label>
-                                <input type="text" value="@Model.EmployeeId" class="form-control" id="exampleInputEmail1" placeholder="Employee ID" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Brokerage House Name</label>
-                                <input type="text" value="@Model.BrokerageHouseName" class="form-control" id="exampleInputEmail1" placeholder="Brokerage House Name" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Branch</label>
-                                <input type="text" value="@Model.Branch" class="form-control" id="exampleInputEmail1" placeholder="Branch" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">User Category</label>
-                                <input type="text" value="@Model.UCatagory" class="form-control" id="exampleInputEmail1" placeholder="User Category" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">User Type</label>
-                                <input type="text" value="@Model.UType" class="form-control" id="exampleInputEmail1" placeholder="User Type" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">User Status</label>
-                                <input type="text" value="@Model.UStatus" class="form-control" id="Priority" placeholder="User Status" readonly>
-                            </div>
-
-
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-
-                    <!-- /.card-body -->
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (right) -->
+<header class="page-head">
+    <div class="row" style="gap: 16px; flex-wrap: nowrap">
+        <span class="avatar lg" aria-hidden="true">@Ui.Initials(Model.FullName)</span>
+        <div>
+            <h1 class="page-title">@Model.FullName</h1>
+            <p class="page-sub">@Ui.RolePill(roleName) @Ui.Pill(Model.UStatus ? "st-active" : "st-disabled", Model.UStatus ? "Active" : "Disabled")</p>
         </div>
-        <!-- /.row -->
-                 
-
-        <!-- /.card-body -->
-
     </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="EditUser" asp-route-id="@Model.Id"><icon name="pencil" /> Edit role</a>
+    </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>User ID</dt>
+            <dd>@Model.Id</dd>
+            <dt>User name</dt>
+            <dd>@Model.UserName</dd>
+            <dt>Email</dt>
+            <dd>@Model.Email</dd>
+            <dt>Phone</dt>
+            <dd>@Model.PhonNumber</dd>
+            <dt>Employee ID</dt>
+            <dd>@Model.EmployeeId</dd>
+            <dt>Brokerage house</dt>
+            <dd>@Model.BrokerageHouseName</dd>
+            <dt>Branch</dt>
+            <dd>@Model.Branch</dd>
+            <dt>Designation</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.Designation) ? "none" : "")">@(string.IsNullOrEmpty(Model.Designation) ? "Not set" : Model.Designation)</dd>
+            <dt>Team</dt>
+            <dd>@(Model.UType ? "XFL staff" : "Brokerage house user")</dd>
+            <dt>Position</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.Department) ? "none" : "")">@(string.IsNullOrEmpty(Model.Department) ? "Not set" : Model.Department == "Support Maneger" ? "Support Manager" : Model.Department)</dd>
+            <dt>Administrator</dt>
+            <dd>@(Model.UCatagory ? "Yes" : "No")</dd>
+        </dl>
+    </div>
 </section>
-            <!-- /.content -->
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>

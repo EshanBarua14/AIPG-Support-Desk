@@ -1,68 +1,29 @@
-﻿@model XFLCSMS.Models.Brocarage.Brokerage;
+@model XFLCSMS.Models.Brocarage.Brokerage
+@{
+    ViewData["Title"] = Model.BrokerageHouseName;
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="BrocarageHouseList"><icon name="arrow-left" /> Brokerage houses</a>
 
-
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Brokerage ID</label>
-                                <input type="text" value="@Model.BrokerageId" class="form-control" id="exampleInputEmail1" placeholder="Brokerage ID" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Brokerage House Name</label>
-                                <input type="text" value="@Model.BrokerageHouseName" class="form-control" id="exampleInputEmail1" placeholder="Brokerage House Name" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="exampleInputEmail1">Brokerage House Acronym</label>
-                                <input type="text" class="form-control" value="@Model.BrokerageHouseAcronym" id="exampleInputEmail1" placeholder="Brokerage House Acronym" readonly>
-                            </div>
-
-                                     
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-                       
-            <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-        <!-- /.card-body -->
-
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@Model.BrokerageHouseName</h1>
+        <p class="page-sub">Brokerage house</p>
     </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="EditBrocarage" asp-route-id="@Model.BrokerageId"><icon name="pencil" /> Edit</a>
+    </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>ID</dt>
+            <dd>@Model.BrokerageId</dd>
+            <dt>Name</dt>
+            <dd>@Model.BrokerageHouseName</dd>
+            <dt>Acronym</dt>
+            <dd>@Model.BrokerageHouseAcronym</dd>
+        </dl>
+    </div>
 </section>
-<!-- /.content -->
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>

@@ -1,59 +1,27 @@
-﻿@model XFLCSMS.Models.Affected.AffectedSection;
+@model XFLCSMS.Models.Affected.AffectedSection
+@{
+    ViewData["Title"] = Model.ASection;
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="AffectedSectionList"><icon name="arrow-left" /> Affected sections</a>
 
-
-<!-- Main content -->
-<!-- Main content -->
-<section class="content">
-    <div class="container-fluid">
-        <div class="row">
-            <!-- left column -->
-            <div class="col-md-6">
-                <!-- general form elements -->
-                <div class="card card-primary">
-                    <!-- /.card-header -->
-                    <!-- form start -->
-                    <form>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="SupportTypeId">Affected Section ID</label>
-                                <input type="text" value="@Model.AffectedSectionId" class="form-control" id="exampleInputEmail1" placeholder="Affected Section ID" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="SType">Affected Section Name</label>
-                                <input type="text" value="@Model.ASection" class="form-control" id="exampleInputEmail1" placeholder="Affected Section Name" readonly>
-                            </div>
-
-
-                        </div>
-                        <!-- /.card-body -->
-                    </form>
-                </div>
-                <!-- /.card -->
-            </div>
-            <!--/.col (left) -->
-            <!-- right column -->
-            <!--/.col (right) -->
-        </div>
-        <!-- /.row -->
-        <!-- /.card-body -->
-
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@Model.ASection</h1>
+        <p class="page-sub">Affected section</p>
     </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="EditAffectedSection" asp-route-id="@Model.AffectedSectionId"><icon name="pencil" /> Edit</a>
+    </div>
+</header>
 
-
-
-    <!-- /.container-fluid -->
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>ID</dt>
+            <dd>@Model.AffectedSectionId</dd>
+            <dt>Name</dt>
+            <dd>@Model.ASection</dd>
+        </dl>
+    </div>
 </section>
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script> 

@@ -1,46 +1,28 @@
-﻿@model XFLCSMS.Models.Support.SupportCatagory;
+@model XFLCSMS.Models.Support.SupportCatagory
+@{
+    ViewData["Title"] = "New support category";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="SupportCatagoryList"><icon name="arrow-left" /> Support categories</a>
 
-<section class="content">
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New support category</h1>
+    </div>
+</header>
 
-    <h1>Create</h1>
-
-    <h4>Support Category</h4>
-    <hr />
-    <div class="row">
-        <div class="col-md-4">
-            <form asp-controller="Admin" asp-action="CreateSupportCatagory">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                <div class="form-group">
-                    <label asp-for="@Model.SCatagory" class="control-label"></label>
-                    <input asp-for="@Model.SCatagory" class="form-control" />
-                    <span asp-validation-for="@Model.SCatagory" class="text-danger"></span>
-                </div>
-
-                <div class="form-group">
-                    <input type="submit" value="Create" class="btn btn-primary" />
-                </div>
-            </form>
+<form class="card" asp-action="CreateSupportCatagory" method="post">
+    <div class="card-body stack">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="field">
+            <label asp-for="SCatagory">Name</label>
+            <input class="input" asp-for="SCatagory" placeholder="For example: Software" autocomplete="off" required>
+            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span asp-validation-for="SCatagory"></span>
         </div>
     </div>
-
-    <div>
-        <a asp-controller="Admin" asp-action="SupportCatagoryList">Back to List</a>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create support category</button>
+        <a class="btn" asp-action="SupportCatagoryList">Cancel</a>
     </div>
-
-</section>
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
-    }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-
-      
+</form>

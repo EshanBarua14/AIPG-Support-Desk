@@ -1,158 +1,68 @@
-﻿@model IEnumerable<XFLCSMS.Models.Brocarage.Brokerage>
+@model IEnumerable<XFLCSMS.Models.Brocarage.Brokerage>
+@{
+    ViewData["Title"] = "Brokerage houses";
+    var rows = Model.ToList();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Brokerage houses</h1>
+        <p class="page-sub">The customers of XFL. Each user and ticket belongs to one house.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="CreateBrocarage"><icon name="plus" /> New brokerage house</a>
+    </div>
+</header>
 
-            <!-- Main content -->
-
-            <section class="content">
-
-                <!-- Default box -->
-                <div class="card">
-                    <div class="card-header">
-                    <div class="container">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h4>Brokerage House List</h4>
-                            </div>
-                            <div class="col-md-6 text-right">
-                                <div class="card-tools">
-                                    <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
-                                        <i class="fas fa-minus"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-tool" data-card-widget="remove" title="Remove">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-                    <div class="card-body">
-                        <a class="btn btn-outline-success" asp-controller="Admin" asp-action="CreateBrocarage">
-                            <i class="fas fa-plus"></i> Create
-                        </a>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table table-striped projects" id="issuesTable">
-                            <thead>
-                                <tr>
-                                    <th style="width:5%">
-                                        Brokerage ID
-                                    </th>
-                                    <th style="width: 30%">
-                                        Brokerage House Name
-                                    </th>
-                                    <th style="width: 15%">
-                                        Brokerage House Acronym
-                                    </th>
-                                    <th style="width: 30%; text-align: center;">
-                                        Modify
-                                    </th>
-
-
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                @foreach (var item in Model)
-                                {
-
-
-                                    <tr id="row-@item.BrokerageId">
-                                        <!-- Your table cells -->
-                                        <td>@Html.DisplayFor(modelItem => item.BrokerageId)</td>
-                                        <td>@Html.DisplayFor(modelItem => item.BrokerageHouseName)</td>
-                                        <td>@Html.DisplayFor(modelItem => item.BrokerageHouseAcronym)</td>
-                                        <td class="project-actions text-right">
-                                            <a class="btn btn-outline-primary btn-sm" asp-controller="Admin" asp-action="ViewBrocarageHouse" asp-route-id="@item.BrokerageId">
-                                                <i class="fas fa-folder"></i> View
-                                            </a>
-                                            <a class="btn btn-outline-info btn-sm" asp-controller="Admin" asp-action="EditBrocarage" asp-route-id="@item.BrokerageId">
-                                                <i class="fas fa-pencil-alt"></i> Edit
-                                            </a>
-                                            <a class="btn btn-outline-danger btn-sm" href="#" data-issue-id="@item.BrokerageId">
-                                                <i class="fas fa-trash-alt"></i>
-                                                Delete
-                                           </a>
-                                        </td>
-                                   </tr>
-    <!-- Additional rows go here -->
-
-
-
-                                }
-
-
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- /.card-body -->
-                </div>
-                <!-- /.card -->
-
-            </section>
-            <!-- /.content -->
-      @*   </div> *@
-        <!-- /.content-wrapper -->
-
-
-
-
-
-
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-
-    <!-- Your JavaScript/jQuery code -->
-    <script>
-    [document].forEach(function (root) {
-            root.addEventListener('click', function (event) {
-                var button = event.target.closest('.btn-outline-danger[data-issue-id]');
-                if (!button) { return; }
-                event.preventDefault();
-
-                var issueId = button.getAttribute('data-issue-id');
-                var rowToDelete = button.closest('tr');
-
-                // Show confirmation dialog
-                var isConfirmed = confirm('Are you sure you want to delete this item?');
-
-                if (isConfirmed) {
-                    // Perform the DELETE request using JavaScript
-                    fetch(`/Admin/DeleteBrocarage/${issueId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                            // Add any additional headers as needed, e.g., for CSRF protection
-                        }
-                    })
-                        .then(response => {
-                            if (response.ok) {
-                                // Remove the deleted row from the table
-                                rowToDelete.remove();
-                            } else {
-                                // Handle errors, e.g., show an error message
-                                response.text().then(function (message) {
-                                    alert(message || ('Delete failed: ' + response.statusText));
-                                });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                        });
-                }
-            });
-        });
-</script>
-
-<script type="text/javascript">
-    // Define a function named preventback
-    function preventback() {
-        // Forward the browser's history by one step, effectively preventing the user from going back
-        window.history.forward();
+<div class="card flush">
+    @if (rows.Count == 0)
+    {
+        <div class="empty">
+            <icon name="layers" />
+            <b>No brokerage houses yet</b>
+            <div><a class="btn btn-primary" asp-action="CreateBrocarage"><icon name="plus" /> New brokerage house</a></div>
+        </div>
     }
-
-    // Set a timeout to call the preventback function immediately after the script is executed
-    setTimeout("preventback()", 0);
-
-    // When the window loads, assign a null function to the onload event to effectively do nothing
-    window.onload = function () { null };
-</script>
-
+    else
+    {
+        <div class="toolbar">
+            <div class="input-wrap">
+                <icon name="search" />
+                <input class="input" type="search" data-filter="#issuesTable" data-count="#shownCount" placeholder="Filter brokerage houses" aria-label="Filter brokerage houses" autocomplete="off">
+            </div>
+            <span class="spacer"></span>
+            <span class="muted small num"><span id="shownCount">@rows.Count</span> of <span data-total>@rows.Count</span></span>
+        </div>
+        <div class="table-wrap">
+            <table class="table" id="issuesTable">
+                <thead>
+                    <tr>
+                        <th scope="col" class="t-id">ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Acronym</th>
+                        <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in rows)
+                    {
+                        <tr id="row-@item.BrokerageId">
+                            <td class="t-id">@item.BrokerageId</td>
+                        <td class="c-title"><span class="t-title">@item.BrokerageHouseName</span></td>
+                        <td>@item.BrokerageHouseAcronym</td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="ViewBrocarageHouse" asp-route-id="@item.BrokerageId" title="View" aria-label="View @item.BrokerageHouseName"><icon name="eye" /></a>
+                                <a class="btn btn-icon btn-sm" asp-action="EditBrocarage" asp-route-id="@item.BrokerageId" title="Edit" aria-label="Edit @item.BrokerageHouseName"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.BrokerageHouseName"
+                                        data-delete data-url="@Url.Action("DeleteBrocarage", new { id = item.BrokerageId })"
+                                        data-confirm="Delete @item.BrokerageHouseName?" data-confirm-text="A house with branches, users or tickets cannot be deleted." data-issue-id="@item.BrokerageId">
+                                    <icon name="trash-2" />
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    <tr data-empty hidden><td colspan="4" class="muted">Nothing matches the filter.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

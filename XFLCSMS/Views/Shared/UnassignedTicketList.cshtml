@@ -2,8 +2,8 @@
 @{
     ViewData["Title"] = "Unassigned";
     var role = Ui.Role(ViewContext);
-    ViewData["ListSub"] = role.IsMaker ? "Your tickets that are still waiting for a support engineer."
-        : role.IsHouseAdmin ? "Tickets of your house that are still waiting for a support engineer."
+    ViewData["ListSub"] = role.SeesOwn ? "Your tickets that are still waiting for a support engineer."
+        : role.SeesHouse ? "Tickets of your house that are still waiting for a support engineer."
         : role.Can(Permission.TicketAssign) ? "Tickets waiting for a support engineer. Press Assign and choose who takes it."
         : "Tickets waiting for a support engineer. Press Take to make one yours.";
     ViewData["ListAction"] = "UnassignedTicketList";

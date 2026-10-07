@@ -1,85 +1,140 @@
 @*
     Side menu. One list for the five roles; an entry is there when the role holds the permission for it
     (Infrastructure/Rbac.cs), so the menu and what the server allows cannot drift apart.
-    (text, action, icon) - an empty action starts a new group.
+
+    (Razor never leaves a data-* attribute out, so "data-nav-active" always carries true or false.)
+
+    Every group can be folded with a click on its name, and so can the sub menu "By status". What is folded is
+    remembered per browser (wwwroot/js/app.js, "csms-nav-closed"); the group of the page that is open never folds away.
 *@
+@functions {
+    private class Entry
+    {
+        public string Text = string.Empty;
+        public string Action = string.Empty;
+        public string Icon = string.Empty;
+        /// <summary>Status filter of the main ticket list this entry opens.</summary>
+        public string? Status;
+        public int Count;
+        public bool Hot;
+        public string? CountTitle;
+        /// <summary>Entries of a sub menu.</summary>
+        public List<Entry>? Children;
+    }
+
+    private class Group
+    {
+        public string Key = string.Empty;
+        public string Label = string.Empty;
+        public List<Entry> Items = new();
+    }
+
+    private static Entry Item(string text, string action, string icon, int count = 0, bool hot = false, string? countTitle = null, string? status = null)
+    {
+        return new Entry { Text = text, Action = action, Icon = icon, Count = count, Hot = hot, CountTitle = countTitle, Status = status };
+    }
+}
 @{
     var role = Ui.Role(ViewContext);
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
-    int unassigned = ViewBag.UnassignedCount ?? 0;
+    var currentStatus = TicketStatus.Normalize(Context.Request.Query["status"]);
     int mine = ViewBag.AssignedToMeCount ?? 0;
     int pendingUsers = ViewBag.PendingUsersCount ?? 0;
+    var statusCounts = ViewBag.NavStatusCounts as Dictionary<string, int> ?? new Dictionary<string, int>();
 
-    var menu = new List<(string Text, string Action, string Icon)>
-    {
-        ("Dashboard", "Dashbord", "layout-dashboard"),
-        ("Tickets", "", "")
-    };
+    var groups = new List<Group>();
 
-    if (role.CanCreateTicket)
+    // ---- tickets
+    var tickets = new Group { Key = "tickets", Label = "Tickets" };
+    if (role.CanCreateTicket) { tickets.Items.Add(Item("Create ticket", "IssueRaiseFrom", "ticket-plus")); }
+    tickets.Items.Add(Item(role.TicketListName, role.TicketList, "ticket"));
+    if (role.IsEngineer) { tickets.Items.Add(Item("Assigned to me", "AssignedTicketList", "user-check", mine, false, mine == 1 ? "1 open ticket is assigned to you" : mine + " open tickets are assigned to you")); }
+    tickets.Items.Add(Item("Board", "TicketBoard", "square-kanban"));
+
+    var byStatus = new Entry { Text = "By status", Icon = "tags", Children = new List<Entry>() };
+    foreach (var status in TicketStatus.All)
     {
-        menu.Add(("Create ticket", "IssueRaiseFrom", "ticket-plus"));
+        var count = statusCounts.TryGetValue(status.Key, out var number) ? number : 0;
+        if (status.Key == TicketStatus.Unassigned)
+        {
+            byStatus.Children.Add(Item(status.Name, "UnassignedTicketList", status.Icon, count, role.IsStaff, count == 1 ? "1 ticket waits for an engineer" : count + " tickets wait for an engineer"));
+        }
+        else if (status.Key == TicketStatus.Closed)
+        {
+            byStatus.Children.Add(Item(status.Name, "ClosedTicketList", status.Icon));
+        }
+        else
+        {
+            byStatus.Children.Add(Item(status.Name, role.TicketList, status.Icon, count, false, (count == 1 ? "1 ticket: " : count + " tickets: ") + status.Name.ToLowerInvariant(), status.Key));
+        }
+    }
+    tickets.Items.Add(byStatus);
+
+    if (role.Can(Permission.Workload)) { tickets.Items.Add(Item("Workload", "Workload", "signal-high")); }
+    tickets.Items.Add(Item("Ticket report", "Reports", "chart-column"));
+    if (role.Can(Permission.AuditTickets) && !role.Can(Permission.AuditAll)) { tickets.Items.Add(Item("Ticket activity", "AuditTrail", "clipboard-check")); }
+    groups.Add(tickets);
+
+    // ---- the own brokerage house
+    if (role.Can(Permission.UsersHouse) || role.Can(Permission.BranchesHouse) || role.Can(Permission.AuditHouse))
+    {
+        var house = new Group { Key = "house", Label = "Organization" };
+        if (role.Can(Permission.UsersHouse)) { house.Items.Add(Item("Users", "UserList", "user-cog", pendingUsers, true, pendingUsers + " registered, waiting for activation")); }
+        if (role.Can(Permission.BranchesHouse)) { house.Items.Add(Item("Branches", "Organization", "building-2")); }
+        if (role.Can(Permission.AuditHouse)) { house.Items.Add(Item("Activity", "AuditTrail", "clipboard-check")); }
+        groups.Add(house);
     }
 
-    menu.Add((role.TicketListName, role.TicketList, "ticket"));
-
-    if (role.IsEngineer)
+    // ---- everybody's accounts and the master data
+    if (role.Can(Permission.UsersAll) || role.Can(Permission.MasterData))
     {
-        menu.Add(("Assigned to me", "AssignedTicketList", "user-check"));
+        var admin = new Group { Key = "admin", Label = "Administration" };
+        if (role.Can(Permission.UsersAll)) { admin.Items.Add(Item("Users", "UserList", "user-cog", pendingUsers, true, pendingUsers + " registered, waiting for activation")); }
+        if (role.Can(Permission.MasterData))
+        {
+            admin.Items.Add(Item("Brokerage houses", "BrocarageHouseList", "building-2"));
+            admin.Items.Add(Item("Branches", "BranchList", "map-pin"));
+            admin.Items.Add(new Entry
+            {
+                Text = "Support lists", Icon = "layers", Children = new List<Entry>
+                {
+                    Item("Support types", "SupportTypeList", "headset"),
+                    Item("Support categories", "SupportCatagoryList", "folder"),
+                    Item("Support sub-categories", "SupportSubCatagoryList", "folder-tree"),
+                    Item("Affected sections", "AffectedSectionList", "puzzle")
+                }
+            });
+        }
+        groups.Add(admin);
     }
 
-    menu.Add(("Unassigned", "UnassignedTicketList", "inbox"));
-    menu.Add(("Closed", "ClosedTicketList", "circle-check-big"));
-    if (role.Can(Permission.Workload))
+    // ---- the system itself
+    if (role.Can(Permission.AuditAll) || role.Can(Permission.SystemHealth) || role.Can(Permission.PermissionsEdit) || role.Can(Permission.SystemSettings))
     {
-        menu.Add(("Workload", "Workload", "signal-high"));
-    }
-    menu.Add(("Ticket report", "Reports", "chart-column"));
-    if (role.Can(Permission.AuditTickets))
-    {
-        menu.Add(("Ticket activity", "AuditTrail", "clipboard-check"));
-    }
-
-    if (role.Can(Permission.UsersHouse))
-    {
-        // the administrator of a brokerage house: the own house
-        menu.Add(("Organization", "", ""));
-        menu.Add(("Users", "UserList", "user-cog"));
-        menu.Add(("Branches", "Organization", "building-2"));
-        menu.Add(("Activity", "AuditTrail", "clipboard-check"));
+        var system = new Group { Key = "system", Label = "System" };
+        if (role.Can(Permission.AuditAll)) { system.Items.Add(Item("Audit trail", "AuditTrail", "shield-check")); }
+        if (role.Can(Permission.SystemHealth)) { system.Items.Add(Item("System health", "SystemHealth", "circle-dot")); }
+        if (role.Can(Permission.PermissionsEdit)) { system.Items.Add(Item("Roles & permissions", "Permissions", "sliders-horizontal")); }
+        if (role.Can(Permission.SystemSettings))
+        {
+            system.Items.Add(Item("Notification settings", "NotificationSettings", "bell-ring"));
+            system.Items.Add(Item("Demo data", "DemoData", "flask-conical"));
+        }
+        groups.Add(system);
     }
 
-    if (role.Can(Permission.MasterData))
-    {
-        menu.Add(("Administration", "", ""));
-        menu.Add(("Users", "UserList", "user-cog"));
-        menu.Add(("Brokerage houses", "BrocarageHouseList", "building-2"));
-        menu.Add(("Branches", "BranchList", "map-pin"));
-        menu.Add(("Support types", "SupportTypeList", "headset"));
-        menu.Add(("Support categories", "SupportCatagoryList", "folder"));
-        menu.Add(("Support sub-categories", "SupportSubCatagoryList", "folder-tree"));
-        menu.Add(("Affected sections", "AffectedSectionList", "puzzle"));
-    }
-
-    if (role.Can(Permission.AuditAll) || role.Can(Permission.SystemHealth))
-    {
-        menu.Add(("System", "", ""));
-        if (role.Can(Permission.AuditAll)) { menu.Add(("Audit trail", "AuditTrail", "shield-check")); }
-        if (role.Can(Permission.SystemHealth)) { menu.Add(("System health", "SystemHealth", "circle-dot")); }
-    }
-
-    // the personal to-do list of every role comes last
-    menu.Add(("To-do", "", ""));
-    menu.Add(("In progress", "ViewTodo", "list-todo"));
-    menu.Add(("All to-dos", "AllTodo", "list"));
-    menu.Add(("Completed", "CompletedTodo", "list-checks"));
-    menu.Add(("To-do report", "TodoReports", "file-text"));
-
+    // ---- the personal to-do list of every role comes last
+    var todo = new Group { Key = "todo", Label = "To-do" };
+    todo.Items.Add(Item("In progress", "ViewTodo", "list-todo"));
+    todo.Items.Add(Item("All to-dos", "AllTodo", "list"));
+    todo.Items.Add(Item("Completed", "CompletedTodo", "list-checks"));
+    todo.Items.Add(Item("To-do report", "TodoReports", "file-text"));
     if (role.Can(Permission.TeamTodos))
     {
-        menu.Add(("Team to-dos", "ViewAllTodo", "users"));
-        menu.Add(("Team to-do report", "AllTodoReports", "clipboard-check"));
+        todo.Items.Add(Item("Team to-dos", "ViewAllTodo", "users"));
+        todo.Items.Add(Item("Team to-do report", "AllTodoReports", "clipboard-check"));
     }
+    groups.Add(todo);
 
     // pages that have no menu entry of their own light up the entry they belong to
     var parents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -96,18 +151,25 @@
     };
     var activeAction = parents.TryGetValue(currentAction, out var parent) ? parent : currentAction;
 
-    // split the flat list into groups
-    var groups = new List<(string Label, List<(string Text, string Action, string Icon)> Items)>();
-    foreach (var entry in menu)
+    // the main list with a status chosen belongs to the status entry, not to "All tickets"
+    Func<Entry, bool> isActive = entry => entry.Action.Length > 0
+        && string.Equals(entry.Action, activeAction, StringComparison.OrdinalIgnoreCase)
+        && (!string.Equals(entry.Action, role.TicketList, StringComparison.OrdinalIgnoreCase)
+            || entry.Status == (string.Equals(currentAction, activeAction, StringComparison.OrdinalIgnoreCase) ? currentStatus : null));
+    Func<Entry, bool> holdsActive = entry => entry.Children != null ? entry.Children.Any(isActive) : isActive(entry);
+}
+@functions {
+    // a method with markup that uses tag helpers has to be async
+    private async Task Link(Ui.RoleInfo role, Entry item, bool active)
     {
-        if (entry.Action.Length == 0 || groups.Count == 0)
-        {
-            groups.Add((entry.Action.Length == 0 ? entry.Text : string.Empty, new List<(string Text, string Action, string Icon)>()));
-        }
-        if (entry.Action.Length > 0)
-        {
-            groups[groups.Count - 1].Items.Add(entry);
-        }
+        <a asp-controller="@role.Controller" asp-action="@item.Action" asp-route-status="@item.Status" class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
+            <icon name="@item.Icon" />
+            <span>@item.Text</span>
+            @if (item.Count > 0)
+            {
+                <span class="nav-count @(item.Hot ? "hot" : "")" title="@item.CountTitle">@item.Count</span>
+            }
+        </a>
     }
 }
 <a class="nav-brand" asp-controller="@role.Controller" asp-action="Dashbord">
@@ -115,32 +177,52 @@
     <span><b>XFL CSMS</b><span>@role.Label</span></span>
 </a>
 
+<div class="nav-group">
+    @{ await Link(role, Item("Dashboard", "Dashbord", "layout-dashboard"), string.Equals(activeAction, "Dashbord", StringComparison.OrdinalIgnoreCase)); }
+</div>
+
 @foreach (var group in groups)
 {
-    <div class="nav-group">
-        @if (group.Label.Length > 0)
-        {
-            <div class="nav-label">@group.Label</div>
-        }
+    var groupActive = group.Items.Any(holdsActive);
+    <details class="nav-group" data-nav-fold="@group.Key" data-nav-active="@(groupActive ? "true" : "false")" open>
+        <summary class="nav-label"><span>@group.Label</span><icon name="chevron-down" /></summary>
         @foreach (var item in group.Items)
         {
-            var active = string.Equals(item.Action, activeAction, StringComparison.OrdinalIgnoreCase);
-            <a asp-controller="@role.Controller" asp-action="@item.Action" class="nav-link @(active ? "active" : "")" aria-current="@(active ? "page" : null)">
-                <icon name="@item.Icon" />
-                <span>@item.Text</span>
-                @if (item.Action == "UnassignedTicketList" && unassigned > 0)
-                {
-                    <span class="nav-count @(role.IsStaff ? "hot" : "")" title="@unassigned open tickets without an engineer">@unassigned</span>
-                }
-                @if (item.Action == "AssignedTicketList" && mine > 0)
-                {
-                    <span class="nav-count" title="@mine open tickets assigned to you">@mine</span>
-                }
-                @if (item.Action == "UserList" && pendingUsers > 0)
-                {
-                    <span class="nav-count hot" title="@pendingUsers registered, waiting for activation">@pendingUsers</span>
-                }
-            </a>
+            if (item.Children == null)
+            {
+                await Link(role, item, isActive(item));
+            }
+            else
+            {
+                var subActive = item.Children.Any(isActive);
+                var total = item.Children.Where(child => child.Hot).Sum(child => child.Count);
+                <details class="nav-sub" data-nav-fold="@(group.Key + "-" + item.Text.Replace(" ", "").ToLowerInvariant())" data-nav-active="@(subActive ? "true" : "false")" open>
+                    <summary class="nav-link">
+                        <icon name="@item.Icon" />
+                        <span>@item.Text</span>
+                        @if (total > 0)
+                        {
+                            <span class="nav-count hot when-closed">@total</span>
+                        }
+                        <icon name="chevron-down" class="fold" />
+                    </summary>
+                    @foreach (var child in item.Children)
+                    {
+                        await Link(role, child, isActive(child));
+                    }
+                </details>
+            }
         }
-    </div>
+    </details>
 }
+@* fold what this browser had folded, before the menu is painted *@
+<script>
+    (function () {
+        var closed;
+        try { closed = JSON.parse(localStorage.getItem('csms-nav-closed') || '[]'); } catch (e) { closed = []; }
+        if (!Array.isArray(closed)) { closed = []; }
+        document.querySelectorAll('#nav details[data-nav-fold]').forEach(function (group) {
+            if (closed.indexOf(group.getAttribute('data-nav-fold')) >= 0 && group.getAttribute('data-nav-active') !== 'true') { group.removeAttribute('open'); }
+        });
+    }());
+</script>

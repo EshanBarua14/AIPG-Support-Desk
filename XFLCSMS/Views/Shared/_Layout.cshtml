@@ -1,6 +1,6 @@
 @*
-    The one page frame of the signed-in area: side menu, top bar, page, footer.
-    All four roles use it; what differs per role is decided in Ui.Role (Infrastructure/Ui.cs).
+    The one page frame of the signed-in area: side menu, top bar (search, bell, theme, account), page, footer.
+    All five roles use it; what differs per role is decided in Ui.Role (Infrastructure/Ui.cs).
 *@
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
@@ -49,6 +49,30 @@
                         <icon name="plus" /> <span class="hide-s">Create ticket</span><span class="show-s">New</span>
                     </a>
                 }
+
+                @{
+                    int unreadNotices = ViewBag.UnreadNotifications ?? 0;
+                    bool liveNotices = ViewBag.InAppNotifications ?? false;
+                }
+                <div class="menu bell" data-bell data-user="@(me?.Id)"
+                     data-stream="@(liveNotices ? Url.Action("NotificationStream", role.Controller) : null)"
+                     data-latest="@Url.Action("NotificationsPeek", role.Controller)"
+                     data-read="@Url.Action("ReadNotifications", role.Controller)"
+                     data-open="@Url.Action("OpenNotification", role.Controller)">
+                    <button type="button" class="btn btn-icon" data-menu aria-haspopup="true" aria-expanded="false" title="Notifications"
+                            aria-label="Notifications@(unreadNotices > 0 ? ", " + unreadNotices + " unread" : "")">
+                        <icon name="bell" />
+                        <span class="bell-count" data-bell-count hidden="@(unreadNotices == 0)">@(unreadNotices > 99 ? "99+" : unreadNotices.ToString())</span>
+                    </button>
+                    <div class="menu-panel bell-panel" hidden>
+                        <div class="bell-head">
+                            <b>Notifications</b>
+                            <button type="button" class="link" data-bell-read>Mark all read</button>
+                        </div>
+                        <div class="bell-items" data-bell-items aria-live="polite"><p class="muted">Loading&hellip;</p></div>
+                        <a class="bell-all" asp-controller="@role.Controller" asp-action="Notifications">All notifications and preferences</a>
+                    </div>
+                </div>
 
                 <button type="button" class="btn btn-icon" data-theme-toggle aria-label="Switch between light and dark" title="Light / dark">
                     <icon name="moon" class="theme-moon" /><icon name="sun" class="theme-sun" />

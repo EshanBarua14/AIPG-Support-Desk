@@ -4,9 +4,7 @@
     var info = Model.HeaderInfo ?? new XFLCSMS.Models.Admin.HeaderInfo();
     var issues = Model.Issues?.OrderByDescending(issue => issue.IssueId).ToList() ?? new List<XFLCSMS.Models.Issue.IssueTable>();
     var total = info.TotalTicket ?? issues.Count;
-    var open = info.TotalOpenTicket ?? 0;
     var closed = info.TotalCloseTicket ?? 0;
-    var other = info.TotalInque ?? 0;
 }
 <section class="card flush">
     <div class="card-head">
@@ -18,15 +16,25 @@
     <div class="card-body">
         <div class="queue-side" style="margin: 0">
             <div class="kpi"><span class="fig num" id="totalTicketPlaceholder">@total</span><span>tickets</span></div>
-            <div class="kpi"><span class="fig num" id="totalOpenReportsPlaceholder">@open</span><span>open</span></div>
-            <div class="kpi"><span class="fig num" id="totalInQueueReportsPlaceholder">@other</span><span>in queue or in progress</span></div>
+            <div class="kpi"><span class="fig num" id="totalOpenReportsPlaceholder">@(total - closed)</span><span>open</span></div>
             <div class="kpi"><span class="fig num" id="totalClosedReportsPlaceholder">@closed</span><span>closed</span></div>
+        </div>
+        <div class="legend status-legend" id="reportByStatus" style="margin-top: 14px">
+            @foreach (var status in TicketStatus.All)
+            {
+                <span><i class="q-@status.Css"></i>@status.Name <b>@info.ByStatus.GetValueOrDefault(status.Key)</b></span>
+            }
         </div>
         <dl class="facts" style="margin-top: 16px; max-width: 520px">
             <dt>Brokerage house</dt>
             <dd id="brokerageHouseNamePlaceholder">@(string.IsNullOrEmpty(info.BrokerageHouseName) ? "All" : info.BrokerageHouseName)</dd>
             <dt>Employee</dt>
             <dd id="employeeNamePlaceholder">@(string.IsNullOrEmpty(info.EmployeeName) ? "All" : info.EmployeeName)</dd>
+            @if (!string.IsNullOrEmpty(info.StatusName))
+            {
+                <dt>Status</dt>
+                <dd>@info.StatusName</dd>
+            }
         </dl>
     </div>
 

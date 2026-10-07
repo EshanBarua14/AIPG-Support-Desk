@@ -15,7 +15,7 @@ namespace XFLCSMS.Controllers
         /// <summary>Lists a ticket may return to after an assignment made from that list.</summary>
         private static readonly string[] ListActions =
         {
-            "AdminView", "AllTicketList", "AssignedTicketList", "UnassignedTicketList", "Workload"
+            "AdminView", "AllTicketList", "AssignedTicketList", "UnassignedTicketList", "Workload", "TicketBoard"
         };
 
         private IActionResult BackTo(string? returnTo, int ticketId)
@@ -28,7 +28,7 @@ namespace XFLCSMS.Controllers
         protected List<EngineerLoad> LoadEngineerChoices()
         {
             var engineers = Tickets.Engineers().OrderBy(u => u.FullName).Select(u => new { u.Id, u.FullName }).ToList();
-            var open = Db.Issues.Where(i => i.IStatus != "Close" && (i.AssignedToId != null || i.AssignBy != null))
+            var open = Db.Issues.Where(i => i.IStatus != TicketStatus.Closed && (i.AssignedToId != null || i.AssignBy != null))
                 .Select(i => new { i.AssignedToId, i.AssignBy })
                 .ToList();
 
@@ -54,9 +54,9 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                if (issue.IStatus == "Close")
+                if (TicketStatus.IsClosed(issue.IStatus))
                 {
-                    TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed. Reopen it (Edit > Status) before assigning it.";
+                    TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed. Reopen it before assigning it.";
                     return BackTo(returnTo, id);
                 }
 
@@ -97,7 +97,7 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                if (issue.IStatus == "Close")
+                if (TicketStatus.IsClosed(issue.IStatus))
                 {
                     TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed.";
                 }
@@ -148,7 +148,7 @@ namespace XFLCSMS.Controllers
                 {
                     TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is not assigned to you.";
                 }
-                else if (issue.IStatus == "Close")
+                else if (TicketStatus.IsClosed(issue.IStatus))
                 {
                     TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed.";
                 }
@@ -177,7 +177,8 @@ namespace XFLCSMS.Controllers
                 var today = DateTime.Now.Date;
                 var since = today.AddDays(-30);
                 var engineers = await Tickets.Engineers().OrderBy(u => u.FullName).Select(u => new { u.Id, u.FullName, u.UserName }).ToListAsync();
-                var tickets = await Db.Issues
+                // only what this role may see (staff without "see all tickets": their own)
+                var tickets = await VisibleIssues
                     .Select(i => new { i.IssueId, i.AssignedToId, i.AssignBy, i.AssignOn, i.IStatus, i.Priority, i.TDate, i.ClosedOn })
                     .ToListAsync();
 
@@ -185,34 +186,37 @@ namespace XFLCSMS.Controllers
                 foreach (var engineer in engineers)
                 {
                     var mine = tickets.Where(t => t.AssignedToId == engineer.Id || (t.AssignedToId == null && t.AssignBy == engineer.FullName)).ToList();
-                    var open = mine.Where(t => t.IStatus != "Close").ToList();
+                    var open = mine.Where(t => t.IStatus != TicketStatus.Closed).ToList();
                     board.Engineers.Add(new EngineerLoad
                     {
                         Id = engineer.Id,
                         Name = engineer.FullName,
                         UserName = engineer.UserName,
                         Open = open.Count,
-                        InProgress = open.Count(t => t.IStatus == "Inprogress"),
+                        InProgress = open.Count(t => t.IStatus == TicketStatus.InProgress),
+                        Pending = open.Count(t => t.IStatus == TicketStatus.Pending),
+                        InReview = open.Count(t => t.IStatus == TicketStatus.Review),
+                        ToClose = open.Count(t => t.IStatus == TicketStatus.Done || t.IStatus == TicketStatus.Deployed),
                         HighPriority = open.Count(t => t.Priority == "High"),
                         OldestOpen = open.Count == 0 ? null : open.Min(t => t.AssignOn ?? t.TDate),
-                        ClosedLast30Days = mine.Count(t => t.IStatus == "Close" && t.ClosedOn >= since)
+                        ClosedLast30Days = mine.Count(t => t.IStatus == TicketStatus.Closed && t.ClosedOn >= since)
                     });
                 }
 
                 var waitingIds = tickets
-                    .Where(t => t.AssignedToId == null && string.IsNullOrEmpty(t.AssignBy) && t.IStatus != "Close")
+                    .Where(t => t.AssignedToId == null && string.IsNullOrEmpty(t.AssignBy) && t.IStatus != TicketStatus.Closed)
                     .OrderBy(t => t.TDate)
                     .Select(t => t.IssueId)
                     .ToList();
                 board.UnassignedCount = waitingIds.Count;
                 var firstWaiting = waitingIds.Take(15).ToList();
-                var rows = await Db.Issues.Where(i => firstWaiting.Contains(i.IssueId)).ToListAsync();
+                var rows = await VisibleIssues.Where(i => firstWaiting.Contains(i.IssueId)).ToListAsync();
                 board.Unassigned = firstWaiting.Select(id => rows.First(r => r.IssueId == id)).ToList();
 
                 // open tickets whose engineer can no longer work on them (account disabled, deleted or another role now)
                 var names = engineers.Select(e => e.FullName).ToHashSet();
                 var ids = engineers.Select(e => e.Id).ToHashSet();
-                board.Orphaned = tickets.Count(t => t.IStatus != "Close"
+                board.Orphaned = tickets.Count(t => t.IStatus != TicketStatus.Closed
                     && ((t.AssignedToId != null && !ids.Contains(t.AssignedToId.Value)) || (t.AssignedToId == null && !string.IsNullOrEmpty(t.AssignBy) && !names.Contains(t.AssignBy))));
 
                 var houses = await Db.Brokerages.ToDictionaryAsync(b => b.BrokerageId, b => b.BrokerageHouseName);

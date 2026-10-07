@@ -1,0 +1,130 @@
+@*
+    Demo data: houses, people of every role, tickets in every status. Loaded and removed here
+    (Services/DemoDataService.cs). Removing takes away exactly what was loaded.
+*@
+@model XFLCSMS.Services.DemoStatus
+@{
+    ViewData["Title"] = "Demo data";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Demo data</h1>
+        <p class="page-sub">Fills the system with made-up brokerage houses, people and tickets, so every page can be tried with content. It can be removed again with one click.</p>
+    </div>
+</header>
+
+@if (!Model.Loaded)
+{
+    <section class="card">
+        <div class="card-head"><h2>What gets loaded</h2></div>
+        <div class="card-body prose">
+            <ul>
+                <li><b>3 brokerage houses</b> (Demo Alpha, Beta, Gamma) with 7 branches.</li>
+                <li><b>15 accounts</b> of every role: a support manager, three support engineers, and for each house an administrator and users. One registration waits for activation.</li>
+                <li><b>64 tickets</b> in every status, from Unassigned to Closed, with their history, comments and priorities.</li>
+                <li>Support types, categories, sub-categories and affected sections (only the ones that do not exist yet).</li>
+                <li>To-dos for every demo account and for you, and notifications under the bell.</li>
+            </ul>
+            <p>The demo accounts have addresses under <code>demo.invalid</code>: no e-mail and no SMS is ever sent to them. Their names start with &ldquo;demo.&rdquo;, the houses with &ldquo;Demo&rdquo;. All of them get one password, made up new for every load and shown on this page afterwards.</p>
+        </div>
+        <form asp-action="LoadDemoData" method="post"
+              data-confirm-submit="Load the demo data?" data-action="Load demo data"
+              data-confirm-text="3 houses, 15 accounts and 64 tickets are added. You can remove them again on this page.">
+            @if (Model.RealTickets > 0)
+            {
+                <div class="card-body" style="padding-top: 0">
+                    <div class="alert alert-warning" role="note">
+                        <icon name="triangle-alert" />
+                        <span>
+                            <b>This system already holds @Model.RealTickets @(Model.RealTickets == 1 ? "ticket" : "tickets") and @Model.RealUsers @(Model.RealUsers == 1 ? "account" : "accounts").</b>
+                            They are not changed, but the demo data is added next to them: it shows up in the lists and reports of XFL staff, and the demo manager and demo engineers are working accounts that see the real tickets too. Whoever knows the demo password can sign in as them. Use this on a test installation, or remove the demo data when you are done.
+                        </span>
+                    </div>
+                    <label class="check" style="margin-top: 12px">
+                        <input type="checkbox" name="besideRealData" value="true" required>
+                        <span><b>Load the demo data next to the existing tickets</b></span>
+                    </label>
+                </div>
+            }
+            else
+            {
+                <input type="hidden" name="besideRealData" value="true">
+            }
+            <div class="card-foot">
+                <button type="submit" class="btn btn-primary"><icon name="flask-conical" /> Load demo data</button>
+            </div>
+        </form>
+    </section>
+}
+else
+{
+    <div class="grid-2">
+        <section class="card">
+            <div class="card-head"><h2>Loaded</h2><span class="sub">@Ui.Stamp(Model.LoadedOn)@(string.IsNullOrEmpty(Model.LoadedBy) ? "" : " by " + Model.LoadedBy)</span></div>
+            <div class="card-body">
+                <div class="queue-side" style="margin: 0">
+                    <div class="kpi"><span class="fig num">@Model.Houses</span><span>brokerage houses</span></div>
+                    <div class="kpi"><span class="fig num">@Model.Users</span><span>accounts</span></div>
+                    <div class="kpi"><span class="fig num">@Model.Tickets</span><span>tickets</span></div>
+                    <div class="kpi"><span class="fig num">@Model.Todos</span><span>to-dos</span></div>
+                </div>
+            </div>
+            <form class="card-foot" asp-action="RemoveDemoData" method="post"
+                  data-confirm-submit="Remove the demo data?" data-action="Remove demo data"
+                  data-confirm-text="The demo houses, accounts and tickets are deleted, and everything the demo accounts raised meanwhile. Your own data stays.">
+                <button type="submit" class="btn btn-danger"><icon name="trash-2" /> Remove demo data</button>
+                <span class="hint">
+                    Tickets you assigned to a demo engineer become unassigned again.
+                    @if (Model.ExtraTickets > 0)
+                    {
+                        <b>@Model.ExtraTickets @(Model.ExtraTickets == 1 ? "ticket that a demo account raised since is" : "tickets that demo accounts raised since are") deleted too.</b>
+                    }
+                </span>
+            </form>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>Try it</h2></div>
+            <div class="card-body prose">
+                <p>Sign in as one of the accounts below (in a private window, so you stay signed in here). All of them use the password</p>
+                @if (Model.Password != null)
+                {
+                    <p><code class="big" id="demoPassword">@Model.Password</code></p>
+                    <p class="muted">It was made up for this load and is shown only here, to people who may load demo data.</p>
+                }
+                else
+                {
+                    <p class="muted">The password can no longer be shown (the key folder <code>App_Data/keys</code> was replaced). Remove the demo data and load it again, or set a password for a demo account under Users.</p>
+                }
+                <ul>
+                    <li><b>demo.manager</b> assigns tickets and sets statuses.</li>
+                    <li><b>demo.engineer1</b> works on the tickets assigned to him, and takes unassigned ones.</li>
+                    <li><b>demo.demoa.admin</b> manages the people and branches of Demo Alpha.</li>
+                    <li><b>demo.demoa.user1</b> raises tickets and follows them.</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <section class="card flush" style="margin-top: 18px">
+        <div class="card-head"><h2>Demo accounts</h2><span class="sub">@Model.Accounts.Count accounts, one password</span></div>
+        <div class="table-wrap">
+            <table class="table" id="demoAccounts">
+                <thead>
+                    <tr><th scope="col">User name</th><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Belongs to</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var account in Model.Accounts)
+                    {
+                        <tr>
+                            <td><code>@account.UserName</code></td>
+                            <td>@account.FullName</td>
+                            <td>@Ui.RolePill(account.Role)</td>
+                            <td>@account.House</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

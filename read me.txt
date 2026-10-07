@@ -38,9 +38,11 @@ appsettings.json to switch that off).
 
 4. E-mail
 ---------
-Registration and "forgot password" send a token by e-mail using EmailHost / EmailUsername / EmailPassword
-in appsettings.json (Gmail SMTP, port 587). If the mail cannot be sent the user sees a message instead of
-an error page.
+Registration, "forgot password" and the e-mail notifications use the mail server entered in the application:
+sign in as platform admin > System > Notification settings > E-mail server (password stored encrypted in the
+database; "Send test e-mail" shows at once whether it works). While nothing is entered there, EmailHost /
+EmailUsername / EmailPassword of appsettings.json are used (Gmail SMTP, port 587). If the mail cannot be sent
+the user sees a message instead of an error page.
 The system also works without e-mail:
    - a registration whose mail failed is kept as "Not verified"; the administrator activates it under
      Users (the menu shows how many accounts wait);
@@ -76,5 +78,28 @@ b) Brokerage houses outside the office (the real use)
 Before a brokerage house can start, the administrator needs: the house (Brokerage houses > New), at least
 one branch for it (the list flags a house without one), and then either the staff register themselves or
 the administrator creates their accounts.
+
+7. First steps after updating to version 3.0
+--------------------------------------------
+Start the application once: it adds its new tables by itself (nothing existing is changed) and brings the
+status of old tickets in line with the eight statuses. Then, signed in as platform admin:
+   a) System > Notification settings
+        - "Address of this site": check it and press Save. Until it is saved, e-mails carry no link.
+        - E-mail server: enter host, user, password, sender; "Send test e-mail".
+        - SMS gateway (optional): address and fields of your SMS provider, then switch SMS on.
+        - The table decides which event is reported through which channel.
+   b) System > Roles & permissions: what each of the five roles may do. The defaults are sensible.
+   c) Users > Edit: give one person of each brokerage house the role "House admin". He then manages the
+      people and branches of that house himself.
+   d) System > Demo data > Load demo data: houses, people of every role and 64 tickets in every status, to
+      try everything. The page shows the accounts and their password. Best on a test database: the demo
+      manager and engineers are working accounts. "Remove demo data" takes it away again.
+
+The folder XFLCSMS/App_Data/keys is created at the first start. It holds the keys for sign-in cookies and
+for the stored mail password / SMS key. The account the site runs under must be able to write there. Do not
+commit it and do not let a deployment delete it. After a move to another server: enter the mail password and
+the SMS key again (the settings page says when that is needed).
+
+Run ONE instance of the application: the messages that appear on open pages are passed on inside the process.
 
 See WORKFLOWS.md for what each role can do, and FIXES.md for the list of what was changed.

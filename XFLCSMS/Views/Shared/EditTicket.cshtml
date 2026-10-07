@@ -9,7 +9,8 @@
     ViewData["Title"] = "Edit ticket " + Model.TicketNumber;
     var attachments = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
     var engineers = Model.SupportEngineers?.ToList() ?? new List<XFLCSMS.Models.Register.User>();
-    var statuses = new[] { ("Open", "Open"), ("Inqueue", "In queue"), ("Inprogress", "In progress"), ("Close", "Closed") };
+    // the status the ticket has, and the ones this user may give it now (TicketService.StatusChoices)
+    var currentStatus = TicketStatus.Find(Model.IStatus);
     var priorities = new[] { "Low", "Medium", "High" };
 }
 <a class="back" asp-action="TicketView" asp-route-id="@Model.IssueId"><icon name="arrow-left" /> Back to the ticket</a>
@@ -26,6 +27,8 @@
 
 <form asp-action="EditTicketttt" method="post" enctype="multipart/form-data" id="uploadForm">
     <input type="hidden" asp-for="IssueId">
+    @* what this form shows now: only a field the user really changes is a request (TicketService.ApplyStaffEdit) *@
+    <input type="hidden" name="OriginalStatus" value="@Model.IStatus">
 
     <div class="split">
         <div class="stack">
@@ -91,6 +94,7 @@
                         {
                             var current = Model.AssignedToId ?? engineers.Where(e => e.FullName == Model.AssgnBy).Select(e => (int?)e.Id).FirstOrDefault();
                             var gone = !string.IsNullOrEmpty(Model.AssgnBy) && (current == null || !engineers.Any(e => e.Id == current));
+                            <input type="hidden" name="OriginalAssignee" value="@(gone ? TicketService.KeepAssignee.ToString() : current?.ToString() ?? TicketService.NobodyAssigned)">
                             <div class="field">
                                 <label for="AssignedToId">Assigned to</label>
                                 <select class="select" name="AssignedToId" id="AssignedToId">
@@ -119,17 +123,22 @@
                         <div class="field">
                             <label for="IStatus">Status</label>
                             <select class="select" name="IStatus" id="IStatus">
-                                @if (!string.IsNullOrEmpty(Model.IStatus) && !statuses.Any(status => status.Item1 == Model.IStatus))
+                                <option value="@Model.IStatus" selected>@TicketStatus.Name(Model.IStatus)@(currentStatus == null ? "" : " (now)")</option>
+                                @foreach (var status in Model.StatusChoices)
                                 {
-                                    @* a status saved by an older version: keep it instead of silently switching the ticket to Open *@
-                                    <option value="@Model.IStatus" selected>@DisplayText.Status(Model.IStatus)</option>
-                                }
-                                @foreach (var status in statuses)
-                                {
-                                    <option value="@status.Item1" selected="@(status.Item1 == Model.IStatus)">@status.Item2</option>
+                                    <option value="@status.Key">@status.Name</option>
                                 }
                             </select>
-                            <span class="hint">Closed records your name and the time.</span>
+                            <span class="hint">
+                                @if (string.IsNullOrEmpty(Model.AssgnBy) && !TicketStatus.IsClosed(Model.IStatus))
+                                {
+                                    <text>A ticket without an engineer is Unassigned. Assign it first, then set the status.</text>
+                                }
+                                else
+                                {
+                                    <text>Closed records your name and the time.</text>
+                                }
+                            </span>
                         </div>
                     }
 

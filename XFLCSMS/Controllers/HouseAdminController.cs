@@ -11,7 +11,8 @@ namespace XFLCSMS.Controllers
     /// The administrator of one brokerage house. Every ticket page is the one of MakerController - the role decides
     /// that it shows the tickets of the whole house instead of the own ones (CsmsController.VisibleIssues).
     /// Accounts of the house and its audit trail are the shared pages of CsmsController (Users, Audit).
-    /// This class adds the page for the house itself: its branches.
+    /// This class adds the page for the house itself: its branches. (The actions are called ...HouseBranch: the
+    /// names AddBranch / DeleteBranch belong to the master data pages, which work on the branches of every house.)
     /// </summary>
     public class HouseAdminController : MakerController
     {
@@ -53,8 +54,8 @@ namespace XFLCSMS.Controllers
                 Users = people.Count,
                 Admins = people.Count(p => p.Department == Rbac.HouseAdminPosition),
                 Waiting = people.Count(p => p.VerifiedAt == null && p.UStatus),
-                OpenTickets = tickets.Count(status => status != "Close"),
-                ClosedTickets = tickets.Count(status => status == "Close"),
+                OpenTickets = tickets.Count(status => status != TicketStatus.Closed),
+                ClosedTickets = tickets.Count(status => status == TicketStatus.Closed),
                 Branches = branches.Select(b => new OrganizationBranch { Id = b.BranchId, Name = b.BranchName, Users = people.Count(p => p.Branch == b.BranchId) }).ToList()
             };
         }
@@ -72,7 +73,7 @@ namespace XFLCSMS.Controllers
 
         [HttpPost]
         [RequirePermission(Permission.BranchesHouse)]
-        public async Task<IActionResult> AddBranch(string? branchName)
+        public async Task<IActionResult> AddHouseBranch(string? branchName)
         {
             try
             {
@@ -97,7 +98,7 @@ namespace XFLCSMS.Controllers
 
         [HttpPost]
         [RequirePermission(Permission.BranchesHouse)]
-        public async Task<IActionResult> RenameBranch(int id, string? branchName)
+        public async Task<IActionResult> RenameHouseBranch(int id, string? branchName)
         {
             try
             {
@@ -132,7 +133,7 @@ namespace XFLCSMS.Controllers
 
         [HttpDelete]
         [RequirePermission(Permission.BranchesHouse)]
-        public async Task<IActionResult> DeleteBranch(int id)
+        public async Task<IActionResult> DeleteHouseBranch(int id)
         {
             try
             {

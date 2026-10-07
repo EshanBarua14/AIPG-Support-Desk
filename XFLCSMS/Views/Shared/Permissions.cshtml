@@ -1,0 +1,115 @@
+@*
+    What each role may do, as a table of switches (Infrastructure/Rbac.cs). A switch that cannot be changed is
+    shown locked: either the role can never hold that permission (it would reach into other brokerage houses,
+    or it belongs to a brokerage house and the role is XFL staff), or it can never lose it (the platform admin
+    keeps the accounts and this page, so a wrong setting can always be repaired).
+*@
+@model XFLCSMS.Models.Admin.PermissionsView
+@{
+    ViewData["Title"] = "Roles and permissions";
+    ViewData["PageClass"] = "wide";
+    var roles = Rbac.AllRoles;
+    var groups = Rbac.Catalogue.GroupBy(entry => entry.Group).ToList();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Roles and permissions</h1>
+        <p class="page-sub">
+            Tick what each role may do. A change is in force as soon as it is saved, also for people who are signed in.
+            @if (Model.IsCustomised)
+            {
+                <span>Changed from the defaults@(Model.ChangedOn.HasValue ? " on " + Ui.Stamp(Model.ChangedOn) : "")@(string.IsNullOrEmpty(Model.ChangedBy) ? "" : " by " + Model.ChangedBy).</span>
+            }
+            else
+            {
+                <span>These are the defaults.</span>
+            }
+        </p>
+    </div>
+</header>
+
+<form asp-action="SavePermissions" method="post" id="permissionsForm">
+    <section class="card flush">
+        <div class="table-wrap">
+            <table class="table matrix" id="permissionTable">
+                <thead>
+                    <tr>
+                        <th scope="col">Permission</th>
+                        @foreach (var role in roles)
+                        {
+                            <th scope="col" class="matrix-role">
+                                @Ui.RolePill(role)
+                                <small>@(Model.People.GetValueOrDefault(role)) @(Model.People.GetValueOrDefault(role) == 1 ? "person" : "people")</small>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                @foreach (var group in groups)
+                {
+                    <tbody>
+                        <tr class="matrix-group"><th scope="colgroup" colspan="@(roles.Length + 1)">@group.Key</th></tr>
+                        @foreach (var entry in group)
+                        {
+                            <tr>
+                                <th scope="row">
+                                    <b>@entry.Name</b>
+                                    <small>@entry.About</small>
+                                </th>
+                                @foreach (var role in roles)
+                                {
+                                    var has = Rbac.Can(role, entry.Permission);
+                                    var isDefault = Rbac.Defaults[role].Contains(entry.Permission);
+                                    var id = "g-" + role + "-" + entry.Permission;
+                                    <td class="matrix-cell @(has != isDefault ? "changed" : "")">
+                                        @if (Rbac.IsFixed(role, entry.Permission))
+                                        {
+                                            <input type="hidden" name="grants" value="@role:@entry.Permission">
+                                            <input type="checkbox" id="@id" checked disabled aria-label="@entry.Name for @Rbac.Label(role): always on" title="Always with the @Rbac.Label(role).ToLowerInvariant(), so a wrong setting can be repaired">
+                                        }
+                                        else if (!Rbac.CanBeGranted(role, entry.Permission))
+                                        {
+                                            <span class="matrix-none" title="Not available for the @Rbac.Label(role).ToLowerInvariant()" aria-label="Not available for @Rbac.Label(role)">&ndash;</span>
+                                        }
+                                        else
+                                        {
+                                            <input type="checkbox" id="@id" name="grants" value="@role:@entry.Permission" checked="@has"
+                                                   aria-label="@entry.Name for @Rbac.Label(role)" title="@(isDefault ? "On by default" : "Off by default")">
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                }
+            </table>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> Save permissions</button>
+            <span class="hint">A dash means the permission cannot be given to that role. A highlighted box differs from the default.</span>
+            @if (Model.IsCustomised)
+            {
+                <button type="submit" name="reset" value="true" class="btn btn-quiet right" form="resetForm"><icon name="rotate-ccw" /> Reset to defaults</button>
+            }
+        </div>
+    </section>
+</form>
+<form asp-action="SavePermissions" method="post" id="resetForm"
+      data-confirm-submit="Reset all permissions to the defaults?" data-action="Reset"
+      data-confirm-text="Every role gets back exactly what it had when the system was installed.">
+    <input type="hidden" name="reset" value="true">
+</form>
+
+<section class="card" style="margin-top: 18px">
+    <div class="card-head"><h2>How the roles work</h2></div>
+    <div class="card-body prose">
+        <ul>
+            <li>A person has exactly one role. It is set on the account (Users &gt; Edit).</li>
+            <li><b>XFL roles</b> (platform admin, support manager, support engineer) work across all brokerage houses. <b>House roles</b> (house admin, house user) never see anything outside their own house, whatever is ticked here.</li>
+            <li>A <b>house user</b> always sees only the tickets he raised himself: anybody can register for a brokerage house, so that role cannot be given more. People who should see the whole house are made <b>house admin</b>.</li>
+            <li>The <b>settings of the system</b> (mail server, SMS gateway, demo data) stay with the platform admin.</li>
+            <li>Tickets are assigned to support engineers only. Without &ldquo;Work on any ticket&rdquo;, XFL staff change the tickets assigned to them.</li>
+            <li>Only a platform admin can create, change or delete platform admin accounts, also when another role has &ldquo;Manage all accounts&rdquo;.</li>
+            <li>Every change made here is written to the audit trail.</li>
+        </ul>
+    </div>
+</section>

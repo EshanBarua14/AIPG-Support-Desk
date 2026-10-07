@@ -6,24 +6,34 @@
 @{
     var role = Ui.Role(ViewContext);
     ViewData["Title"] = "Ticket " + Model.TicketNumber;
-    var closed = Model.IStatus == "Close";
+    var status = TicketStatus.Normalize(Model.IStatus);
+    var closed = status == TicketStatus.Closed;
     var assigned = !string.IsNullOrEmpty(Model.AssgnBy);
-    var working = Ui.StatusKey(Model.IStatus) == "inprogress" || closed;
     var attachments = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
     var canAssign = role.Can(Permission.TicketAssign) && !closed;
     var canTake = role.Can(Permission.TicketTake) && !closed;
     var engineers = canAssign ? ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value : new List<XFLCSMS.Models.Admin.EngineerLoad>();
     var currentEngineer = Model.AssignedToId ?? engineers.Where(e => e.Name == Model.AssgnBy).Select(e => (int?)e.Id).FirstOrDefault();
 
-    // where the ticket stands: the first step that is not done yet is the current one
-    var steps = new List<(string Name, string Note, bool Done)>
+    // Where the ticket stands. "Pending" is no step of its own: it is work that has stopped for a while.
+    var rank = status == TicketStatus.Closed ? 6 : status == TicketStatus.Deployed ? 5 : status == TicketStatus.Done ? 4
+        : status == TicketStatus.Review ? 3 : status == TicketStatus.InProgress || status == TicketStatus.Pending ? 2 : assigned ? 1 : 0;
+    var steps = new List<(string Name, string Note)>
     {
-        ("Raised", Ui.Date(Model.CreatedOn), true),
-        ("Assigned", assigned ? Model.AssgnBy! : "Waiting for an engineer", assigned),
-        ("In progress", working ? (closed ? "Worked on" : "Being worked on") : "Not started", working),
-        ("Closed", closed ? Ui.Date(Model.CloseOn) : "Still open", closed)
+        ("Raised", Ui.Date(Model.CreatedOn)),
+        ("Assigned", assigned ? Model.AssgnBy! : "Waiting for an engineer"),
+        ("In progress", status == TicketStatus.Pending ? "On hold: pending" : rank == 2 ? "Being worked on" : rank > 2 ? "Worked on" : "Not started"),
+        ("Waiting for review", rank == 3 ? "To be checked" : rank > 3 ? "Checked" : string.Empty),
+        ("Done", rank == 4 ? "Accepted, not live yet" : string.Empty),
+        ("Deployed", rank == 5 ? "Live" : string.Empty),
+        ("Closed", closed ? Ui.Date(Model.CloseOn) : string.Empty)
     };
-    var current = steps.FindIndex(step => !step.Done);
+    // the step the ticket has reached is "now" until it is closed; everything before it is done
+    var choices = Model.StatusChoices;
+    // the step that usually comes next gets the emphasis (from Pending: back to work)
+    var forward = status == TicketStatus.Pending
+        ? choices.Where(choice => choice.Key == TicketStatus.InProgress).Select(choice => choice.Key).FirstOrDefault()
+        : choices.Where(choice => Array.IndexOf(TicketStatus.Keys, choice.Key) > Array.IndexOf(TicketStatus.Keys, status) && choice.Key != TicketStatus.Pending).Select(choice => choice.Key).FirstOrDefault();
 }
 <a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @role.TicketListName</a>
 
@@ -40,7 +50,7 @@
     @if (Model.CanEdit && (!closed || role.Can(Permission.TicketWorkAny)))
     {
         <div class="page-actions">
-            <a class="btn btn-primary" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> @(closed ? "Reopen or edit" : role.IsStaff ? "Edit or set status" : "Edit ticket")</a>
+            <a class="btn @(choices.Count > 0 ? "" : "btn-primary")" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> Edit ticket</a>
         </div>
     }
 </header>
@@ -49,10 +59,11 @@
     <div class="stack">
         <section class="card" aria-label="Progress">
             <div class="card-body">
-                <ol class="steps">
+                <ol class="steps seven">
                     @for (var index = 0; index < steps.Count; index++)
                     {
-                        <li class="@(steps[index].Done ? "done" : index == current ? "now" : "")">
+                        var state = index < rank || closed ? "done" : index == rank ? "now" : "";
+                        <li class="@state @(index == 2 && status == TicketStatus.Pending ? "held" : "")" aria-current="@(state == "now" ? "step" : null)">
                             <b>@steps[index].Name</b>@steps[index].Note
                         </li>
                     }
@@ -113,6 +124,35 @@
     </div>
 
     <aside class="stack">
+        @if (choices.Count > 0)
+        {
+            <section class="card" id="status">
+                <div class="card-head"><h2>Status</h2><span class="sub">@Ui.StatusPill(Model.IStatus)</span></div>
+                <div class="card-body status-box">
+                    <p class="muted">@(closed ? "Reopen the ticket as:" : "Move the ticket to:")</p>
+                    <div class="status-moves">
+                        @foreach (var choice in choices)
+                        {
+                            <form asp-action="SetTicketStatus" asp-route-id="@Model.IssueId" method="post"
+                                  data-confirm-submit="@(choice.Key == TicketStatus.Closed ? "Close ticket " + Model.TicketNumber + "?" : null)"
+                                  data-action="@(choice.Key == TicketStatus.Closed ? "Close ticket" : null)"
+                                  data-confirm-text="@(choice.Key == TicketStatus.Closed ? "The people of the brokerage house can no longer change it. It can be reopened." : null)">
+                                <input type="hidden" name="status" value="@choice.Key">
+                                <button type="submit" class="btn btn-sm @(choice.Key == forward ? "btn-primary" : "")" title="@choice.About"><icon name="@choice.Icon" /> @choice.Name</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+        else if (role.IsStaff && !assigned && !closed && Model.CanWork)
+        {
+            <section class="card" id="status">
+                <div class="card-head"><h2>Status</h2><span class="sub">@Ui.StatusPill(Model.IStatus)</span></div>
+                <div class="card-body"><p class="muted" style="margin: 0">The status can be set once the ticket has an engineer.</p></div>
+            </section>
+        }
+
         <section class="card" id="assignment">
             <div class="card-head"><h2>Handling</h2></div>
             @if (canAssign)
@@ -158,7 +198,7 @@
             else if (canTake)
             {
                 <div class="card-body assign-box">
-                    <p class="muted" style="margin: 0">@Model.AssgnBy works on this ticket. A support manager can reassign it.</p>
+                    <p class="muted" style="margin: 0">@Model.AssgnBy works on this ticket. Somebody who assigns tickets can give it to another engineer.</p>
                 </div>
             }
             <div class="card-body">

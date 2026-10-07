@@ -3,7 +3,9 @@ global using XFLCSMS.Models;
 global using XFLCSMS.Data;
 global using XFLCSMS.Services.EmailService;
 using XFLCSMS.EmailService;
+using Microsoft.AspNetCore.DataProtection;
 using XFLCSMS.Services;
+using XFLCSMS.Services.Notify;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,10 +27,40 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(option =>
 {
-    option.IdleTimeout = TimeSpan.FromMinutes(10);
+    // minutes without a click after which a sign-in ends ("Session": { "IdleMinutes": 10 } in appsettings.json)
+    option.IdleTimeout = TimeSpan.FromMinutes(Math.Clamp(builder.Configuration.GetValue("Session:IdleMinutes", 10), 1, 720));
     option.Cookie.HttpOnly = true;
     option.Cookie.IsEssential = true;
 });
+
+// The keys that protect cookies and the secrets stored from the settings pages (mail password, SMS key) are kept
+// in App_Data/keys, next to the application: they survive a restart and do not depend on the Windows profile of
+// the account the site runs under. Keep the folder out of version control.
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("XFLCSMS")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys")));
+if (OperatingSystem.IsWindows())
+{
+    // On Windows the key files are themselves encrypted for this computer. After a move to another server the
+    // stored mail password and SMS key have to be entered once more (the settings page says so).
+    dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
+
+// Settings changed from the pages of the application (table AppSettings), kept in memory.
+builder.Services.AddSingleton<SettingsStore>();
+
+// Notifications: open pages listen through the hub; e-mail and SMS are queued in the database and sent by the worker.
+builder.Services.AddSingleton<NotificationHub>();
+builder.Services.AddSingleton<NotificationWorker>();
+builder.Services.AddHostedService(services => services.GetRequiredService<NotificationWorker>());
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<SmsSender>();
+builder.Services.AddScoped<DemoDataService>();
+// The SMS gateway is called at an address an administrator entered: no redirects are followed (the answer of
+// the address itself counts), and the request line is kept out of the log (it can carry the key and phone numbers).
+builder.Services.AddHttpClient("sms", client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Logging.AddFilter("System.Net.Http.HttpClient.sms", LogLevel.Warning);
 
 builder.Services.AddScoped<IEmailServices, EmailService>();
 builder.Services.AddScoped<AuditService>();
@@ -86,8 +118,14 @@ app.UseAuthorization();
 
 // For monitoring tools: answers "Healthy" (200) or "Unhealthy" (503), nothing else, without signing in.
 // The details are on the system health page of the platform admin.
-app.MapGet("/health", async (SystemHealthService health) =>
-    await health.IsAliveAsync() ? Results.Text("Healthy") : Results.Text("Unhealthy", statusCode: StatusCodes.Status503ServiceUnavailable));
+// (Written to the response by hand: Results.Text has no status code parameter in .NET 6.)
+app.MapGet("/health", async (HttpContext http, SystemHealthService health) =>
+{
+    var alive = await health.IsAliveAsync();
+    http.Response.StatusCode = alive ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable;
+    http.Response.ContentType = "text/plain";
+    await http.Response.WriteAsync(alive ? "Healthy" : "Unhealthy");
+});
 
 app.MapControllerRoute(
     name: "default",

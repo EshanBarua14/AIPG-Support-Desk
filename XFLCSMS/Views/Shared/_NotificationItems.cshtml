@@ -1,0 +1,42 @@
+@* The newest notifications of the signed-in user: the panel under the bell (NotificationsPeek) and the list page. *@
+@model List<XFLCSMS.Models.Notify.Notification>
+@{
+    var role = Ui.Role(ViewContext);
+    Func<string, string> iconOf = kind => kind.StartsWith("account.", StringComparison.Ordinal) ? "user-check"
+        : kind == XFLCSMS.Services.Notify.NotificationEvents.TicketCreated ? "ticket-plus"
+        : kind == XFLCSMS.Services.Notify.NotificationEvents.TicketAssigned ? "user-check"
+        : kind == XFLCSMS.Services.Notify.NotificationEvents.TicketClosed ? "circle-check-big"
+        : kind == XFLCSMS.Services.Notify.NotificationEvents.TicketUnassigned ? "inbox"
+        : "ticket";
+}
+@if (Model.Count == 0)
+{
+    <div class="empty small"><icon name="bell-off" /><b>Nothing yet</b><span>What happens to your tickets shows up here.</span></div>
+}
+else
+{
+    <ul class="notices">
+        @foreach (var notice in Model)
+        {
+            var unread = notice.ReadAt == null;
+            <li class="notice @(unread ? "unread" : "")">
+                <icon name="@iconOf(notice.Kind)" />
+                <div>
+                    @if (!string.IsNullOrEmpty(notice.LinkAction))
+                    {
+                        <a class="notice-title" asp-controller="@role.Controller" asp-action="OpenNotification" asp-route-id="@notice.Id">@notice.Title</a>
+                    }
+                    else
+                    {
+                        <span class="notice-title">@notice.Title</span>
+                    }
+                    @if (!string.IsNullOrEmpty(notice.Body))
+                    {
+                        <p>@notice.Body</p>
+                    }
+                    <span class="notice-time">@Ui.Stamp(notice.At)@(unread ? " · unread" : "")</span>
+                </div>
+            </li>
+        }
+    </ul>
+}

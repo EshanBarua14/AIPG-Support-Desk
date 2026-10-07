@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using XFLCSMS.Infrastructure;
 using XFLCSMS.Models.Issue;
 using XFLCSMS.Models.Register;
+using XFLCSMS.Services.Notify;
 
 namespace XFLCSMS.Services
 {
@@ -24,12 +25,14 @@ namespace XFLCSMS.Services
         private readonly DataContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly AuditService _audit;
+        private readonly NotificationService _notify;
 
-        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit)
+        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit, NotificationService notify)
         {
             _context = context;
             _environment = environment;
             _audit = audit;
+            _notify = notify;
         }
 
         public string UploadFolder =>
@@ -107,7 +110,7 @@ namespace XFLCSMS.Services
                 SupportCatagoryId = Existing(form.SupportCatagoryId, id => _context.SupportCatagories.Any(x => x.SupportCatagoryId == id)),
                 SupportSubCatagoryId = Existing(form.SupportSubCatagoryID, id => _context.SupportSubCatagories.Any(x => x.SupportSubCatagoryId == id)),
                 AffectedSectionId = Existing(form.AffectedSectionId, id => _context.AffectedSectionss.Any(x => x.AffectedSectionId == id)),
-                IStatus = "Open",
+                IStatus = TicketStatus.Unassigned,
                 AssignOn = null,
                 AssignBy = null
             };
@@ -121,6 +124,7 @@ namespace XFLCSMS.Services
             await _context.SaveChangesAsync(); // the ticket gets its id here
 
             Log(AuditActions.TicketCreate, issue, "Raised the ticket \u201c" + issue.ITitle + "\u201d, priority " + issue.Priority);
+            _notify.TicketRaised(issue, user);
             await _context.SaveChangesAsync();
 
             rejected = await SaveAttachmentsAsync(issue.IssueId, files);
@@ -187,6 +191,10 @@ namespace XFLCSMS.Services
                 if (issue != null)
                 {
                     Log(AuditActions.TicketFileAdd, issue, "Attached " + string.Join(", ", names));
+                    if (issue.TDate < DateTime.Now.AddMinutes(-1)) // files that come with a new ticket are part of "ticket raised"
+                    {
+                        _notify.TicketEdited(issue, "Attached " + string.Join(", ", names), _actor);
+                    }
                 }
 
                 await _context.SaveChangesAsync();
@@ -285,6 +293,14 @@ namespace XFLCSMS.Services
             return issue.AssignedToId == engineer.Id || (issue.AssignedToId == null && !string.IsNullOrEmpty(issue.AssignBy) && issue.AssignBy == engineer.FullName);
         }
 
+        /// <summary>Tickets without an engineer (for queries).</summary>
+        public static readonly System.Linq.Expressions.Expression<Func<IssueTable, bool>> Unassigned =
+            issue => issue.AssignedToId == null && (issue.AssignBy == null || issue.AssignBy == "");
+
+        /// <summary>Tickets that are not closed (for queries).</summary>
+        public static readonly System.Linq.Expressions.Expression<Func<IssueTable, bool>> NotClosed =
+            issue => issue.IStatus != TicketStatus.Closed;
+
         public static bool IsUnassigned(IssueTable issue)
         {
             return issue.AssignedToId == null && string.IsNullOrEmpty(issue.AssignBy);
@@ -297,8 +313,8 @@ namespace XFLCSMS.Services
         }
 
         /// <summary>
-        /// May the acting user set status and comments on this ticket? Platform admin and support manager: any ticket.
-        /// Support engineer: the tickets assigned to him.
+        /// May the acting user set status and comments on this ticket? XFL staff only: with "work on any ticket"
+        /// every ticket, otherwise the tickets assigned to him.
         /// </summary>
         public bool CanWorkOn(IssueTable issue)
         {
@@ -307,13 +323,14 @@ namespace XFLCSMS.Services
                 return false;
             }
 
-            return Rbac.Can(_actorRole, Permission.TicketWorkAny)
-                || (_actorRole == Role.SupportEngineer && IsAssignedTo(issue, _actor));
+            return Rbac.IsStaff(_actorRole)
+                && (Rbac.Can(_actorRole, Permission.TicketWorkAny) || IsAssignedTo(issue, _actor));
         }
 
         /// <summary>
         /// May the acting user change title, details, priority and files? Staff: as <see cref="CanWorkOn"/>.
-        /// House admin: open tickets of the house. House user: the own open tickets.
+        /// People of a brokerage house: the own open tickets, and with "edit the tickets of the own house" every open
+        /// ticket of the house.
         /// </summary>
         public bool CanEdit(IssueTable issue)
         {
@@ -327,8 +344,8 @@ namespace XFLCSMS.Services
                 return CanWorkOn(issue);
             }
 
-            var open = issue.IStatus != "Close";
-            return open && ((_actorRole == Role.HouseAdmin && issue.BrokerageId == _actor.BrokerageHouseName) || issue.UserId == _actor.Id);
+            var open = !TicketStatus.IsClosed(issue.IStatus);
+            return open && ((Rbac.Can(_actorRole, Permission.TicketEditHouse) && issue.BrokerageId == _actor.BrokerageHouseName) || issue.UserId == _actor.Id);
         }
 
         // ---- assignment ------------------------------------------------------------------------
@@ -340,11 +357,13 @@ namespace XFLCSMS.Services
         public string? Assign(IssueTable issue, User? engineer)
         {
             var before = string.IsNullOrEmpty(issue.AssignBy) ? null : issue.AssignBy;
+            var beforeId = issue.AssignedToId ?? (before == null ? null : Engineers().Where(u => u.FullName == before).Select(u => (int?)u.Id).FirstOrDefault());
             var same = engineer == null
                 ? IsUnassigned(issue)
                 : issue.AssignedToId == engineer.Id || (issue.AssignedToId == null && issue.AssignBy == engineer.FullName);
 
             var now = DateTime.Now;
+            var closed = TicketStatus.IsClosed(issue.IStatus);
             if (engineer == null)
             {
                 issue.AssignedToId = null;
@@ -352,6 +371,10 @@ namespace XFLCSMS.Services
                 issue.AssignOn = null;
                 issue.ApproveBy = null;
                 issue.ApproveOn = null;
+                if (!closed)
+                {
+                    issue.IStatus = TicketStatus.Unassigned; // a ticket without an engineer is "Unassigned", whatever it was
+                }
             }
             else
             {
@@ -362,6 +385,11 @@ namespace XFLCSMS.Services
                     issue.AssignOn = now;
                     issue.ApproveOn = now;
                     issue.ApproveBy = _actor?.FullName;
+                }
+
+                if (!closed && !TicketStatus.Work.Contains(TicketStatus.Normalize(issue.IStatus)))
+                {
+                    issue.IStatus = TicketStatus.Assigned;
                 }
             }
 
@@ -388,6 +416,15 @@ namespace XFLCSMS.Services
             }
 
             Log(engineer == null ? AuditActions.TicketUnassign : AuditActions.TicketAssign, issue, sentence);
+            if (engineer == null)
+            {
+                _notify.TicketUnassigned(issue, beforeId, before, _actor);
+            }
+            else
+            {
+                _notify.TicketAssigned(issue, engineer, beforeId, _actor);
+            }
+
             return sentence;
         }
 
@@ -400,51 +437,107 @@ namespace XFLCSMS.Services
             if (changes.Count > 0)
             {
                 Log(AuditActions.TicketEdit, issue, "Changed " + string.Join(", ", changes));
+                _notify.TicketEdited(issue, "Changed " + string.Join(", ", changes), _actor);
             }
         }
 
         /// <summary>
         /// Edit rules for XFL staff: text fields, status, and (for roles that may assign) the engineer.
-        /// The caller has checked <see cref="CanWorkOn"/>.
+        /// The caller has checked <see cref="CanWorkOn"/>. Returns what was asked for but not done, as sentences
+        /// for the user (everything else is applied all the same); empty when everything was done.
+        ///
+        /// The form posts the status and the engineer it showed when it was opened. Only a field the user really
+        /// changed is a request: a form that sat open while a colleague took the ticket and started on it must not
+        /// take the ticket away again just because somebody adds a comment.
         /// </summary>
-        public void ApplyStaffEdit(IssueTable issue, MakerView form, User editor, bool canApprove)
+        public List<string> ApplyStaffEdit(IssueTable issue, MakerView form, User editor, bool canApprove)
         {
+            var notes = new List<string>();
+            var statusBefore = TicketStatus.Normalize(issue.IStatus);
             var changes = ApplyCommonFields(issue, form, editor);
             if (changes.Count > 0)
             {
                 Log(AuditActions.TicketEdit, issue, "Changed " + string.Join(", ", changes));
+                _notify.TicketEdited(issue, "Changed " + string.Join(", ", changes), _actor);
             }
 
-            // Assignment through the edit form: only for roles that may assign, and only when the form says so.
-            // -1 means "leave as it is" (a ticket whose engineer is no longer in the list).
-            if (canApprove && Rbac.Can(_actorRole, Permission.TicketAssign) && form.AssignedToId != KeepAssignee)
+            // what the form showed; a page from before these fields existed posts none: then the ticket as it is now counts
+            var wanted = TicketStatus.Normalize(form.IStatus);
+            var statusAsked = wanted != null && wanted != (TicketStatus.Normalize(form.OriginalStatus) ?? statusBefore);
+            var assigneeAsked = form.AssignedToId != KeepAssignee
+                && (form.OriginalAssignee == null || form.OriginalAssignee != (form.AssignedToId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? NobodyAssigned));
+
+            var wasClosed = statusBefore == TicketStatus.Closed;
+            var reopen = wasClosed && statusAsked && wanted != TicketStatus.Closed && Rbac.Can(_actorRole, Permission.TicketClose);
+
+            // Assignment through the edit form: only for roles that may assign. A closed ticket keeps its engineer
+            // unless it is being reopened in the same step.
+            if (canApprove && Rbac.Can(_actorRole, Permission.TicketAssign) && assigneeAsked)
             {
                 var engineer = form.AssignedToId == null ? null : Engineers().FirstOrDefault(u => u.Id == form.AssignedToId);
-                if (form.AssignedToId == null || engineer != null)
+                if (wasClosed && !reopen)
+                {
+                    if (!(engineer == null ? IsUnassigned(issue) : IsAssignedTo(issue, engineer)))
+                    {
+                        notes.Add("the engineer was not changed: the ticket is closed. Reopen it first.");
+                    }
+                }
+                else if (form.AssignedToId == null || engineer != null)
                 {
                     Assign(issue, engineer);
                 }
             }
 
-            SetStatus(issue, form.IStatus);
+            if (!statusAsked || wanted == TicketStatus.Normalize(issue.IStatus))
+            {
+                return notes;
+            }
+
+            if (reopen)
+            {
+                // a reopened ticket gets the status its assignment allows
+                if (IsUnassigned(issue)) { wanted = TicketStatus.Unassigned; }
+                else if (wanted == TicketStatus.Unassigned) { wanted = TicketStatus.Assigned; }
+            }
+
+            var refusal = SetStatus(issue, wanted);
+            if (refusal != null)
+            {
+                notes.Add("the status was not changed. " + refusal);
+            }
+
+            return notes;
         }
 
-        /// <summary>Sets the status (a missing value keeps the current one), stamps closing, writes the audit line.</summary>
-        public void SetStatus(IssueTable issue, string? status)
+        /// <summary>
+        /// Sets the status, stamps closing, writes the audit line and tells the people concerned.
+        /// Returns null when the ticket has the status now, otherwise the reason it was refused:
+        ///   - "Unassigned" is the status of a ticket without an engineer (and only of such a ticket);
+        ///   - every working status needs an engineer;
+        ///   - Deployed, Closed and reopening need the permission "deploy, close and reopen".
+        /// </summary>
+        public string? SetStatus(IssueTable issue, string? status)
         {
-            var newStatus = string.IsNullOrWhiteSpace(status) || Array.IndexOf(Statuses, status) < 0 ? issue.IStatus : status;
-            var oldStatus = issue.IStatus;
-            var wasClosed = oldStatus == "Close";
+            var newStatus = TicketStatus.Normalize(status);
+            var oldStatus = TicketStatus.Normalize(issue.IStatus) ?? (IsUnassigned(issue) ? TicketStatus.Unassigned : TicketStatus.Assigned);
+            if (newStatus == null || newStatus == oldStatus)
+            {
+                return null;
+            }
+
+            var wasClosed = oldStatus == TicketStatus.Closed;
+            var refusal = WhyNot(issue, oldStatus, newStatus);
+            if (refusal != null)
+            {
+                return refusal;
+            }
+
             var now = DateTime.Now;
             issue.IStatus = newStatus;
-
-            if (newStatus == "Close")
+            if (newStatus == TicketStatus.Closed)
             {
-                if (!wasClosed || issue.ClosedOn == null)
-                {
-                    issue.ClosedOn = now;
-                    issue.ClosedBy = _actor?.FullName;
-                }
+                issue.ClosedOn = now;
+                issue.ClosedBy = _actor?.FullName;
             }
             else
             {
@@ -452,18 +545,59 @@ namespace XFLCSMS.Services
                 issue.ClosedBy = null;
             }
 
-            if (newStatus != oldStatus)
+            issue.UpdatedOn = now;
+            issue.UpdatedBy = _actor?.FullName;
+            Log(AuditActions.TicketStatus, issue,
+                (newStatus == TicketStatus.Closed ? "Closed the ticket" : wasClosed ? "Reopened the ticket as " + TicketStatus.Name(newStatus) : "Status " + TicketStatus.Name(newStatus))
+                + " (was " + TicketStatus.Name(oldStatus) + ")");
+            _notify.TicketStatusChanged(issue, oldStatus, _actor);
+            return null;
+        }
+
+        private string? WhyNot(IssueTable issue, string oldStatus, string newStatus)
+        {
+            var name = TicketStatus.Name(newStatus);
+            if ((TicketStatus.NeedsClosePermission(newStatus) || oldStatus == TicketStatus.Closed) && !Rbac.Can(_actorRole, Permission.TicketClose))
             {
-                issue.UpdatedOn = now;
-                issue.UpdatedBy = _actor?.FullName;
-                Log(AuditActions.TicketStatus, issue,
-                    (newStatus == "Close" ? "Closed the ticket" : wasClosed ? "Reopened the ticket as " + DisplayText.Status(newStatus) : "Status " + DisplayText.Status(newStatus))
-                    + " (was " + DisplayText.Status(oldStatus) + ")");
+                return oldStatus == TicketStatus.Closed
+                    ? "Your role cannot reopen a closed ticket."
+                    : "Your role cannot set a ticket to " + name + ".";
             }
+
+            var free = IsUnassigned(issue);
+            if (newStatus == TicketStatus.Unassigned && !free)
+            {
+                return "Unassigned is the status of a ticket without an engineer. Unassign the ticket instead.";
+            }
+
+            if (free && TicketStatus.Work.Contains(newStatus))
+            {
+                return "Assign the ticket to an engineer before setting it to " + name + ".";
+            }
+
+            return null;
+        }
+
+        /// <summary>The statuses the acting user may give this ticket now (without the one it has).</summary>
+        public List<TicketStatus.Info> StatusChoices(IssueTable issue)
+        {
+            var current = TicketStatus.Normalize(issue.IStatus) ?? (IsUnassigned(issue) ? TicketStatus.Unassigned : TicketStatus.Assigned);
+            if (!CanWorkOn(issue))
+            {
+                return new List<TicketStatus.Info>();
+            }
+
+            return TicketStatus.All.Where(item => item.Key != current && WhyNot(issue, current, item.Key) == null).ToList();
         }
 
         /// <summary>The stored status values, in the order of a ticket's life.</summary>
-        public static readonly string[] Statuses = { "Open", "Inqueue", "Inprogress", "Close" };
+        public static readonly string[] Statuses = TicketStatus.Keys;
+
+        /// <summary>
+        /// What the hidden field "OriginalAssignee" of the edit form holds for a ticket without an engineer.
+        /// (Not the empty string: an empty form field arrives as "not posted".)
+        /// </summary>
+        public const string NobodyAssigned = "none";
 
         /// <summary>Value of the "Assigned to" field that means: do not touch the assignment.</summary>
         public const int KeepAssignee = -1;

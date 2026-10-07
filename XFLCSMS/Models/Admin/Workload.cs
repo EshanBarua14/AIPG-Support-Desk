@@ -11,6 +11,12 @@ namespace XFLCSMS.Models.Admin
         /// <summary>Tickets assigned to him that are not closed.</summary>
         public int Open { get; set; }
         public int InProgress { get; set; }
+        /// <summary>Stopped: waiting for somebody else.</summary>
+        public int Pending { get; set; }
+        /// <summary>Finished by the engineer, waiting to be checked.</summary>
+        public int InReview { get; set; }
+        /// <summary>Done or deployed, not closed yet.</summary>
+        public int ToClose { get; set; }
         public int HighPriority { get; set; }
         /// <summary>When the open ticket he has had longest was assigned.</summary>
         public DateTime? OldestOpen { get; set; }

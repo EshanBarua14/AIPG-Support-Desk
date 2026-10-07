@@ -9,6 +9,7 @@ namespace XFLCSMS.Controllers
 {
     // Accounts. Two roles manage them, with the same pages and a different reach:
     //   UsersAll   (platform admin)  every account, every role, every brokerage house
+    //                                (another role that is given UsersAll: everything except platform admin accounts)
     //   UsersHouse (house admin)     the house users and house admins of the own brokerage house
     // Every action below starts from ManagedUsers, so an account outside the reach does not exist for it.
     public abstract partial class CsmsController
@@ -23,7 +24,9 @@ namespace XFLCSMS.Controllers
             {
                 if (Can(Permission.UsersAll))
                 {
-                    return Db.Users;
+                    // Only a platform admin administers platform admins: a role that was given "manage all accounts"
+                    // cannot make itself (or anybody) administrator, or lock the administrators out.
+                    return MyRole == Role.PlatformAdmin ? Db.Users : Db.Users.Where(u => !u.UCatagory);
                 }
 
                 if (Can(Permission.UsersHouse))
@@ -42,7 +45,10 @@ namespace XFLCSMS.Controllers
         {
             get
             {
-                if (Can(Permission.UsersAll)) { return Rbac.RolesByReach; }
+                if (Can(Permission.UsersAll))
+                {
+                    return MyRole == Role.PlatformAdmin ? Rbac.RolesByReach : Rbac.RolesByReach.Where(role => role != Role.PlatformAdmin).ToArray();
+                }
                 if (Can(Permission.UsersHouse)) { return new[] { Role.HouseUser, Role.HouseAdmin }; }
                 return Array.Empty<Role>();
             }
@@ -191,6 +197,7 @@ namespace XFLCSMS.Controllers
 
                 Audit(AuditActions.UserCreate, "User", user.Id, user.FullName + " (" + user.UserName + ")",
                     "Created the account as " + Rbac.Label(form.Role) + ", " + user.Email, Rbac.HouseOf(user));
+                HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationService>().AccountCreated(user, CurrentUser);
                 await Db.SaveChangesAsync();
 
                 TempData["SuccessMessage"] = $"{user.FullName} can sign in now as {Rbac.Label(form.Role)} with the user name {user.UserName} and the password you entered. Ask them to change it after the first sign-in.";
@@ -430,6 +437,7 @@ namespace XFLCSMS.Controllers
                     user.VerifiedAt = DateTime.Now;
                     Audit(AuditActions.UserActivate, "User", user.Id, user.FullName + " (" + user.UserName + ")",
                         "Activated the account without the e-mail token", Rbac.HouseOf(user));
+                    HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationService>().AccountActivated(user, CurrentUser);
                     await Db.SaveChangesAsync();
                     TempData["SuccessMessage"] = user.UStatus
                         ? $"{user.FullName} is activated and can sign in now."
@@ -476,6 +484,7 @@ namespace XFLCSMS.Controllers
                 user.PasswordResetToken = null;
                 user.ResetTokenExpires = null;
                 Audit(AuditActions.UserPasswordSet, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Set a new password for the account", Rbac.HouseOf(user));
+                HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationService>().AccountPasswordSet(user, CurrentUser);
                 await Db.SaveChangesAsync();
 
                 TempData["SuccessMessage"] = $"New password saved for {user.FullName}. Ask them to change it after signing in.";

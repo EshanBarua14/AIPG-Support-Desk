@@ -70,6 +70,11 @@ namespace XFLCSMS.Services
             var report = new HealthReport { LastMailTest = _lastMailTest };
             var dbUp = await DatabaseAsync(report);
             Mail(report);
+            if (dbUp)
+            {
+                await NotificationsAsync(report);
+            }
+
             await StorageAsync(report, dbUp);
             await SecurityAsync(report, dbUp);
             if (dbUp)
@@ -141,14 +146,22 @@ namespace XFLCSMS.Services
         private void Mail(HealthReport report)
         {
             const string area = "E-mail";
-            var host = _configuration["EmailHost"];
-            var sender = _configuration["EmailUsername"];
-            var hasPassword = !string.IsNullOrEmpty(_configuration["EmailPassword"]);
+            var settings = _mail.Settings;
+            var host = settings.Host;
+            var sender = settings.From + (settings.Source == "file" ? " (from appsettings.json)" : string.Empty);
 
-            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(sender) || !hasPassword)
+            if (settings.PasswordUnreadable)
             {
-                Add(report, area, "Settings", HealthLevel.Warning, "The mail server is not fully set up (EmailHost, EmailUsername, EmailPassword).",
-                    "Registration tokens and password resets cannot be sent. People can still get in: you create or activate their accounts under Users.");
+                Add(report, area, "Settings", HealthLevel.Failed, "The stored mail password can no longer be read.",
+                    "The key folder App_Data/keys was replaced or lost. Enter the password again.", "NotificationSettings", "Notification settings");
+                return;
+            }
+
+            if (!settings.IsConfigured || (settings.User.Length > 0 && settings.Password.Length == 0))
+            {
+                Add(report, area, "Settings", HealthLevel.Warning, "The mail server is not fully set up.",
+                    "Registration tokens, password resets and e-mail notifications cannot be sent. People can still get in: you create or activate their accounts under Users.",
+                    "NotificationSettings", "Notification settings");
                 return;
             }
 
@@ -165,6 +178,64 @@ namespace XFLCSMS.Services
             {
                 Add(report, area, "Mail server", HealthLevel.Failed, "Sends through " + host + " as " + sender + ". Last test, " + _lastMailTest,
                     "Registration tokens and password resets do not arrive. Until this is fixed, activate accounts and set passwords under Users.", "UserList", "Users");
+            }
+        }
+
+        // ---- notifications ---------------------------------------------------------------------
+
+        private async Task NotificationsAsync(HealthReport report)
+        {
+            const string area = "Notifications";
+            try
+            {
+                var store = _http.HttpContext!.RequestServices.GetRequiredService<SettingsStore>();
+                var hub = _http.HttpContext.RequestServices.GetRequiredService<Notify.NotificationHub>();
+                var worker = _http.HttpContext.RequestServices.GetRequiredService<Notify.NotificationWorker>();
+                var sms = _http.HttpContext.RequestServices.GetRequiredService<Notify.SmsSender>();
+
+                var inApp = Notify.NotificationEvents.ChannelOn(store, Notify.NotificationEvents.InAppChannel);
+                Add(report, area, "In the application", inApp ? HealthLevel.Ok : HealthLevel.Info,
+                    inApp ? "Switched on. " + hub.OpenStreams + " open page(s) are listening right now." : "Switched off: nobody gets messages in the application.",
+                    null, "NotificationSettings", "Notification settings");
+
+                var smsOn = Notify.NotificationEvents.ChannelOn(store, Notify.NotificationEvents.SmsChannel);
+                if (smsOn && !sms.IsConfigured)
+                {
+                    Add(report, area, "SMS", HealthLevel.Warning, "SMS is switched on, but no gateway is set up.",
+                        "Every SMS fails until a gateway is entered.", "NotificationSettings", "Notification settings");
+                }
+                else if (smsOn && store.SecretIsUnreadable(Notify.SmsSender.ApiKeyKey))
+                {
+                    Add(report, area, "SMS", HealthLevel.Failed, "The stored gateway key can no longer be read.",
+                        "The key folder App_Data/keys was replaced or lost. Enter the key again.", "NotificationSettings", "Notification settings");
+                }
+                else
+                {
+                    Add(report, area, "SMS", smsOn ? HealthLevel.Ok : HealthLevel.Info, smsOn ? "Switched on, a gateway is set up." : "Switched off.");
+                }
+
+                var now = DateTime.Now;
+                var waiting = await _context.NotificationDeliveries.Where(item => item.Status == Models.Notify.NotificationDelivery.Queued).Select(item => item.CreatedAt).ToListAsync();
+                var dayAgo = now.AddDays(-1);
+                var failed = await _context.NotificationDeliveries.CountAsync(item => item.Status == Models.Notify.NotificationDelivery.Failed && item.CreatedAt >= dayAgo);
+                var stuck = worker.LastRun == null ? (now - RecentLog.Instance.StartedAt).TotalMinutes > 2 : (now - worker.LastRun.Value).TotalMinutes > 3;
+                if (stuck)
+                {
+                    Add(report, area, "Sender", HealthLevel.Failed, "The background sender for e-mail and SMS is not running" + (worker.LastRun == null ? "." : " (last seen " + worker.LastRun.Value.ToString("dd MMM yyyy, h:mm tt") + ")."),
+                        "Queued messages stay queued. Restart the application and look at the latest warnings and errors below.");
+                }
+                else
+                {
+                    var oldest = waiting.Count == 0 ? 0 : (int)(now - waiting.Min()).TotalMinutes;
+                    Add(report, area, "Sender", failed > 0 || oldest > 60 ? HealthLevel.Warning : HealthLevel.Ok,
+                        waiting.Count + " message(s) wait to be sent" + (waiting.Count > 0 ? " (the oldest for " + oldest + " min)" : string.Empty) + ", " + failed + " failed in the last 24 hours.",
+                        failed > 0 ? "The reason is shown next to each failed message. Fix it, then press Send failed again." : null,
+                        failed > 0 || waiting.Count > 0 ? "NotificationSettings" : null, failed > 0 || waiting.Count > 0 ? "Notification settings" : null);
+                }
+            }
+            catch (Exception exception)
+            {
+                Add(report, area, "Checks", HealthLevel.Warning, "The notification checks could not run: " + Short(exception));
             }
         }
 
@@ -337,7 +408,7 @@ namespace XFLCSMS.Services
                     engineers.Count == 0 ? "Tickets cannot be assigned to anybody. Create a user with the role Support engineer." : null,
                     engineers.Count == 0 ? "CreateUser" : null, engineers.Count == 0 ? "New user" : null);
 
-                var open = await _context.Issues.Where(i => i.IStatus != "Close").Select(i => new { i.AssignedToId, i.AssignBy, i.TDate }).ToListAsync();
+                var open = await _context.Issues.Where(i => i.IStatus != TicketStatus.Closed).Select(i => new { i.AssignedToId, i.AssignBy, i.TDate }).ToListAsync();
                 var unassigned = open.Where(t => t.AssignedToId == null && string.IsNullOrEmpty(t.AssignBy)).ToList();
                 var oldest = unassigned.Count == 0 ? 0 : (int)(DateTime.Now - unassigned.Min(t => t.TDate)).TotalDays;
                 Add(report, area, "Unassigned tickets", oldest >= 3 ? HealthLevel.Warning : HealthLevel.Ok,

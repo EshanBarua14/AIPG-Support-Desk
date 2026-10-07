@@ -10,6 +10,8 @@ using XFLCSMS.Models.Support;
 using XFLCSMS.Models.Login;
 using XFLCSMS.Models.DataTable;
 using XFLCSMS.Models.Todos;
+using XFLCSMS.Models.Settings;
+using XFLCSMS.Models.Notify;
 
 namespace XFLCSMS.Data
 {
@@ -33,12 +35,22 @@ namespace XFLCSMS.Data
         public DbSet<Attachment> Attachments { get; set; }
         public DbSet<Todo> Todos { get; set; }
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+        public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+        public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
         /// <summary>
         /// Runs right before changes are written. The signed-in area sets it to add the audit lines for master data
         /// (houses, branches, support lists), so those are recorded wherever such a row is created, changed or deleted.
         /// </summary>
         public Action? BeforeSaving { get; set; }
+
+        /// <summary>
+        /// Runs after changes were written successfully. The notification service uses it to show the toasts and wake
+        /// the e-mail / SMS worker only for changes that really reached the database.
+        /// </summary>
+        public Action? AfterSaving { get; set; }
 
         private bool _beforeSavingRuns;
 
@@ -63,13 +75,27 @@ namespace XFLCSMS.Data
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
         {
             RunBeforeSaving();
-            return base.SaveChanges(acceptAllChangesOnSuccess);
+            var written = base.SaveChanges(acceptAllChangesOnSuccess);
+            AfterSaving?.Invoke();
+            return written;
         }
 
-        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
             RunBeforeSaving();
-            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            var written = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            AfterSaving?.Invoke();
+            return written;
+        }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            // The connection string asks for several result sets at a time (MultipleActiveResultSets). With that
+            // setting SQL Server cannot set save points inside a transaction, and EF Core logs a warning for every
+            // save in one. The one place that uses a transaction (loading / removing demo data) rolls back as a
+            // whole, so there is nothing to act on - and the warnings would fill the list on the system health page.
+            optionsBuilder.ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.SqlServerEventId.SavepointsDisabledBecauseOfMARS));
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,6 +106,10 @@ namespace XFLCSMS.Data
             modelBuilder.Entity<AuditLog>().HasIndex(log => log.At);
             modelBuilder.Entity<AuditLog>().HasIndex(log => new { log.EntityType, log.EntityId });
             modelBuilder.Entity<AuditLog>().HasIndex(log => log.BrokerageId);
+
+            // The bell reads the newest notifications of one user; the worker reads what is still to send.
+            modelBuilder.Entity<Notification>().HasIndex(notice => new { notice.UserId, notice.Id });
+            modelBuilder.Entity<NotificationDelivery>().HasIndex(delivery => new { delivery.Status, delivery.NextTryAt });
 
             // "Assigned to me" is looked up by the engineer's user id.
             modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.AssignedToId);

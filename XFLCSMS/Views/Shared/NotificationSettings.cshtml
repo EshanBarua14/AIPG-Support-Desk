@@ -1,0 +1,303 @@
+@*
+    Notification settings of the whole system: which channels are on, which event uses which channel, the mail
+    server, the SMS gateway, and what was sent. Each card saves by itself.
+    Secrets (mail password, gateway key) are never shown again: an empty field keeps what is stored.
+*@
+@model XFLCSMS.Models.Admin.NotificationSettingsView
+@using XFLCSMS.Models.Notify
+@using XFLCSMS.Services.Notify
+@{
+    ViewData["Title"] = "Notification settings";
+    var mail = Model.Mail;
+    var channels = new[] { (NotificationEvents.InAppChannel, "In the application"), (NotificationEvents.EmailChannel, "E-mail"), (NotificationEvents.SmsChannel, "SMS") };
+    Func<string, string> statusLook = status => status == NotificationDelivery.Sent ? "st-done" : status == NotificationDelivery.Failed ? "st-canceled" : status == NotificationDelivery.Queued ? "st-inqueue" : "";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Notification settings</h1>
+        <p class="page-sub">How people are told about tickets and accounts: a message in the application while they work, an e-mail, an SMS. Everybody can switch channels off for himself under the bell.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" asp-action="Notifications"><icon name="bell" /> My notifications</a>
+    </div>
+</header>
+
+<div class="stack">
+    <form class="card flush" asp-action="SaveNotificationSwitches" method="post" id="switchesForm">
+        <div class="card-head"><h2>Channels and events</h2><span class="sub">The person who does something is never told about it</span></div>
+        <div class="card-body">
+            <div class="switches">
+                <label class="switch">
+                    <input type="checkbox" name="inApp" value="true" checked="@Model.InApp">
+                    <span><b>In the application</b><small>A message appears at once on every open page of the person, and stays under the bell.</small></span>
+                </label>
+                <label class="switch">
+                    <input type="checkbox" name="email" value="true" checked="@Model.Email">
+                    <span><b>E-mail</b><small>@(mail.IsConfigured ? "Through " + mail.Host + "." : "No mail server is set up yet: see below.")</small></span>
+                </label>
+                <label class="switch">
+                    <input type="checkbox" name="sms" value="true" checked="@Model.Sms">
+                    <span><b>SMS</b><small>@(Model.SmsConfigured ? "Through the gateway below." : "Needs an SMS gateway: see below.")</small></span>
+                </label>
+            </div>
+        </div>
+        <div class="table-wrap" style="border-top: 1px solid var(--line)">
+            <table class="table matrix" id="eventTable">
+                <thead>
+                    <tr>
+                        <th scope="col">Event</th>
+                        <th scope="col">Who is told</th>
+                        @foreach (var channel in channels)
+                        {
+                            <th scope="col" class="matrix-role">@channel.Item2</th>
+                        }
+                    </tr>
+                </thead>
+                @foreach (var group in NotificationEvents.All.GroupBy(item => item.Group))
+                {
+                    <tbody>
+                        <tr class="matrix-group"><th scope="colgroup" colspan="5">@group.Key</th></tr>
+                        @foreach (var item in group)
+                        {
+                            <tr>
+                                <th scope="row"><b>@item.Name</b></th>
+                                <td class="muted">@item.Audience</td>
+                                @foreach (var channel in channels)
+                                {
+                                    <td class="matrix-cell">
+                                        <input type="checkbox" name="on" value="@item.Key:@channel.Item1" checked="@Model.On.Contains(item.Key + ":" + channel.Item1)"
+                                               aria-label="@item.Name: @channel.Item2">
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                }
+            </table>
+        </div>
+        <div class="card-body">
+            <div class="field" style="max-width: 520px">
+                <label for="siteUrl">Address of this site, for the links in e-mails</label>
+                <input class="input" type="url" id="siteUrl" name="siteUrl" value="@(Model.SiteUrl ?? Model.RequestUrl)" maxlength="200" placeholder="https://csms.example.com">
+                <span class="hint">
+                    @if (string.IsNullOrEmpty(Model.SiteUrl))
+                    {
+                        <b>Not saved yet: until it is, e-mails carry no link.</b>
+                        <text>The field shows the address you are using right now. Change it if other people reach the site under another name, then save.</text>
+                    }
+                    else
+                    {
+                        <text>The button in an e-mail opens the ticket under this address. Empty: e-mails carry no link.</text>
+                    }
+                </span>
+            </div>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> Save channels and events</button>
+        </div>
+    </form>
+
+    <div class="grid-2">
+        <section class="card" id="mail">
+            <div class="card-head">
+                <h2>E-mail server</h2>
+                <span class="sub">@(mail.Source == "page" ? "Entered here" : mail.Source == "file" ? "From appsettings.json" : "Not set up")</span>
+            </div>
+            <form asp-action="SaveMailSettings" method="post" id="mailForm" autocomplete="off">
+                <div class="card-body stack">
+                    @if (mail.Source == "file")
+                    {
+                        <div class="alert alert-info"><icon name="info" /><span>The mail server comes from <code>appsettings.json</code>. To manage it here, enter the password once more and save.</span></div>
+                    }
+                    @if (mail.PasswordUnreadable)
+                    {
+                        <div class="alert alert-danger"><icon name="circle-alert" /><span>The stored password can no longer be read (the key folder <code>App_Data/keys</code> was replaced). Enter the password again.</span></div>
+                    }
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="mailHost">Server (SMTP)</label>
+                            <input class="input" id="mailHost" name="host" value="@mail.Host" required maxlength="200" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="field">
+                            <label for="mailPort">Port</label>
+                            <input class="input" id="mailPort" name="port" type="number" min="1" max="65535" value="@mail.Port" required>
+                        </div>
+                        <div class="field">
+                            <label for="mailSecurity">Encryption</label>
+                            <select class="select" id="mailSecurity" name="security">
+                                <option value="auto" selected="@(mail.Security == "auto")">Automatic (465: SSL, else STARTTLS)</option>
+                                <option value="starttls" selected="@(mail.Security == "starttls")">STARTTLS</option>
+                                <option value="ssl" selected="@(mail.Security == "ssl")">SSL / TLS</option>
+                                <option value="none" selected="@(mail.Security == "none")">None (only inside your own network)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="mailUser">User name</label>
+                            <input class="input" id="mailUser" name="user" value="@mail.User" maxlength="200" autocomplete="off" placeholder="Empty: the server needs no sign-in">
+                        </div>
+                        <div class="field">
+                            <label for="mailPassword">Password</label>
+                            <input class="input" id="mailPassword" name="password" type="password" maxlength="200" autocomplete="new-password"
+                                   placeholder="@(Model.MailHasPassword && !mail.PasswordUnreadable ? "Stored. Leave empty to keep it" : "Password or app password")">
+                        </div>
+                        <div class="field">
+                            <label for="mailFrom">Sender address</label>
+                            <input class="input" id="mailFrom" name="from" type="email" value="@mail.From" maxlength="200" placeholder="support@example.com">
+                        </div>
+                        <div class="field">
+                            <label for="mailFromName">Sender name</label>
+                            <input class="input" id="mailFromName" name="fromName" value="@mail.FromName" maxlength="100">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-foot">
+                    <button type="submit" class="btn btn-primary"><icon name="save" /> Save mail server</button>
+                    @if (mail.Source == "page")
+                    {
+                        <button type="submit" name="useFile" value="true" class="btn btn-quiet right" formnovalidate title="Forget these settings and use appsettings.json again">Use appsettings.json</button>
+                    }
+                </div>
+            </form>
+            <form class="card-foot test-row" asp-action="SendTestMessage" method="post">
+                <input type="hidden" name="channel" value="email">
+                <label for="testMail" class="sr-only">Send a test e-mail to</label>
+                <input class="input input-sm" id="testMail" name="to" type="email" value="@Model.MyEmail" placeholder="Address">
+                <button type="submit" class="btn btn-sm" disabled="@(!mail.IsConfigured)"><icon name="send" /> Send test e-mail</button>
+            </form>
+        </section>
+
+        <section class="card" id="sms">
+            <div class="card-head">
+                <h2>SMS gateway</h2>
+                <span class="sub">@(Model.SmsConfigured ? "Set up" : "Not set up")</span>
+            </div>
+            <form asp-action="SaveSmsSettings" method="post" id="smsForm" autocomplete="off">
+                <div class="card-body stack">
+                    @if (Model.SmsKeyUnreadable)
+                    {
+                        <div class="alert alert-danger"><icon name="circle-alert" /><span>The stored key can no longer be read. Enter it again.</span></div>
+                    }
+                    <p class="hint" style="margin: 0">Works with any SMS provider that takes a web request. Copy the address and the fields from the provider's API description and put
+                        <code>{to}</code> <code>{message}</code> <code>{sender}</code> <code>{key}</code> where the number, the text, the sender name and your key belong.</p>
+                    <div class="field">
+                        <label for="smsUrl">Address of the gateway</label>
+                        <input class="input" id="smsUrl" name="url" value="@Model.SmsUrl" required maxlength="1000" placeholder="https://sms.example.com/api/send">
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="smsMethod">Request</label>
+                            <select class="select" id="smsMethod" name="method">
+                                <option value="POST" selected="@(Model.SmsMethod == "POST")">POST (fields in the body)</option>
+                                <option value="GET" selected="@(Model.SmsMethod == "GET")">GET (everything in the address)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="smsContentType">Body format</label>
+                            <select class="select" id="smsContentType" name="contentType">
+                                <option value="form" selected="@(Model.SmsContentType == "form")">Form fields</option>
+                                <option value="json" selected="@(Model.SmsContentType == "json")">JSON</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="smsBody">Request body</label>
+                        <textarea class="textarea mono" id="smsBody" name="body" rows="3" maxlength="2000" placeholder="api_key={key}&amp;senderid={sender}&amp;number={to}&amp;message={message}">@Model.SmsBody</textarea>
+                        <span class="hint">For GET, put the fields into the address instead: <code>...?api_key={key}&amp;number={to}&amp;message={message}</code></span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="smsKey">Key or token</label>
+                            <input class="input" id="smsKey" name="apiKey" type="password" maxlength="500" autocomplete="new-password"
+                                   placeholder="@(Model.SmsHasKey && !Model.SmsKeyUnreadable ? "Stored. Leave empty to keep it" : "From your provider")">
+                        </div>
+                        <div class="field">
+                            <label for="smsSender">Sender name or number</label>
+                            <input class="input" id="smsSender" name="sender" value="@Model.SmsSender" maxlength="50" placeholder="XFL">
+                        </div>
+                        <div class="field">
+                            <label for="smsPrefix">Country code</label>
+                            <input class="input" id="smsPrefix" name="prefix" value="@Model.SmsPrefix" maxlength="5" inputmode="numeric" placeholder="880">
+                            <span class="hint">A number that starts with 0 gets this instead: 017&hellip; becomes +88017&hellip;</span>
+                        </div>
+                        <div class="field">
+                            <label for="smsSuccess">Answer must contain</label>
+                            <input class="input" id="smsSuccess" name="success" value="@Model.SmsSuccess" maxlength="100" placeholder="Optional, e.g. &quot;success&quot;">
+                            <span class="hint">For gateways that answer 200 also when they refuse a message.</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="smsHeader">Extra header</label>
+                        <input class="input mono" id="smsHeader" name="header" value="@Model.SmsHeader" maxlength="500" placeholder="Optional, e.g. Authorization: Bearer {key}">
+                    </div>
+                </div>
+                <div class="card-foot">
+                    <button type="submit" class="btn btn-primary"><icon name="save" /> Save SMS gateway</button>
+                    @if (Model.SmsConfigured)
+                    {
+                        <button type="submit" name="clear" value="true" class="btn btn-quiet right" formnovalidate>Remove gateway</button>
+                    }
+                </div>
+            </form>
+            <form class="card-foot test-row" asp-action="SendTestMessage" method="post">
+                <input type="hidden" name="channel" value="sms">
+                <label for="testSms" class="sr-only">Send a test SMS to</label>
+                <input class="input input-sm" id="testSms" name="to" value="@Model.MyPhone" placeholder="Phone number">
+                <button type="submit" class="btn btn-sm" disabled="@(!Model.SmsConfigured)"><icon name="send" /> Send test SMS</button>
+            </form>
+        </section>
+    </div>
+
+    <section class="card flush" id="deliveries">
+        <div class="card-head">
+            <h2>E-mail and SMS sent</h2>
+            <span class="sub">
+                @Model.Queued waiting, @Model.Failed failed.
+                @(Model.WorkerLastRun.HasValue ? "The sender last looked " + Ui.Stamp(Model.WorkerLastRun) + "." : "The sender has not run yet.")
+            </span>
+            @if (Model.Failed > 0)
+            {
+                <form class="right" asp-action="RetryDeliveries" method="post">
+                    <button type="submit" class="btn btn-sm"><icon name="refresh-cw" /> Send failed again</button>
+                </form>
+            }
+        </div>
+        @if (Model.Recent.Count == 0)
+        {
+            <div class="empty"><icon name="mail" /><b>Nothing was sent yet</b><span>E-mails and SMS show up here as soon as an event causes one.</span></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table" id="deliveryTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">When</th>
+                            <th scope="col">Channel</th>
+                            <th scope="col">To</th>
+                            <th scope="col">Message</th>
+                            <th scope="col">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Recent)
+                        {
+                            <tr>
+                                <td class="nowrap num">@Ui.Stamp(item.CreatedAt)</td>
+                                <td>@(item.Channel == NotificationDelivery.Sms ? "SMS" : "E-mail")</td>
+                                <td>@item.Recipient</td>
+                                <td>@(item.Channel == NotificationDelivery.Sms ? item.Body : item.Subject)</td>
+                                <td>
+                                    @Ui.Pill(statusLook(item.Status), item.Status == NotificationDelivery.Queued ? (item.Attempts > 0 ? "Trying again" : "Waiting") : char.ToUpperInvariant(item.Status[0]) + item.Status.Substring(1))
+                                    @if (!string.IsNullOrEmpty(item.Error))
+                                    {
+                                        <small class="delivery-note">@item.Error</small>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

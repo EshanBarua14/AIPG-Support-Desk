@@ -16,7 +16,7 @@ namespace XFLCSMS.Infrastructure
     public static class Ui
     {
         /// <summary>Shown in the footer and on the system health page.</summary>
-        public const string Version = "2.1";
+        public const string Version = "3.0";
 
         /// <summary>The role a page belongs to. Each role has its own controller, so the controller name decides.</summary>
         public sealed class RoleInfo
@@ -34,8 +34,15 @@ namespace XFLCSMS.Infrastructure
             public bool IsStaff => Rbac.IsStaff(Role);
             /// <summary>Action name of the role's main ticket list.</summary>
             public string TicketList => Role == Role.PlatformAdmin ? "AdminView" : IsStaff ? "AllTicketList" : "MackerTicketList";
+            // How far the role sees, for the wording of headings (the permissions decide, not the name of the role):
+            /// <summary>Every ticket of every brokerage house.</summary>
+            public bool SeesAll => Can(Permission.TicketsAll);
+            /// <summary>Every ticket of the own brokerage house.</summary>
+            public bool SeesHouse => !SeesAll && Can(Permission.TicketsHouse);
+            /// <summary>Only the tickets the user raised (XFL staff: and the ones assigned to them).</summary>
+            public bool SeesOwn => !SeesAll && !SeesHouse;
             /// <summary>Heading of that list.</summary>
-            public string TicketListName => IsStaff ? "All tickets" : IsHouseAdmin ? "House tickets" : "My tickets";
+            public string TicketListName => SeesAll ? "All tickets" : SeesHouse ? "House tickets" : "My tickets";
             public bool CanCreateTicket => Can(Permission.TicketCreate);
             public bool Can(Permission permission) => Rbac.Can(Role, permission);
         }
@@ -123,7 +130,7 @@ namespace XFLCSMS.Infrastructure
 
         public static IHtmlContent StatusPill(string? status)
         {
-            return Pill(StatusClass(status), string.IsNullOrEmpty(status) ? "No status" : DisplayText.Status(status));
+            return Pill(StatusClass(status), TicketStatus.Name(status));
         }
 
         public static string StatusClass(string? status)
@@ -133,20 +140,12 @@ namespace XFLCSMS.Infrastructure
         }
 
         /// <summary>
-        /// "open" / "inqueue" / "inprogress" / "close", or "" for anything else. Tolerates the spellings older
-        /// versions stored ("In Progress", "Closed", ...), so old tickets get the right colour and progress step.
+        /// "open" / "inqueue" / "inprogress" / "pending" / "review" / "done" / "deployed" / "close", or "" for anything
+        /// that is no status (Services/TicketStatus.cs). Tolerates the spellings older versions stored.
         /// </summary>
         public static string StatusKey(string? status)
         {
-            switch ((status ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty).ToLowerInvariant())
-            {
-                case "open": return "open";
-                case "inqueue": return "inqueue";
-                case "inprogress": return "inprogress";
-                case "close":
-                case "closed": return "close";
-                default: return string.Empty;
-            }
+            return TicketStatus.Find(status)?.Css ?? string.Empty;
         }
 
         public static IHtmlContent PriorityPill(string? priority)
@@ -171,6 +170,7 @@ namespace XFLCSMS.Infrastructure
             switch (status)
             {
                 case "Done": return Pill("st-done", "Done");
+                case "Completed": return Pill("st-done", "Completed");
                 case "Canceled": return Pill("st-canceled", "Canceled");
                 case "In progress": return Pill("st-inprogress", "In progress");
                 default: return Pill(string.Empty, string.IsNullOrEmpty(status) ? "No status" : status);
@@ -215,10 +215,10 @@ namespace XFLCSMS.Infrastructure
 
         /// <summary>Column heading that sorts the list; a second click reverses the order.</summary>
         public static IHtmlContent SortLink(IUrlHelper url, string action, string label, string field,
-            string? currentField, bool ascending, int pageSize, string? search)
+            string? currentField, bool ascending, int pageSize, string? search, string? status = null)
         {
             var on = string.Equals(field, currentField, StringComparison.Ordinal);
-            var href = url.Action(action, new { rowperpage = pageSize, searchString = search, sortField = field, sortAscending = on ? !ascending : true });
+            var href = url.Action(action, new { rowperpage = pageSize, searchString = search, sortField = field, sortAscending = on ? !ascending : true, status });
             var iconName = on ? (ascending ? "chevron-up" : "chevron-down") : "chevrons-up-down";
             var hint = on ? (ascending ? ", sorted ascending" : ", sorted descending") : string.Empty;
 

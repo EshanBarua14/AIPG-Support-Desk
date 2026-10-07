@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Keys that protect cookies and stored secrets (mail password, SMS key). Never commit them.
+App_Data/

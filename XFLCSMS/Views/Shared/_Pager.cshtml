@@ -10,7 +10,8 @@
     var shown = ViewData["ShownCount"] is int count ? count : 0;
     var from = shown == 0 ? 0 : pager.SerialStart;
     var to = shown == 0 ? 0 : pager.SerialStart + shown - 1;
-    Func<int, string?> link = number => Url.Action(action, new { page = number, rowperpage = pager.PageSize, searchString = pager.SearchString, sortField, sortAscending = ascending });
+    string? status = ViewBag.StatusFilter;   // the status a ticket list is narrowed to
+    Func<int, string?> link = number => Url.Action(action, new { page = number, rowperpage = pager.PageSize, searchString = pager.SearchString, sortField, sortAscending = ascending, status });
     var first = pager.CurrentPage <= 1;
     var last = pager.CurrentPage >= pager.TotalPages;
 }

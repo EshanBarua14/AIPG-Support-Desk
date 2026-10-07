@@ -17,7 +17,7 @@
     ViewData["SearchHint"] = "Search to-dos";
 
     var tabs = new List<(string Text, string Action)> { ("In progress", "ViewTodo"), ("All", "AllTodo"), ("Completed", "CompletedTodo") };
-    if (role.IsAdmin) { tabs.Add(("Team", "ViewAllTodo")); }
+    if (role.Can(Permission.TeamTodos)) { tabs.Add(("Team", "ViewAllTodo")); }
 }
 <header class="page-head">
     <div>

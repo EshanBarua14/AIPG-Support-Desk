@@ -18,6 +18,9 @@
     var canTake = role.Can(Permission.TicketTake);
     var workAny = role.Can(Permission.TicketWorkAny);
     var engineers = canAssign ? ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value : new List<XFLCSMS.Models.Admin.EngineerLoad>();
+    var statusCounts = ViewBag.StatusCounts as Dictionary<string, int>;   // set for lists that can be narrowed to one status
+    string? statusFilter = ViewBag.StatusFilter;
+    int statusTotal = ViewBag.StatusTotal ?? 0;
     ViewData["ShownCount"] = rows.Count;
     ViewData["SearchHint"] = "Search number, title, priority, status or engineer";
 
@@ -53,7 +56,21 @@
     }
 </nav>
 
-<div class="card flush" data-list data-url="@Url.Action(action)">
+@if (statusCounts != null)
+{
+    <nav class="chips" aria-label="Status">
+        <a class="chip @(statusFilter == null ? "active" : "")" asp-action="@action" aria-current="@(statusFilter == null ? "true" : null)">All <b>@statusTotal</b></a>
+        @foreach (var status in TicketStatus.All)
+        {
+            var count = statusCounts.GetValueOrDefault(status.Key);
+            if (count == 0 && statusFilter != status.Key) { continue; }
+            <a class="chip st-@status.Css @(statusFilter == status.Key ? "active" : "")" asp-action="@action" asp-route-status="@status.Key"
+               aria-current="@(statusFilter == status.Key ? "true" : null)" title="@status.About">@status.Name <b>@count</b></a>
+        }
+    </nav>
+}
+
+<div class="card flush" data-list data-url="@Url.Action(action)" data-status="@statusFilter">
     <partial name="_ListToolbar" />
 
     <div data-list-region>
@@ -65,12 +82,12 @@
                 @if (!string.IsNullOrEmpty(pager.SearchString))
                 {
                     <b>No tickets match &ldquo;@pager.SearchString&rdquo;</b>
-                    <span>Try a ticket number, a word from the title, or a status such as Open.</span>
+                    <span>Try a ticket number, a word from the title, or a status such as In progress.</span>
                 }
                 else
                 {
-                    <b>@(ViewData["EmptyText"] ?? "No tickets here")</b>
-                    @if (role.CanCreateTicket && action == role.TicketList)
+                    <b>@(statusFilter != null ? "No ticket is " + TicketStatus.Name(statusFilter).ToLowerInvariant() + " right now" : ViewData["EmptyText"] ?? "No tickets here")</b>
+                    @if (role.CanCreateTicket && action == role.TicketList && statusFilter == null)
                     {
                         <span>Tickets you raise show up in this list.</span>
                         <div><a class="btn btn-primary" asp-action="IssueRaiseFrom"><icon name="plus" /> Create ticket</a></div>
@@ -84,18 +101,18 @@
                 <table class="table tickets cards" id="issueTable">
                     <thead>
                         <tr>
-                            <th scope="col">@Ui.SortLink(Url, action, "Ticket", "TNumber", sortField, ascending, pager.PageSize, pager.SearchString)</th>
-                            <th scope="col">@Ui.SortLink(Url, action, "Title", "Tickets", sortField, ascending, pager.PageSize, pager.SearchString)</th>
-                            <th scope="col">@Ui.SortLink(Url, action, "Assigned to", "Approval Status", sortField, ascending, pager.PageSize, pager.SearchString)</th>
-                            <th scope="col">@Ui.SortLink(Url, action, "Priority", "Priority", sortField, ascending, pager.PageSize, pager.SearchString)</th>
-                            <th scope="col">@Ui.SortLink(Url, action, "Status", "Status", sortField, ascending, pager.PageSize, pager.SearchString)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Ticket", "TNumber", sortField, ascending, pager.PageSize, pager.SearchString, statusFilter)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Title", "Tickets", sortField, ascending, pager.PageSize, pager.SearchString, statusFilter)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Assigned to", "Approval Status", sortField, ascending, pager.PageSize, pager.SearchString, statusFilter)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Priority", "Priority", sortField, ascending, pager.PageSize, pager.SearchString, statusFilter)</th>
+                            <th scope="col">@Ui.SortLink(Url, action, "Status", "Status", sortField, ascending, pager.PageSize, pager.SearchString, statusFilter)</th>
                             <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var item in rows)
                         {
-                            var closed = item.IStatus == "Close";
+                            var closed = TicketStatus.IsClosed(item.IStatus);
                             <tr>
                                 <td class="tick p-@Ui.PriorityKey(item.Priority)">@Ui.Sym(item.TNumber)</td>
                                 <td class="c-title">
@@ -109,7 +126,7 @@
                                     }
                                     else
                                     {
-                                        @Ui.Pill("st-unassigned", "Unassigned")
+                                        <span class="muted">Nobody yet</span>
                                     }
                                 </td>
                                 <td class="c-prio">@Ui.PriorityPill(item.Priority)</td>
@@ -134,14 +151,15 @@
                                                 <button type="submit" class="btn btn-sm" aria-label="Take ticket @item.TNumber"><icon name="user-check" /> Take</button>
                                             </form>
                                         }
-                                        @if (workAny || mineNow || !role.IsStaff)
+                                        @* the pencil is there exactly when the edit page will open (TicketService.CanEdit) *@
+                                        @if (role.IsStaff ? workAny || mineNow : role.Can(Permission.TicketEditHouse) || (me != null && item.UserId == me.Id))
                                         {
                                             <a class="btn btn-icon btn-sm" asp-action="EditTicket" asp-route-id="@item.IssueId" title="Edit" aria-label="Edit ticket @item.TNumber"><icon name="pencil" /></a>
                                         }
                                         @if (role.Can(Permission.TicketDelete))
                                         {
                                             <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete ticket @item.TNumber"
-                                                    data-delete data-url="@Url.Action("DeleteTicket", "Admin", new { id = item.IssueId })"
+                                                    data-delete data-url="@Url.Action("DeleteTicket", new { id = item.IssueId })"
                                                     data-confirm="Delete ticket @item.TNumber?"
                                                     data-confirm-text="The ticket and its attachments are removed for good."
                                                     data-done="Ticket @item.TNumber deleted.">

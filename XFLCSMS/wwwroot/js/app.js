@@ -16,6 +16,9 @@
      data-confirm-submit        form asks before submitting
      data-assign                button that opens the "assign ticket" dialog (data-url, data-ticket, data-current)
      data-role-choice           role select of the user forms: shows what the role may do
+     data-nav-fold="key"        <details> in the side menu: what is folded is remembered in this browser
+     data-bell                  the bell: unread count, panel with the newest notifications, live toasts
+                                (data-stream, data-latest, data-read, data-open, data-user)
 */
 (function () {
     'use strict';
@@ -247,6 +250,7 @@
             params.set('sortField', state.getAttribute('data-sort-field'));
             params.set('sortAscending', state.getAttribute('data-sort-ascending'));
         }
+        if (list.getAttribute('data-status')) { params.set('status', list.getAttribute('data-status')); }
         return list.getAttribute('data-url') + '?' + params.toString();
     }
 
@@ -306,7 +310,13 @@
             select.options[0].textContent = holder ? 'Unassigned' : 'Choose an engineer';
             select.required = !holder;
             select.value = current;
-            if (select.value !== current) { select.value = ''; }
+            if (select.value !== current) {
+                // the engineer who has it is no longer in the list: somebody has to be chosen, "Unassigned" must not
+                // be what the button does by default
+                select.value = '';
+                select.options[0].textContent = 'Choose an engineer';
+                select.required = true;
+            }
             dialog.showModal();
             select.focus();
             return;
@@ -337,7 +347,8 @@
         var form = event.target;
         if (form.hasAttribute('data-report')) { return; }
 
-        if (form.hasAttribute('data-confirm-submit') && !form.confirmed) {
+        // (an empty value means no question: Razor writes data-* attributes also when their value is empty)
+        if (form.getAttribute('data-confirm-submit') && !form.confirmed) {
             event.preventDefault();
             confirmDialog({
                 title: form.getAttribute('data-confirm-submit'),
@@ -553,6 +564,147 @@
         link.remove();
         setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
     }
+
+    /* ---- side menu: remember which groups are folded ---------------------- */
+    // Only what the user folds or opens himself is remembered (a click, or Enter / Space, on the heading).
+    // The "toggle" event is no use for this: the browser also fires it for every group that is open when
+    // the page loads, and the group of the current page is always shown open.
+    on(doc, 'click', function (event) {
+        var heading = event.target.closest('details[data-nav-fold] > summary');
+        if (!heading) { return; }
+        var group = heading.parentNode;
+        setTimeout(function () {   // after the browser has folded or opened it
+            var closed;
+            try { closed = JSON.parse(read('csms-nav-closed') || '[]'); } catch (e) { closed = []; }
+            if (!Array.isArray(closed)) { closed = []; }
+            var key = group.getAttribute('data-nav-fold');
+            closed = closed.filter(function (item) { return item !== key; });
+            if (!group.open) { closed.push(key); }
+            store('csms-nav-closed', JSON.stringify(closed));
+        }, 0);
+    });
+
+    /* ---- notifications: bell, panel, live toasts --------------------------- */
+    function noticeToast(notice, openUrl) {
+        var holder = $('.toasts');
+        if (!holder) {
+            holder = doc.createElement('div');
+            holder.className = 'toasts';
+            holder.setAttribute('role', 'status');
+            holder.setAttribute('aria-live', 'polite');
+            doc.body.appendChild(holder);
+        }
+        var item = doc.createElement('div');
+        item.className = 'toast notice-toast';
+        item.setAttribute('data-notice', notice.id);
+        item.innerHTML = icon('bell') +
+            '<div class="notice-body"><b>' + escapeHtml(notice.title) + '</b>' +
+            (notice.body ? '<span>' + escapeHtml(notice.body) + '</span>' : '') +
+            (notice.hasLink && openUrl ? '<a href="' + escapeHtml(openUrl + '/' + notice.id) + '">Open</a>' : '') + '</div>' +
+            '<button type="button" class="toast-close" aria-label="Dismiss">' + icon('x') + '</button>';
+        holder.appendChild(item);
+        var timer = setTimeout(function () { item.remove(); }, 10000);
+        // reading takes time: the message stays while the pointer is on it
+        on(item, 'mouseenter', function () { clearTimeout(timer); });
+        on(item, 'mouseleave', function () { timer = setTimeout(function () { item.remove(); }, 4000); });
+        on($('.toast-close', item), 'click', function () { clearTimeout(timer); item.remove(); });
+        // never more than four on the screen
+        var shown = $all('.notice-toast', holder);
+        if (shown.length > 4) { shown[0].remove(); }
+    }
+
+    (function () {
+        var bell = $('[data-bell]');
+        if (!bell) { return; }
+        var button = $('[data-menu]', bell);
+        var panel = $('.menu-panel', bell);
+        var items = $('[data-bell-items]', bell);
+        var badge = $('[data-bell-count]', bell);
+        var openUrl = bell.getAttribute('data-open');
+        var seenKey = 'csms-notice-' + bell.getAttribute('data-user');
+        var unread = badge && !badge.hidden ? parseInt(badge.textContent, 10) || 0 : 0;
+
+        function lastSeen() { return parseInt(read(seenKey) || '0', 10) || 0; }
+        function remember(id) { if (id > lastSeen()) { store(seenKey, String(id)); } }
+        function setCount(count) {
+            unread = Math.max(0, count);
+            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.hidden = unread === 0;
+            button.setAttribute('aria-label', 'Notifications' + (unread ? ', ' + unread + ' unread' : ''));
+        }
+
+        function loadPanel() {
+            request(bell.getAttribute('data-latest')).then(function (response) {
+                if (!response.ok) { throw new Error('status ' + response.status); }
+                var count = parseInt(response.headers.get('X-Unread'), 10);
+                if (!isNaN(count)) { setCount(count); }
+                return response.text();
+            }).then(function (html) {
+                items.innerHTML = html;
+            }).catch(function (error) {
+                if (!error || error.message !== 'signed out') { items.innerHTML = '<p class="muted">The notifications could not be loaded.</p>'; }
+            });
+        }
+
+        on(button, 'click', function () {
+            // the menu code toggles the panel in the same click; look afterwards
+            setTimeout(function () { if (!panel.hidden) { loadPanel(); } }, 0);
+        });
+
+        on($('[data-bell-read]', bell), 'click', function () {
+            request(bell.getAttribute('data-read'), { method: 'POST' }).then(function (response) {
+                if (!response.ok) { throw new Error('status ' + response.status); }
+                setCount(0);
+                $all('.notice.unread').forEach(function (notice) { notice.classList.remove('unread'); });
+            }).catch(function (error) {
+                if (!error || error.message !== 'signed out') { toast('Could not mark the notifications as read.', true); }
+            });
+        });
+
+        // live: one stream while this tab is visible. The browser reconnects by itself after a break.
+        var streamUrl = bell.getAttribute('data-stream');
+        var source = null;
+        var over = false;   // the server said goodbye, or refused: do not come back on this page
+
+        function show(notice) {
+            if (notice.id <= lastSeen()) { return; }   // another tab of this browser has shown it
+            remember(notice.id);
+            noticeToast(notice, openUrl);
+        }
+
+        function disconnect() {
+            if (source) { source.close(); source = null; }
+        }
+
+        function connect() {
+            if (!streamUrl || source || over || doc.hidden || !window.EventSource) { return; }
+            source = new EventSource(streamUrl + '?after=' + lastSeen());
+            source.addEventListener('hello', function (event) {
+                var data = JSON.parse(event.data);
+                setCount(data.unread);
+                // first visit: what is already there is not news. A number from another life of the database
+                // (it was restored or set up again) is dropped, or nothing would be shown until the ids catch up.
+                if (!lastSeen() || data.last < lastSeen()) { store(seenKey, String(data.last)); }
+            });
+            // arrived while no page of this browser was listening (a page change takes a moment)
+            source.addEventListener('missed', function (event) { show(JSON.parse(event.data)); });
+            source.addEventListener('notice', function (event) {
+                var notice = JSON.parse(event.data);
+                setCount(unread + 1);
+                show(notice);
+                if (!panel.hidden) { loadPanel(); }
+            });
+            source.addEventListener('bye', function () { over = true; disconnect(); });
+            source.onerror = function () {
+                // CLOSED: the server answered with something that is no stream (signed out, switched off)
+                if (source && source.readyState === 2) { source = null; over = true; }
+            };
+        }
+
+        on(doc, 'visibilitychange', function () { if (doc.hidden) { disconnect(); } else { connect(); } });
+        on(window, 'pagehide', disconnect);
+        connect();
+    }());
 
     // for the few page-specific scripts in the views
     window.Csms = { toast: toast, confirm: confirmDialog, request: request, icon: icon };

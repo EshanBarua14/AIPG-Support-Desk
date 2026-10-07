@@ -52,6 +52,9 @@
                             <th scope="col">Engineer</th>
                             <th scope="col" class="rate">Open tickets</th>
                             <th scope="col" class="t-right">In progress</th>
+                            <th scope="col" class="t-right">Pending</th>
+                            <th scope="col" class="t-right">Waiting for review</th>
+                            <th scope="col" class="t-right" title="Done or deployed, not closed yet">To close</th>
                             <th scope="col" class="t-right">High priority</th>
                             <th scope="col">Oldest since</th>
                             <th scope="col" class="t-right">Closed, 30 days</th>
@@ -70,6 +73,9 @@
                                     </div>
                                 </td>
                                 <td class="t-right num">@engineer.InProgress</td>
+                                <td class="t-right num">@engineer.Pending</td>
+                                <td class="t-right num">@engineer.InReview</td>
+                                <td class="t-right num">@engineer.ToClose</td>
                                 <td class="t-right num">@engineer.HighPriority</td>
                                 <td class="@(engineer.OldestOpen == null ? "muted" : "")">@(engineer.OldestOpen == null ? "-" : Ui.Date(engineer.OldestOpen))</td>
                                 <td class="t-right num">@engineer.ClosedLast30Days</td>
@@ -117,9 +123,12 @@
                                 <td>@Ui.PriorityPill(ticket.Priority)</td>
                                 <td>@Ui.Date(ticket.TDate)</td>
                                 <td class="t-actions">
-                                    <button type="button" class="btn btn-sm" data-assign data-url="@Url.Action("AssignTicket", new { id = ticket.IssueId })" data-ticket="@ticket.TNumber" aria-label="Assign ticket @ticket.TNumber">
-                                        <icon name="user-check" /> Assign
-                                    </button>
+                                    @if (role.Can(Permission.TicketAssign))
+                                    {
+                                        <button type="button" class="btn btn-sm" data-assign data-url="@Url.Action("AssignTicket", new { id = ticket.IssueId })" data-ticket="@ticket.TNumber" aria-label="Assign ticket @ticket.TNumber">
+                                            <icon name="user-check" /> Assign
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -129,5 +138,8 @@
         }
     </section>
 </div>
-@{ ViewData["ReturnTo"] = "Workload"; }
-<partial name="_AssignDialog" />
+@if (role.Can(Permission.TicketAssign))
+{
+    ViewData["ReturnTo"] = "Workload";
+    <partial name="_AssignDialog" />
+}

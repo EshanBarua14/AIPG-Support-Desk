@@ -154,6 +154,56 @@ Also changed
 
 **Checked with:** 349 server checks and 108 browser checks (both ways in, clicked through from the registration form to a closed ticket, on desktop and phone width), plus a run in Production mode through the network address of the machine. Not checked: real e-mail delivery, a real SQL Server, another physical computer, browsers other than Chromium.
 
+## 10. Fifth pass: five roles, assignment, audit trail, system health
+
+- **Roles and permissions in one place** (`Infrastructure/Rbac.cs`): platform admin, support manager, support engineer, house admin (new), house user. Every action that is not for everybody carries `[RequirePermission(...)]`; it is checked before the action runs (`CsmsController.OnActionExecuting`) and answers 403 "Your role does not allow this". Menus and buttons ask the same table, so a button is there exactly when its action is allowed.
+- **House admin** (`HouseAdminController`, area `/HouseAdmin`): the tickets of the house, its accounts (create, activate, edit, password, disable, delete), its branches, its part of the audit trail. Never anything of another house.
+- **Assignment by account** (`Issues.AssignedToId`): assign / reassign / unassign with a dialog that shows each engineer's load; engineers take a ticket and give it back; workload page. Tickets assigned by name before this still work. Renaming an engineer keeps his tickets.
+- **Audit trail** (`AuditLogs`, `Services/AuditService.cs`): sign-ins, accounts, tickets, master data, written in the same transaction as the change. Pages per role (everything / ticket lines / the own house), filter, CSV export, and the history on every ticket page.
+- **System health** page and `/health` endpoint.
+- Database: migration `AuditTrailAndAssignee` (one new table, one new nullable column, indexes; applied at start-up).
+
+## 11. Sixth pass: statuses, notifications, permissions from the page, folding menu, demo data
+
+**Ticket statuses** (`Services/TicketStatus.cs`, rules in `TicketService.SetStatus` / `Assign`)
+- Eight statuses: Unassigned, Assigned, In progress, Pending, Waiting for review, Done, Deployed, Closed. The stored values of the old four did not change (`Open`, `Inqueue`, `Inprogress`, `Close`).
+- A ticket is Unassigned exactly while it has no engineer; assigning makes it Assigned; a working status needs an engineer; Deployed, Closed and reopening need the permission "deploy, close and reopen".
+- Status buttons on the ticket page (one click, closing asks first), seven progress steps, status chips above the lists, menu **By status** with counts, a **board** with one column per status, tickets per status on the dashboard and in the report.
+- At start-up, tickets written by older versions are brought in line once (`DbInitializer.NormaliseStatuses`): other spellings ("In Progress", "Closed"), "Open" with an engineer, a working status without one. One line in the audit trail says how many.
+- The edit form only applies the status and engineer the user really changed on it. Before, a form that sat open while a colleague took the ticket silently unassigned it again on save.
+
+**Notifications** (`Services/Notify/`, `CsmsController.Notifications.cs`)
+- In the application: a message appears on every open page of the person within a second or two (Server-Sent Events, one stream per visible tab), plus a bell with the unread count, a panel and a list page. What happens while no page is listening is shown on the next page, once.
+- E-mail and SMS: rows in `NotificationDeliveries`, written in the transaction of the change, sent by a background worker with retries (1, 5, 30 minutes), listed with the reason when they fail, "send again" button. A message that went out is never sent twice, also not across a restart. While a server does not answer, the other channel is not held up.
+- Settings page: channel switches, event x channel table, mail server, SMS gateway (any HTTP provider, template with `{to} {message} {sender} {key}`), test buttons, site address for links.
+- The mail server entered on the page is used for registration and password-reset mail too; `appsettings.json` remains the fallback.
+- Every person can switch channels off for himself.
+
+**Permissions from the page** (`CsmsController.System.cs`, stored in `AppSettings`)
+- The grant table is a page of switches, in force at once, audited, with reset. `Rbac.Grantable` limits what a role can ever hold; `Rbac.IsFixed` what the platform admin can never lose.
+- So that a grant is real, the pages that were built into the admin area moved to the shared base: master data (24 actions), team to-dos, system health, delete ticket. Their views moved from `Views/Admin` to `Views/Shared`.
+- The four role controllers lost about 3,400 lines of copied code (5,900 to 2,500): ticket lists, ticket page, edit, report and to-do editing now exist once (`CsmsController.Tickets.cs`, `CsmsController.TeamTodos.cs`). Side effects that are fixes: the admin's report and lists respect what the admin may see; "Closed by" in the report offers everybody who closed a ticket; a to-do of another person can be edited exactly with "team to-dos".
+- Wording on pages follows the permissions, not the role name ("My tickets" for anybody who sees only his own).
+
+**Menu**: groups and the sub menus "By status" and "Support lists" fold (click or keyboard); remembered per browser; the group of the open page never folds away. Hiding the whole menu works as before.
+
+**Demo data** (`Services/DemoDataService.cs`): load and remove from **System > Demo data**; see WORKFLOWS.md section 8.
+
+**Found by an independent review of this pass and fixed before delivery**
+- Demo accounts had a fixed password that anybody could know. Now a random one per load, shown on the page; loading next to real tickets needs an explicit tick; removing checks that each row still is demo data.
+- A house user could have been given "see the tickets of the house". Since anybody can register for any house, that permission can now go to the house admin only.
+- The system settings could have been given to a support manager, who could then point the mail server at his own and read password-reset mail. They stay with the platform admin; and a stored mail password or SMS key is never sent to a changed server: it has to be entered again.
+- A ticket title containing `{key}` could have pulled the SMS key into the text sent to the person who raised the ticket (JSON gateways). The template is now filled in one pass.
+- Links in e-mails were built from the host name of the request, which a visitor can choose. They now come from the site address saved in the settings (no link until it is saved).
+- Password-reset tokens were 6 characters and the only thing the reset page asks for. Now 32.
+- An open page doubled the idle time before sign-out. The 10 minutes now count from the last thing the person did.
+- Status chips were all grey; the bell badge was hard to read in the dark theme; pages shown again after a refused form had lost the menu numbers and the bell.
+- `/health` used an overload that does not exist in .NET 6 (it would not have compiled).
+
+**Database**: migration `NotificationsAndSettings` (four new tables: `AppSettings`, `Notifications`, `NotificationDeliveries`, `NotificationPreferences`; nothing existing is changed; applied at start-up).
+
+**Checked with:** 1,149 checks in seven suites on a stand-in database: 895 server checks (351 from the earlier passes, 267 for roles, 277 for this pass), 247 browser checks in headless Chromium (every page of every role on desktop and phone width; the five roles; and for this pass 83: folding menu, status buttons, messages appearing on the open page of another signed-in person, permissions, settings, demo data), and 7 for the sign-out after idle time. Also: an empty database from the first administrator through demo data and back (37 checks), and Production mode over the network address (12). E-mails were received by a test mail server, SMS by a test gateway. Two independent reviews of the code; their findings are listed above. Not checked: a real SQL Server (the migration script was read: four `CREATE TABLE`, two indexes), a build with the .NET 6 reference assemblies (built here with SDK 8 against the EF Core 6 assemblies, language version 10), a real mail server and a real SMS provider, browsers other than Chromium.
+
 ## New files
 
 `Controllers/CsmsController.cs`, `Infrastructure/SessionAuthorizeAttribute.cs`, `Services/TicketService.cs`,
@@ -165,3 +215,7 @@ Third pass: `Infrastructure/Ui.cs`, `Infrastructure/IconTagHelper.cs`, `Infrastr
 (`Views/Shared/_SidebarMenu.cshtml` became `_Nav.cshtml`; the two per-role `Profile.cshtml` copies are gone again.)
 
 Fourth pass: `Models/Admin/NewUser.cs`, `Views/Admin/CreateUser.cshtml`.
+
+Fifth pass: `Infrastructure/Rbac.cs`, `Infrastructure/RecentLog.cs`, `Controllers/CsmsController.Assignment.cs`, `.Users.cs`, `.Audit.cs`, `Controllers/HouseAdminController.cs`, `Services/AuditService.cs`, `Services/SystemHealthService.cs`, `Models/Audit/*`, `Views/HouseAdmin/Organization.cshtml`, `Views/Shared/Workload.cshtml`, `AuditTrail.cshtml`, `SystemHealth.cshtml`, `_AssignDialog.cshtml`, `_RoleChoice.cshtml`, migration `20261007092004_AuditTrailAndAssignee`.
+
+Sixth pass: `Services/TicketStatus.cs`, `Services/SettingsStore.cs`, `Services/DemoDataService.cs`, `Services/Notify/*` (events, service, hub, worker, SMS sender), `Services/EmailService/MailSettings.cs`, `Models/Notify/*`, `Models/Settings/*`, `Controllers/CsmsController.Tickets.cs`, `.MasterData.cs`, `.TeamTodos.cs`, `.Notifications.cs`, `.System.cs`, `Views/Shared/TicketBoard.cshtml`, `Permissions.cshtml`, `NotificationSettings.cshtml`, `Notifications.cshtml`, `_NotificationItems.cshtml`, `DemoData.cshtml`, migration `20261007120446_NotificationsAndSettings`.

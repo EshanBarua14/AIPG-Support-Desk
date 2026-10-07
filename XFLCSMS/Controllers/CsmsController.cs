@@ -17,6 +17,11 @@ namespace XFLCSMS.Controllers
     ///   CsmsController.Assignment.cs  assign / take / release a ticket, workload
     ///   CsmsController.Users.cs       accounts (platform admin: all, house admin: own house)
     ///   CsmsController.Audit.cs       audit trail
+    ///   CsmsController.Tickets.cs     ticket lists, board, report, view / edit / status / delete of a ticket
+    ///   CsmsController.MasterData.cs  brokerage houses, branches, support lists
+    ///   CsmsController.TeamTodos.cs   to-dos of all users
+    ///   CsmsController.Notifications.cs  the bell: live stream, list, preferences
+    ///   CsmsController.System.cs      system health, roles and permissions, notification settings, demo data
     /// </summary>
     public abstract partial class CsmsController : Controller
     {
@@ -71,6 +76,7 @@ namespace XFLCSMS.Controllers
             var user = CurrentUser;
             if (user == null)
             {
+                Hub.Forget(HttpContext.Session.Id);
                 context.Result = SessionAuthorizeAttribute.Challenge(Request);
                 return;
             }
@@ -109,6 +115,40 @@ namespace XFLCSMS.Controllers
                 return;
             }
 
+            // The notification stream of an open page is a request too, and every request keeps a session alive. So
+            // the sign-in ends by the clock kept in NotificationHub: ten minutes after the user last did something
+            // himself, whatever the open pages have been asking for in the meantime.
+            var action = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?.ActionName;
+            var isStream = action == nameof(NotificationStream);
+            var sessionId = HttpContext.Session.Id;
+            if (isStream ? Hub.IsIdle(sessionId, SessionTimeout) : Hub.HasExpired(sessionId, SessionTimeout))
+            {
+                Hub.Forget(sessionId);
+                HttpContext.Session.Clear();
+                if (isStream)
+                {
+                    context.Result = new StatusCodeResult(StatusCodes.Status401Unauthorized);
+                    return;
+                }
+
+                if (!SessionAuthorizeAttribute.IsAjax(Request))
+                {
+                    TempData["Notice"] = "You were signed out because nothing happened for a while. Please sign in again.";
+                }
+
+                context.Result = SessionAuthorizeAttribute.Challenge(Request);
+                return;
+            }
+
+            if (isStream)
+            {
+                // the stream gets nothing a page needs, and does not count as the user doing something
+                Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+                return;
+            }
+
+            Hub.Clicked(sessionId);
+
             // The layout prints ViewBag.Profile.FullName, so it must be set for every view.
             ViewBag.Profile = user;
             Tickets.ActAs(user, MyRole);
@@ -122,24 +162,45 @@ namespace XFLCSMS.Controllers
             Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
             Response.Headers["Pragma"] = "no-cache";
 
-            if (HttpMethods.IsGet(Request.Method) && !SessionAuthorizeAttribute.IsAjax(Request))
-            {
-                SetMenuCounters(user);
-            }
-
             base.OnActionExecuting(context);
         }
 
-        /// <summary>The small numbers beside "Unassigned", "Assigned to me" and "Users" in the side menu.</summary>
+        /// <summary>
+        /// Runs after the action: when a whole page is about to be rendered (also the page a POST shows again
+        /// with its validation messages), it gets the numbers for the menu and the bell.
+        /// </summary>
+        public override void OnActionExecuted(ActionExecutedContext context)
+        {
+            if (context.Result is ViewResult && !SessionAuthorizeAttribute.IsAjax(Request) && CurrentUser != null)
+            {
+                SetMenuCounters(CurrentUser);
+            }
+
+            base.OnActionExecuted(context);
+        }
+
+        /// <summary>The small numbers in the side menu (tickets per status, assigned to me, users waiting) and on the bell.</summary>
         private void SetMenuCounters(User user)
         {
             try
             {
-                ViewBag.UnassignedCount = VisibleIssues.Count(i => i.AssignBy == null && i.AssignOn == null && i.IStatus != "Close");
+                // tickets per status, for the sub menu "By status"
+                var perStatus = VisibleIssues.Where(TicketService.NotClosed).GroupBy(i => i.IStatus).Select(g => new { Status = g.Key, Count = g.Count() }).ToList();
+                var counts = new Dictionary<string, int>();
+                foreach (var row in perStatus)
+                {
+                    var key = TicketStatus.Normalize(row.Status);
+                    if (key != null) { counts[key] = counts.GetValueOrDefault(key) + row.Count; }
+                }
+
+                ViewBag.NavStatusCounts = counts;
+                ViewBag.UnassignedCount = counts.GetValueOrDefault(TicketStatus.Unassigned);
                 if (MyRole == Role.SupportEngineer)
                 {
-                    ViewBag.AssignedToMeCount = Db.Issues.Where(TicketService.AssignedTo(user)).Count(i => i.IStatus != "Close");
+                    ViewBag.AssignedToMeCount = Db.Issues.Where(TicketService.AssignedTo(user)).Count(TicketService.NotClosed);
                 }
+                ViewBag.UnreadNotifications = Db.Notifications.Count(n => n.UserId == user.Id && n.ReadAt == null);
+                ViewBag.InAppNotifications = Services.Notify.NotificationEvents.ChannelOn(Settings, Services.Notify.NotificationEvents.InAppChannel);
                 if (Can(Permission.UsersAll) || Can(Permission.UsersHouse))
                 {
                     // registered, but the token from the e-mail was never entered: an administrator can activate them
@@ -166,8 +227,9 @@ namespace XFLCSMS.Controllers
         }
 
         /// <summary>
-        /// Tickets this role may see: every ticket for XFL staff, the tickets of the own brokerage house for a
-        /// house admin, the tickets he raised himself for a house user. Every list, report and counter starts here.
+        /// Tickets this role may see. With "see all tickets": every ticket. With "see the tickets of the own house":
+        /// those. Otherwise the tickets the user raised and - for XFL staff - the ones assigned to him.
+        /// Every list, report and counter starts here.
         /// </summary>
         protected IQueryable<IssueTable> VisibleIssues
         {
@@ -184,6 +246,13 @@ namespace XFLCSMS.Controllers
                 {
                     var myHouse = me?.BrokerageHouseName ?? 0;
                     return Db.Issues.Where(i => i.BrokerageId == myHouse);
+                }
+
+                if (Rbac.IsStaff(MyRole))
+                {
+                    // XFL staff without "see all tickets": the tickets assigned to them and the ones they raised
+                    var myName = me?.FullName;
+                    return Db.Issues.Where(i => i.UserId == myId || i.AssignedToId == myId || (i.AssignedToId == null && i.AssignBy == myName));
                 }
 
                 return Db.Issues.Where(i => i.UserId == myId);
@@ -204,7 +273,9 @@ namespace XFLCSMS.Controllers
                 return false;
             }
 
-            return (Can(Permission.TicketsHouse) && issue.BrokerageId == me.BrokerageHouseName) || issue.UserId == me.Id;
+            return (Can(Permission.TicketsHouse) && issue.BrokerageId == me.BrokerageHouseName)
+                || issue.UserId == me.Id
+                || (Rbac.IsStaff(MyRole) && TicketService.IsAssignedTo(issue, me));
         }
 
         /// <summary>
@@ -218,15 +289,21 @@ namespace XFLCSMS.Controllers
                 return null;
             }
 
-            if (MyRole == Role.SupportEngineer)
+            if (Rbac.IsStaff(MyRole))
             {
                 TempData["ErrorMessage"] = TicketService.IsUnassigned(issue)
-                    ? "Take ticket " + issue.TNumber + " first: you work on the tickets that are assigned to you."
-                    : "Ticket " + issue.TNumber + " is assigned to " + issue.AssignBy + ". A support manager can reassign it.";
+                    ? (Can(Permission.TicketTake)
+                        ? "Take ticket " + issue.TNumber + " first: you work on the tickets that are assigned to you."
+                        : "Ticket " + issue.TNumber + " has no engineer yet. Your role works on the tickets assigned to it.")
+                    : "Ticket " + issue.TNumber + " is assigned to " + issue.AssignBy + ". Your role works on the tickets assigned to it.";
+            }
+            else if (TicketStatus.IsClosed(issue.IStatus))
+            {
+                TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed and can no longer be changed.";
             }
             else
             {
-                TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed and can no longer be changed.";
+                TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " was raised by a colleague. You can change only the tickets you raised yourself.";
             }
 
             return RedirectToAction("TicketView", new { id = issue.IssueId });
@@ -275,14 +352,14 @@ namespace XFLCSMS.Controllers
 
             var today = DateTime.Now.Date;
             int Raised(DateTime from) => rows.Count(r => r.TDate.Date >= from && r.TDate.Date <= today);
-            int Closed(DateTime from) => rows.Count(r => r.TDate.Date >= from && r.TDate.Date <= today && r.IStatus == "Close");
+            int Closed(DateTime from) => rows.Count(r => r.TDate.Date >= from && r.TDate.Date <= today && r.IStatus == TicketStatus.Closed);
 
             var week = today.AddDays(-7);
             var month = today.AddMonths(-1);
             var year = today.AddYears(-1);
 
             var total = rows.Count;
-            var closed = rows.Count(r => r.IStatus == "Close");
+            var closed = rows.Count(r => r.IStatus == TicketStatus.Closed);
 
             var board = new Dashboard
             {
@@ -301,10 +378,15 @@ namespace XFLCSMS.Controllers
                 YearlyTotalTicket = Raised(year),
                 YearlyTotalClosed = Closed(year),
                 YearlyTotalQueue = Raised(year) - Closed(year),
-                Unassigned = rows.Count(r => r.AssignBy == null && r.AssignOn == null && r.IStatus != "Close"),
-                HighPriorityOpen = rows.Count(r => r.Priority == "High" && r.IStatus != "Close"),
-                AssignedToMe = rows.Count(r => (r.AssignedToId == me.Id || (r.AssignedToId == null && r.AssignBy == me.FullName)) && r.IStatus != "Close")
+                Unassigned = rows.Count(r => r.AssignedToId == null && string.IsNullOrEmpty(r.AssignBy) && r.IStatus != TicketStatus.Closed),
+                HighPriorityOpen = rows.Count(r => r.Priority == "High" && r.IStatus != TicketStatus.Closed),
+                AssignedToMe = rows.Count(r => (r.AssignedToId == me.Id || (r.AssignedToId == null && r.AssignBy == me.FullName)) && r.IStatus != TicketStatus.Closed)
             };
+
+            foreach (var status in TicketStatus.All)
+            {
+                board.ByStatus[status.Key] = rows.Count(r => TicketStatus.Normalize(r.IStatus) == status.Key);
+            }
 
             if (includeHouses)
             {
@@ -314,8 +396,8 @@ namespace XFLCSMS.Controllers
                     {
                         Name = h.BrokerageHouseName,
                         Acronym = h.BrokerageHouseAcronym,
-                        Open = rows.Count(r => r.BrokerageId == h.BrokerageId && r.IStatus != "Close"),
-                        Closed = rows.Count(r => r.BrokerageId == h.BrokerageId && r.IStatus == "Close")
+                        Open = rows.Count(r => r.BrokerageId == h.BrokerageId && r.IStatus != TicketStatus.Closed),
+                        Closed = rows.Count(r => r.BrokerageId == h.BrokerageId && r.IStatus == TicketStatus.Closed)
                     })
                     .Where(h => h.Total > 0)
                     .OrderByDescending(h => h.Total)
@@ -325,7 +407,7 @@ namespace XFLCSMS.Controllers
 
             var recentIds = rows.OrderByDescending(r => r.IssueId).Take(6).Select(r => r.IssueId).ToList();
             var waitingIds = rows
-                .Where(r => r.AssignBy == null && r.AssignOn == null && r.IStatus != "Close")
+                .Where(r => r.AssignedToId == null && string.IsNullOrEmpty(r.AssignBy) && r.IStatus != TicketStatus.Closed)
                 .OrderBy(r => r.TDate)
                 .Take(6)
                 .Select(r => r.IssueId)
@@ -366,6 +448,7 @@ namespace XFLCSMS.Controllers
                 AssignedToId = issue.AssignedToId,
                 CanEdit = Tickets.CanEdit(issue),
                 CanWork = Tickets.CanWorkOn(issue),
+                StatusChoices = Tickets.StatusChoices(issue),
                 IsMine = CurrentUser != null && TicketService.IsAssignedTo(issue, CurrentUser),
                 History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList(),
                 TicketDetails = issue.Details,
@@ -480,7 +563,7 @@ namespace XFLCSMS.Controllers
                 PasswordHasher.Create(password.NewPassword, out byte[] passwordHash, out byte[] passwordSalt);
                 user.PasswordHash = passwordHash;
                 user.PasswordSalt = passwordSalt;
-                Audit(AuditActions.PasswordChange, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Changed the own password", Rbac.HouseOf(user));
+                Audit(AuditActions.PasswordChange, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Changed their own password", Rbac.HouseOf(user));
                 await Db.SaveChangesAsync();
 
                 TempData["Message"] = "Your password was changed. Sign in with the new password.";

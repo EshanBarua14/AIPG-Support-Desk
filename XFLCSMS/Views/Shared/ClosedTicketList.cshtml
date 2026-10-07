@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Closed";
     var role = Ui.Role(ViewContext);
-    ViewData["ListSub"] = role.IsMaker ? "Your tickets that have been closed." : role.IsHouseAdmin ? "Tickets of your house that have been closed." : "Tickets that have been closed.";
+    ViewData["ListSub"] = role.SeesOwn ? "Your tickets that have been closed." : role.SeesHouse ? "Tickets of your house that have been closed." : "Tickets that have been closed.";
     ViewData["ListAction"] = "ClosedTicketList";
     ViewData["EmptyText"] = "No closed tickets yet";
 }

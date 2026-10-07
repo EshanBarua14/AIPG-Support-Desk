@@ -47,6 +47,12 @@ namespace XFLCSMS.Models.Issue
         public bool CanEdit { get; set; }
         /// <summary>May set status and comments (XFL staff working on the ticket).</summary>
         public bool CanWork { get; set; }
+        /// <summary>Edit form: the status the form showed when it was opened (hidden field).</summary>
+        public string? OriginalStatus { get; set; }
+        /// <summary>Edit form: the engineer the form showed when it was opened: "none" for nobody, else the user id (hidden field).</summary>
+        public string? OriginalAssignee { get; set; }
+        /// <summary>The statuses the signed-in user may give the ticket now (empty: none).</summary>
+        public List<XFLCSMS.Services.TicketStatus.Info> StatusChoices { get; set; } = new();
         /// <summary>The ticket is assigned to the signed-in engineer.</summary>
         public bool IsMine { get; set; }
         public List<XFLCSMS.Models.Audit.AuditLog> History { get; set; } = new();

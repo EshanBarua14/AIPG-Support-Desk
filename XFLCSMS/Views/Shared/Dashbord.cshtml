@@ -20,14 +20,15 @@
 }
 <header class="page-head">
     <div>
-        <h1 class="page-title">@(role.IsMaker ? "Your tickets" : role.IsHouseAdmin ? "Tickets of your house" : "Support board")</h1>
-        <p class="page-sub">@(role.IsMaker ? "Everything you have raised with XFL support." : role.IsHouseAdmin ? "Everything the people of your brokerage house have raised with XFL support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
+        <h1 class="page-title">@(role.SeesOwn ? "Your tickets" : role.SeesHouse ? "Tickets of your house" : "Support board")</h1>
+        <p class="page-sub">@(role.SeesOwn ? (role.IsStaff ? "The tickets assigned to you and the ones you raised." : "Everything you have raised with XFL support.") : role.SeesHouse ? "Everything the people of your brokerage house have raised with XFL support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
     </div>
     <div class="page-actions">
         @if (role.Can(Permission.Workload))
         {
             <a class="btn" asp-action="Workload"><icon name="users" /> Workload</a>
         }
+        <a class="btn" asp-action="TicketBoard"><icon name="square-kanban" /> Board</a>
         <a class="btn" asp-action="Reports"><icon name="chart-column" /> Ticket report</a>
     </div>
 </header>
@@ -68,20 +69,30 @@
 
         @if (total > 0)
         {
-            <div class="depth" role="img" aria-label="@open open and @closed closed out of @total tickets">
-                @if (open > 0) { <i class="s-open" style="flex: @open" title="Open: @open"></i> }
-                @if (closed > 0) { <i class="s-closed" style="flex: @closed" title="Closed: @closed"></i> }
+            @* where the tickets stand: one segment per status, in the order of a ticket's life *@
+            <div class="depth" role="img" aria-label="Tickets per status: @string.Join(", ", TicketStatus.All.Select(status => Model.ByStatus.GetValueOrDefault(status.Key) + " " + status.Name.ToLowerInvariant()))">
+                @foreach (var status in TicketStatus.All)
+                {
+                    var count = Model.ByStatus.GetValueOrDefault(status.Key);
+                    if (count > 0) { <i class="q-@status.Css" style="flex: @count" title="@status.Name: @count"></i> }
+                }
             </div>
-            <div class="legend">
-                <span><i class="s-open"></i>Open <b>@open.ToString("N0")</b> (@Ui.Percent(open, total)%)</span>
-                <span><i class="s-closed"></i>Closed <b>@closed.ToString("N0")</b> (@Ui.Percent(closed, total)%)</span>
+            <div class="legend status-legend">
+                @foreach (var status in TicketStatus.All)
+                {
+                    var count = Model.ByStatus.GetValueOrDefault(status.Key);
+                    var listAction = status.Key == TicketStatus.Unassigned ? "UnassignedTicketList" : status.Key == TicketStatus.Closed ? "ClosedTicketList" : role.TicketList;
+                    var filter = listAction == role.TicketList ? status.Key : null;
+                    <a asp-action="@listAction" asp-route-status="@filter" title="@status.About"><i class="q-@status.Css"></i>@status.Name <b>@count.ToString("N0")</b></a>
+                }
             </div>
         }
         else
         {
             <p class="muted" style="margin-top: 16px">
-                @(role.IsMaker ? "You have not raised a ticket yet." : role.IsHouseAdmin ? "Nobody of your house has raised a ticket yet." : "No tickets have been raised yet.")
+                @(role.SeesOwn ? "You have not raised a ticket yet." : role.SeesHouse ? "Nobody of your house has raised a ticket yet." : "No tickets have been raised yet.")
                 @if (role.CanCreateTicket) { <a asp-action="IssueRaiseFrom">Create the first one</a> }
+                @if (role.Can(Permission.SystemSettings)) { <span>To see the system with content, <a asp-action="DemoData">load the demo data</a>.</span> }
             </p>
         }
     </section>
@@ -182,7 +193,7 @@
                     else
                     {
                         <div class="legend" style="margin: 0 0 14px">
-                            <span><i class="s-open"></i>Open</span>
+                            <span><i class="s-open"></i>Not closed</span>
                             <span><i class="s-closed"></i>Closed</span>
                         </div>
                         <div class="hbars">

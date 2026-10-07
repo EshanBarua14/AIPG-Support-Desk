@@ -1,132 +1,267 @@
 # XFL CSMS - who does what
 
-Customer Support Management System of Xpert Fintech Ltd. Staff of brokerage houses raise support
-tickets; the XFL support team assigns, works on and closes them.
+Customer Support Management System of Xpert Fintech Ltd. (version 3.0). Staff of brokerage houses raise
+support tickets; the XFL support team assigns them, works on them and closes them. Everybody is told what
+happens to their tickets: on the page while they work, by e-mail, and by SMS.
 
-## 1. Getting an account
+## 1. The five roles
 
-Before anybody of a brokerage house can start, an administrator creates the **house** and at least one **branch**
+A person has exactly one role. It is set on the account (**Users > Edit**) and decides which area of the site
+the person lands in.
+
+| Role | Who | Area | Sees |
+|---|---|---|---|
+| **Platform admin** | administrator of XFL | `/Admin/...` | everything, for every brokerage house |
+| **Support manager** | XFL staff | `/SupportManegar/...` | every ticket; assigns the engineers |
+| **Support engineer** | XFL staff | `/SupportEngineer/...` | every ticket; works on the ones assigned to him |
+| **House admin** | administrator of one brokerage house | `/HouseAdmin/...` | the tickets, people and branches of that house |
+| **House user** | staff of a brokerage house | `/Maker/...` | the tickets he raised himself |
+
+Somebody who opens an address of another area is sent back to the own dashboard. Somebody who opens a page
+his role has no permission for gets "Your role does not allow this" (403).
+
+### What each role may do
+
+This is the default. A platform admin changes it under **System > Roles & permissions** (section 7).
+
+| Permission | Platform admin | Support manager | Support engineer | House admin | House user |
+|---|:-:|:-:|:-:|:-:|:-:|
+| See all tickets | yes | yes | yes | - | - |
+| See the tickets of their house | - | - | - | yes | - |
+| Raise tickets | - | yes | yes | yes | yes |
+| Edit the tickets of their house (colleagues' tickets) | - | - | - | yes | - |
+| Assign tickets | yes | yes | no | - | - |
+| Take tickets, give them back | - | - | yes | - | - |
+| Work on any ticket (status, comments) | yes | yes | no | - | - |
+| Deploy, close and reopen | yes | yes | yes | - | - |
+| Delete tickets | yes | no | - | - | - |
+| Workload page | yes | yes | no | - | - |
+| Manage all accounts | always | no | - | - | - |
+| Manage the accounts of their house | - | - | - | yes | - |
+| Manage the branches of their house | - | - | - | yes | - |
+| Master data | yes | no | - | - | - |
+| Team to-dos | yes | no | - | - | - |
+| Whole audit trail | yes | no | - | - | - |
+| Audit trail of tickets | no | yes | no | - | - |
+| Audit trail of their house | - | - | - | yes | - |
+| System health | yes | no | - | - | - |
+| Notification settings and demo data | yes | - | - | - | - |
+| Change the permissions | always | - | - | - | - |
+
+"-" means the role can never be given that permission. Three things are fixed on purpose:
+
+- **House roles never reach outside their house.** Everything that works across houses can only go to XFL roles.
+- **A house user never sees more than his own tickets.** Anybody can register for a brokerage house and activate
+  the account with the token from his own e-mail, so "house user" proves nothing about a person. People who
+  should see the whole house are made house admin by an administrator.
+- **The platform admin always keeps the accounts and the permissions page**, so a wrong setting can be repaired.
+  The system settings (mail server, SMS gateway, demo data) stay with the platform admin too: whoever sets the
+  mail server can read password-reset e-mails.
+
+Everybody always may: see and edit the own open tickets, keep a personal to-do list, see the own notifications,
+change the own password.
+
+## 2. Getting an account
+
+Before anybody of a brokerage house can start, a platform admin creates the **house** and at least one **branch**
 (the house list flags a house without a branch: nobody can register for it).
 
 **Way 1 - the person registers**
-1. **Register** (`/RegisterLogin/Register`): name, email, phone, brokerage house, branch, employee ID, user name, password.
-2. A **token** (6 characters) arrives by email. Enter it on **Activate your account**.
-3. No email (mail server down, spam filter, mistyped address)? The account waits as **Not verified**. The administrator
-   sees the number of waiting accounts in the menu and presses **Activate** under **Users** - after the person has
-   confirmed that the registration is theirs (anybody can register under any name).
-4. **Sign in** with user name or email. A registered account is a **Maker**.
+1. **Register** (`/RegisterLogin/Register`): name, e-mail, phone, brokerage house, branch, employee ID, user name, password.
+2. A **token** (6 characters) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
+3. No e-mail? The account waits as **Not verified**. The platform admin and the admin of that house see it: a
+   notice under the bell, and the number of waiting accounts in the menu. They press **Activate** under **Users**
+   - after the person has confirmed that the registration is theirs (anybody can register under any name).
+4. **Sign in** with user name or e-mail. A registered account is a **house user**.
 
-**Way 2 - the administrator creates the account**
-**Users > New user**: same details plus the role. The account is active at once; the administrator passes the user name
-and password on. This is also how XFL engineers, managers and further administrators get their accounts.
+**Way 2 - an administrator creates the account**
+**Users > New user**: same details plus the role. The account is active at once; the administrator passes the
+user name and password on (the owner gets an e-mail with the user name, never with the password).
+A platform admin creates any account; a house admin creates house users and house admins of the own house.
 
-Forgot the password: **Forgot your password?** emails a reset token (valid 24 hours). If that mail does not arrive,
-the administrator sets a new password under **Users > Edit**.
+Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). If that mail
+does not arrive, an administrator sets a new password under **Users > Edit**.
 
-A session ends after 10 minutes without a request. It also ends at the next click when an administrator disables the
-account, changes its role, deletes it, or when its password changes.
-
-## 2. Which role a user gets
-
-Decided at sign-in, in this order (`RegisterLoginController.Login`):
-
-| Setting on the user | Role | Area |
-|---|---|---|
-| Administrator = Yes (`UCatagory`) | Administrator | `/Admin/...` |
-| XFL staff (`UType`) + position "Support Manager" (`Department` = `Support Maneger`) | Support Manager | `/SupportManegar/...` |
-| XFL staff (`UType`) + position "Support Engineer" | Support Engineer | `/SupportEngineer/...` |
-| anything else | Maker | `/Maker/...` |
-
-A user who opens an address of another role is sent back to the own dashboard.
+A sign-in ends after 10 minutes in which the person did nothing (an open page that only listens for notifications
+does not count as doing something). It also ends at the next click when an administrator disables the account,
+changes its role or house, deletes it, or when its password changes.
 
 ## 3. Life of a ticket
 
+A ticket has one of eight statuses. Lists, the menu, the board, the dashboard and the reports all use them.
+
 ```
-Maker creates ticket            status Open, nobody assigned     number = HOUSE_0000001
-        |
-Staff opens "Edit or assign"    picks the engineer               stamps Assigned on, Approved by/on
-        |
-Engineer works on it            status In queue / In progress
-        |
-Staff sets status Closed        stamps Closed by/on              ticket leaves the open lists
+Unassigned --assign--> Assigned --> In progress --> Waiting for review --> Done --> Deployed --> Closed
+                                       ^   |
+                                       +-- Pending   (work has stopped: waiting for somebody else)
 ```
 
-- Setting the engineer back to "Unassigned" clears the assignment and approval stamps.
-- Changing a closed ticket back to another status clears the closing stamps (there is no button for it on a closed ticket; see section 6).
-- Every save stamps "Last edited" with the editor's name.
+| Status | Means | Who sets it |
+|---|---|---|
+| **Unassigned** | raised, no engineer yet | the system: every new ticket, and every ticket that loses its engineer |
+| **Assigned** | an engineer has it and has not started | the system, when the ticket gets an engineer |
+| **In progress** | the engineer is working on it | the engineer of the ticket, or anybody with "work on any ticket" |
+| **Pending** | work has stopped, waiting for information | same |
+| **Waiting for review** | finished by the engineer, waits to be checked | same |
+| **Done** | checked and accepted, not live yet | same |
+| **Deployed** | the fix or change is live | same, with "deploy, close and reopen" |
+| **Closed** | nothing more to do | same, with "deploy, close and reopen" |
 
-## 4. What each role can do
+Rules the system keeps:
+- A ticket is **Unassigned exactly while it has no engineer**. A working status needs an engineer; taking the
+  engineer away makes the ticket Unassigned again.
+- The statuses can be set in any order (a ticket can go straight from In progress to Done). The ticket page
+  marks the usual next step.
+- **Closed** stamps who and when, and the people of the house can no longer edit the ticket. Reopening (any other
+  status on a closed ticket) needs "deploy, close and reopen" and clears the stamp.
+- Every step is written to the **history** on the ticket page (who, in which role, when, from what to what) and
+  to the audit trail.
 
-| | Maker | Support Engineer | Support Manager | Administrator |
-|---|---|---|---|---|
-| Dashboard | own tickets | all tickets + per house | all tickets + per house | all tickets + per house |
-| Create ticket | yes | yes | yes | no |
-| See tickets | own only | all | all | all |
-| Lists | My / Unassigned / Closed | All / Assigned to me / Unassigned / Closed | All / Unassigned / Closed | All / Unassigned / Closed |
-| Edit title, details, comments, priority, files | own tickets | any ticket | any ticket | any ticket |
-| Assign engineer, set status | no | yes | yes | yes |
-| Delete ticket | no | no | no | yes (open tickets) |
-| Ticket report | own tickets: priority, status, dates | tickets assigned to / closed by self: house, priority, dates | all: house, priority, status, closed by, dates | same as manager |
-| To-do list (personal) | yes | yes | yes | yes |
-| Team to-dos + team to-do report | no | no | no | yes |
-| Users: create, activate, change role, set password, disable, delete | no | no | no | yes |
-| Master data (houses, branches, support types, categories, sub-categories, affected sections) | no | no | no | yes |
-| Profile, change password | yes | yes | yes | yes |
+### Assignment
+- Tickets are assigned to **support engineers** (active XFL accounts with that role).
+- **Assign / Reassign** (permission "assign tickets"): from the lists, the ticket page, the workload page or the
+  edit form. The dialog shows how many open tickets each engineer has.
+- **Take** (permission "take tickets"): an engineer takes an unassigned ticket; **Give back** returns it.
+- **Workload**: open tickets per engineer (in progress, pending, waiting for review, to close, high priority,
+  oldest), and the tickets that wait for an engineer.
 
-### Maker (brokerage house staff)
-1. **Create ticket**: title and priority are required; details (formatted text), comments, support type / category / sub-category / affected section and files are optional. Allowed files: txt, doc, docx, pdf, jpg, jpeg, png, xls, xlsx, csv.
-2. The ticket gets the next number of the house and shows up under **My tickets** and **Unassigned**.
-3. Follow it on the ticket page: who it is assigned to, the status, the progress steps.
-4. While it is open: **Edit ticket** to change the text or priority, add or remove files.
-5. **Ticket report**: filter own tickets, print or export to CSV.
+### Where to find tickets
+- **All tickets / House tickets / My tickets**: the main list. Status chips above it narrow it to one status;
+  search, sorting, page size and paging keep the status.
+- Menu **Tickets > By status**: one entry per status with the number of tickets.
+- **Board**: one column per status, most urgent first (closed: the last 30 days). An engineer can switch to "Mine".
+- **Assigned to me** (engineers), **Unassigned**, **Closed**.
+- **Dashboard**: tickets per status (each number opens its list), raised and closed per period, per brokerage house.
+- **Ticket report**: filter by house, priority, status, closed by, dates; print or export to CSV. Every role
+  reports on the tickets it may see.
 
-### Support Engineer
-1. **Unassigned** shows what is waiting; **Assigned to me** shows the own open work (counter in the menu).
-2. **Edit or assign** on a ticket: choose the engineer, set status and priority, add comments and files.
-3. Set status **Closed** when done.
-4. **Ticket report** covers tickets assigned to or closed by the engineer.
+### Raising and editing
+1. **Create ticket**: title and priority are required; details (formatted text), comments, support type /
+   category / sub-category / affected section and files are optional. Allowed files: txt, doc, docx, pdf, jpg,
+   jpeg, png, xls, xlsx, csv. The ticket gets the next number of the house (`ABC_0000001`).
+2. People of the house edit title, details, comments, priority and files while the ticket is open: a house
+   user his own tickets, a house admin every ticket of the house.
+3. XFL staff also set the status and (with "assign tickets") the engineer on the edit form. Only fields that
+   were really changed on the form are applied, so a form that sat open does not undo what a colleague did.
 
-### Support Manager
-Same pages as the engineer without "Assigned to me". The ticket report covers all tickets and can be filtered by the engineer who closed them.
+## 4. Notifications
 
-### Administrator
-1. Everything the manager can do with tickets, plus **Delete** (open tickets; the files are removed as well).
-2. **Users**: see every account with house, role and state; create an account; activate one that waits; change role settings; set a new password; disable an account; delete an account that has raised no tickets.
-3. **Master data**: brokerage houses (name + acronym for ticket numbers), branches, and the four lists offered on the ticket form. An entry that is in use cannot be deleted.
-4. **Team to-dos** and **Team to-do report**: the to-dos of all users.
-5. First administrator on an empty database: user `admin`, password from `SeedAdmin` in `appsettings.Development.json`.
+Three channels: **in the application** (a message at the bottom of every open page, at once, and the list
+under the bell), **e-mail**, **SMS**. The person who does something is never told about it.
 
-## 5. To-dos
+| Event | Who is told | App | E-mail | SMS |
+|---|---|:-:|:-:|:-:|
+| Ticket raised | XFL staff who assign tickets, and the admins of that house | on | on | off |
+| Ticket assigned | the engineer who got it, and the person who raised it | on | on | on |
+| Ticket unassigned | the engineer who had it, and XFL staff who assign tickets | on | off | off |
+| Status changed | the person who raised it and its engineer | on | off | off |
+| Ticket deployed or closed | the person who raised it and its engineer | on | on | on |
+| Ticket edited or commented | the person who raised it and its engineer | on | off | off |
+| Registration waiting for activation | the administrators who can activate it | on | off | off |
+| Account activated | the owner of the account | off | on | on |
+| Account created by an administrator | the owner | off | on | off |
+| Password set by an administrator | the owner | off | on | on |
 
-A personal list per user, not linked to tickets. Add a line, tick it to mark it done, or edit it to rename or cancel.
-Statuses: In progress, Done, Canceled. **To-do report** filters by status and date.
+These are the defaults; a platform admin changes every cell under **System > Notification settings**. SMS as a
+whole is off until a gateway is entered there.
 
-## 6. Where the system stands
+- **Bell** (top bar): number of unread notices; a click lists the newest; **Mark all read**; a notice opens the
+  ticket or account it is about.
+- **Notifications** page (link in the bell): the whole list, and **Preferences**: each person switches the three
+  channels on or off for himself.
+- E-mail and SMS are written to a queue in the same step as the change they report and sent a moment later by
+  a background sender. A slow or broken mail server never holds up a page. A message that fails is tried again
+  after 1, 5 and 30 minutes; then it is listed as failed with the reason, and can be sent again with one button.
+- An e-mail carries a button that opens the ticket, once the **address of the site** is saved in the settings.
+- Passwords are never part of a notification.
 
-**Working** (checked in the test runs, see FIXES.md): registration, activation (by token or by the administrator), accounts created by the administrator, sign-in, password reset and change;
-creating, editing, assigning, closing and deleting tickets; attachments; lists with search, sorting and paging;
-ticket and to-do reports with print and CSV; to-dos; user and master-data administration.
+## 5. The house admin
+
+- **Users**: the house users and house admins of the own house: create, activate a waiting registration, edit,
+  change the role (house user / house admin), set a new password, disable, delete (an account without tickets).
+- **Branches**: add, rename, remove (a branch without accounts).
+- **Activity**: the audit trail of the house: its tickets, accounts, branches and sign-ins.
+- Tickets: every ticket of the house, with who raised it; may edit them while they are open.
+
+## 6. To-dos
+
+A personal list per user, not linked to tickets. Add a line, tick it to mark it done, or edit it to rename or
+cancel. Statuses: In progress, Done, Canceled. **To-do report** filters by status and date. With "team to-dos":
+the lists of all users, editing included, and the report over them.
+
+## 7. The platform admin
+
+**Administration**
+- **Users**: every account with house, role and state; create, activate, edit (name, e-mail, phone, house while
+  the account has no tickets, branch, role, active / disabled), set a password, delete.
+- **Master data**: brokerage houses (name + acronym for ticket numbers), branches, support types, categories,
+  sub-categories, affected sections. An entry that is in use cannot be deleted.
+
+**System**
+- **Audit trail**: who did what and when: sign-ins (also failed ones), accounts, tickets, master data, settings.
+  Filter by date, kind, house, text; export to CSV. Lines are only ever added.
+- **System health**: database, e-mail, notifications (open pages listening, queue, failed messages, SMS), file
+  storage, security settings, the support queue, facts about the installation, the latest warnings and errors.
+  `/health` answers `Healthy` or `Unhealthy` for monitoring tools, without sign-in.
+- **Roles & permissions**: the table of section 1 as switches. A change is in force as soon as it is saved, also
+  for people who are signed in; it is written to the audit trail; **Reset to defaults** puts everything back.
+  A locked box cannot be changed, a dash cannot be given.
+- **Notification settings**: the three channel switches; the table "which event uses which channel"; the address
+  of the site for links in e-mails; the **mail server** (host, port, encryption, user, password, sender) with
+  **Send test e-mail**; the **SMS gateway** with **Send test SMS**; the list of what was sent, with the reason
+  for every failure.
+  - The mail server entered here is used for everything, also registration tokens and password resets. While
+    nothing is entered, the values of `appsettings.json` are used.
+  - Passwords and keys are stored encrypted and never shown again. An empty field keeps what is stored - unless
+    the server, user name or gateway address changes: then the secret has to be entered again.
+  - The SMS gateway works with any provider that takes a web request: enter the address and the fields from the
+    provider's API description, with `{to}`, `{message}`, `{sender}`, `{key}` where the number, the text, the
+    sender name and the key belong.
+- **Demo data**: see section 8.
+
+A support manager can be given master data, team to-dos, delete tickets, the whole audit trail, system health
+and "manage all accounts" on the permissions page. With "manage all accounts" he manages everybody except
+platform admins, and cannot make anybody platform admin.
+
+## 8. Demo data
+
+**System > Demo data > Load demo data** fills the system so every page can be tried with content:
+3 brokerage houses with 7 branches, 15 accounts of every role (one of them waiting for activation), 64 tickets
+in every status with their history, to-dos, and notices under the bell.
+
+- All demo accounts share one password. It is made up new for every load and shown on the demo data page.
+- User names start with `demo.` (`demo.manager`, `demo.engineer1`, `demo.demoa.admin`, `demo.demoa.user1`, ...),
+  houses with `Demo`. Their addresses end in `demo.invalid`: no e-mail and no SMS is ever sent to them.
+- The demo manager and engineers are working XFL accounts: they see real tickets too. Next to existing tickets
+  the page warns about this and wants a tick before it loads.
+- **Remove demo data** deletes exactly what was loaded, plus the tickets demo accounts raised meanwhile. Real
+  tickets given to a demo engineer become unassigned. A demo account or house that was changed into a real one
+  (renamed, real e-mail address, real accounts or tickets inside) is kept, and the page says so.
+
+## 9. Where the system stands
+
+**Working** (checked in the test runs, see FIXES.md): everything described above.
 
 **Not there yet**
 
 | Gap | Effect |
 |---|---|
-| No email when a ticket is created, assigned or closed | people have to look at the lists |
-| One "Comments" field that every edit overwrites; no conversation, no history | nobody can see who said or changed what |
-| The engineer is stored as a name, not as a user | renaming a user or two users with the same name break "Assigned to me" and the reports |
-| No "reopen" button on a closed ticket | a closed ticket can only be changed through the edit address |
-| No due date, SLA or escalation | old tickets are only visible as "oldest first" on the dashboard |
-| A maker sees only the own tickets | colleagues of the same branch or house cannot follow each other's tickets |
-| An administrator cannot correct the email, house or branch of an account | a wrong choice at registration means delete and create again (not possible once the user has raised tickets) |
-| No "send the token again" on the activation page | when the mail is lost, only the administrator can activate |
-| Lists and reports load all tickets and filter in memory | fine for thousands of tickets, slow for hundreds of thousands |
+| One "Comments" field that every edit overwrites; no conversation | the history says that comments changed, not what they said before |
+| No due date, SLA or escalation | old tickets are visible as "oldest first" on the dashboard and the workload page only |
+| No "send the token again" on the activation page | when the mail is lost, an administrator activates |
+| Lists and reports load all visible tickets and filter in memory | fine for thousands of tickets, slow for hundreds of thousands |
+| Two people saving the same ticket at the same moment: the last one wins for title, details and comments | rare; status and engineer are protected (section 3) |
+| Notifications are pushed from the memory of one process | run one instance of the application; a web farm would need a shared channel |
+| The text of notifications is fixed (English) | which event, which channel and who gets it are settings; the wording is not |
 
 **Security and operations**
 
 | Item | Action |
 |---|---|
-| The Gmail app password is in `appsettings.json` and in the git history | revoke it, keep the new one outside the repository |
-| Activation and reset tokens are 6 hex characters and there is no limit on attempts; no lock-out after wrong passwords | add an attempt limit |
+| The Gmail app password is in `appsettings.json` and in the git history | revoke it; enter the new one under Notification settings (stored encrypted in the database) and remove it from the file |
+| No limit on sign-in or activation attempts, no lock-out | add an attempt limit before the site is reachable from the internet |
+| The folder `App_Data/keys` holds the keys for sign-in cookies and stored secrets | the account the site runs under must be able to write there; keep it out of version control and out of "delete extra files" deployments. After a move to another server, enter the mail password and SMS key again |
+| Start SQL Server before the application | database updates are applied at start-up only; if the database was not reachable then, restart the application |
 | .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to a supported .NET and update MailKit |
 | Uploaded files are in the repository (`wwwroot/Uplods`) | remove them from git, keep the folder |
 | `Controllers/UserController.cs` is dead code (its API class is never registered) | delete it |

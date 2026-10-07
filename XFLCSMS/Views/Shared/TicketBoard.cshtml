@@ -1,0 +1,63 @@
+@*
+    The board: the tickets this role may see, one column per status (Services/TicketStatus.cs), most urgent first.
+    Closed tickets of the last 30 days only. A card opens the ticket; the status is changed on the ticket page.
+*@
+@model XFLCSMS.Models.Admin.TicketBoardView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Board";
+    ViewData["PageClass"] = "wide";
+    var houses = ViewBag.Houses as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var total = Model.Columns.Where(column => column.Status.Key != TicketStatus.Closed).Sum(column => column.Total);
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Board</h1>
+        <p class="page-sub">@total open @(total == 1 ? "ticket" : "tickets") by status@(Model.Mine ? ", assigned to you" : role.SeesOwn ? ", raised by you" : role.SeesHouse ? ", of your house" : ""). Closed: the last 30 days.</p>
+    </div>
+    <div class="page-actions">
+        @if (Model.CanFilterMine)
+        {
+            <a class="btn @(Model.Mine ? "" : "btn-primary")" asp-action="TicketBoard">All tickets</a>
+            <a class="btn @(Model.Mine ? "btn-primary" : "")" asp-action="TicketBoard" asp-route-mine="true">Mine</a>
+        }
+        <a class="btn" asp-action="@role.TicketList"><icon name="list" /> As a list</a>
+    </div>
+</header>
+
+<div class="kanban" role="list" aria-label="Tickets by status">
+    @foreach (var column in Model.Columns)
+    {
+        var status = column.Status;
+        var listAction = status.Key == TicketStatus.Unassigned ? "UnassignedTicketList" : status.Key == TicketStatus.Closed ? "ClosedTicketList" : role.TicketList;
+        var filter = listAction == role.TicketList ? status.Key : null;
+        <section class="kanban-col" role="listitem" aria-label="@status.Name, @column.Total tickets">
+            <header class="kanban-head st-@status.Css" title="@status.About">
+                <icon name="@status.Icon" />
+                <h2>@status.Name</h2>
+                <span class="num">@column.Total</span>
+            </header>
+            <div class="kanban-cards">
+                @foreach (var ticket in column.Tickets)
+                {
+                    <a class="kanban-card p-@Ui.PriorityKey(ticket.Priority)" asp-action="TicketView" asp-route-id="@ticket.IssueId">
+                        <span class="kanban-top">@Ui.Sym(ticket.TNumber) @Ui.PriorityPill(ticket.Priority)</span>
+                        <b>@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</b>
+                        <span class="t-meta">
+                            @(string.IsNullOrEmpty(ticket.AssignBy) ? "Nobody yet" : ticket.AssignBy)
+                            &middot; @Ui.Date(status.Key == TicketStatus.Closed ? ticket.ClosedOn ?? ticket.TDate : ticket.TDate)
+                        </span>
+                    </a>
+                }
+                @if (column.Total == 0)
+                {
+                    <p class="kanban-empty">Nothing here</p>
+                }
+                else if (column.Total > column.Tickets.Count)
+                {
+                    <a class="kanban-more" asp-action="@listAction" asp-route-status="@filter">@(column.Total - column.Tickets.Count) more in the list</a>
+                }
+            </div>
+        </section>
+    }
+</div>

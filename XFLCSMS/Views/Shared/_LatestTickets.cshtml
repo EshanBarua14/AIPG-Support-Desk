@@ -6,7 +6,7 @@
 <section class="card flush">
     <div class="card-head">
         <h2>Latest tickets</h2>
-        <a class="btn btn-sm right" asp-action="@role.TicketList">@(role.IsMaker ? "All my tickets" : role.IsHouseAdmin ? "All house tickets" : "All tickets")</a>
+        <a class="btn btn-sm right" asp-action="@role.TicketList">@(role.SeesOwn ? "All my tickets" : role.SeesHouse ? "All house tickets" : "All tickets")</a>
     </div>
     @if (Model.Count == 0)
     {

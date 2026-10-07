@@ -1,0 +1,80 @@
+@*
+    The bell page of the signed-in user: everything he was told, and what he wants to get
+    (in the application, by e-mail, by SMS). What the system sends at all is set under System > Notification settings.
+*@
+@model XFLCSMS.Models.Admin.NotificationsView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Notifications";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Notifications</h1>
+        <p class="page-sub">@(Model.Unread == 0 ? "You have read everything." : Model.Unread == 1 ? "1 notification is unread." : Model.Unread + " notifications are unread.")</p>
+    </div>
+    @if (Model.Unread > 0)
+    {
+        <form class="page-actions" asp-action="ReadNotifications" method="post">
+            <button type="submit" class="btn"><icon name="check-check" /> Mark all read</button>
+        </form>
+    }
+</header>
+
+<div class="split">
+    <div class="stack">
+        <nav class="tabs" aria-label="Which notifications">
+            <a class="tab @(Model.OnlyUnread ? "" : "active")" asp-action="Notifications" aria-current="@(Model.OnlyUnread ? null : "page")">All</a>
+            <a class="tab @(Model.OnlyUnread ? "active" : "")" asp-action="Notifications" asp-route-unread="true" aria-current="@(Model.OnlyUnread ? "page" : null)">
+                Unread
+                @if (Model.Unread > 0)
+                {
+                    <span class="nav-count">@Model.Unread</span>
+                }
+            </a>
+        </nav>
+
+        <section class="card flush">
+            <partial name="_NotificationItems" model="Model.Items" />
+            @if (Model.Pages > 1)
+            {
+                <div class="pager">
+                    <span class="num">Page @Model.Page of @Model.Pages</span>
+                    <nav class="pager-pages" aria-label="Pages">
+                        <a class="@(Model.Page <= 1 ? "off" : "")" asp-action="Notifications" asp-route-page="@(Model.Page - 1)" asp-route-unread="@(Model.OnlyUnread ? "true" : null)" aria-label="Previous page"><icon name="chevron-left" /></a>
+                        <a class="@(Model.Page >= Model.Pages ? "off" : "")" asp-action="Notifications" asp-route-page="@(Model.Page + 1)" asp-route-unread="@(Model.OnlyUnread ? "true" : null)" aria-label="Next page"><icon name="chevron-right" /></a>
+                    </nav>
+                </div>
+            }
+        </section>
+    </div>
+
+    <aside class="stack">
+        <form class="card" asp-action="SaveNotificationPreferences" method="post" id="preferences">
+            <div class="card-head"><h2>Preferences</h2><span class="sub">How you want to be told</span></div>
+            <div class="card-body stack">
+                <label class="check">
+                    <input type="checkbox" name="inApp" value="true" checked="@Model.WantInApp" disabled="@(!Model.InAppOn)">
+                    <span><b>In the application</b><small>A message at the bottom of the page while you work, and this list.@(Model.InAppOn ? "" : " Switched off for everybody.")</small></span>
+                </label>
+                <label class="check">
+                    <input type="checkbox" name="email" value="true" checked="@Model.WantEmail" disabled="@(!Model.EmailOn)">
+                    <span><b>E-mail</b><small>To @Model.MyEmail.@(Model.EmailOn ? "" : " Switched off for everybody.")</small></span>
+                </label>
+                <label class="check">
+                    <input type="checkbox" name="sms" value="true" checked="@Model.WantSms" disabled="@(!Model.SmsOn)">
+                    <span><b>SMS</b><small>To @Model.MyPhone.@(Model.SmsOn ? "" : " Not set up for this system.")</small></span>
+                </label>
+                @* a disabled box is not posted: keep what the user had chosen for a channel that is off for everybody *@
+                @if (!Model.InAppOn && Model.WantInApp) { <input type="hidden" name="inApp" value="true"> }
+                @if (!Model.EmailOn && Model.WantEmail) { <input type="hidden" name="email" value="true"> }
+                @if (!Model.SmsOn && Model.WantSms) { <input type="hidden" name="sms" value="true"> }
+                <p class="hint" style="margin: 0">Which events are reported, and through which channel, is decided for the whole system@(role.Can(Permission.SystemSettings) ? "" : " by XFL").
+                    @if (role.Can(Permission.SystemSettings)) { <a asp-action="NotificationSettings">Notification settings</a> }
+                </p>
+            </div>
+            <div class="card-foot">
+                <button type="submit" class="btn btn-primary"><icon name="save" /> Save preferences</button>
+            </div>
+        </form>
+    </aside>
+</div>

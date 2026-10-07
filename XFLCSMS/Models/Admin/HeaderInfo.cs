@@ -11,5 +11,11 @@
 
         public string? ReportName { get; set; }
 
+        /// <summary>Tickets of the report per status (key: the stored status).</summary>
+        public Dictionary<string, int> ByStatus { get; set; } = new();
+
+        /// <summary>The status the report was limited to, if any.</summary>
+        public string? StatusName { get; set; }
+
     }
 }

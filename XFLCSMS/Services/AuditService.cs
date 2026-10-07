@@ -36,6 +36,11 @@ namespace XFLCSMS.Services
         public const string DataDelete = "data.delete";
 
         public const string SystemMailTest = "system.mail_test";
+        public const string SystemSmsTest = "system.sms_test";
+        public const string SystemPermissions = "system.permissions";
+        public const string SystemSettings = "system.settings";
+        public const string SystemDemoData = "system.demo_data";
+        public const string SystemStatusFix = "system.status_fix";
 
         /// <summary>Categories as offered in the filter of the audit page: key (prefix of the action) and name.</summary>
         public static readonly (string Key, string Name)[] Categories =
@@ -77,6 +82,11 @@ namespace XFLCSMS.Services
                 case DataUpdate: return "Changed";
                 case DataDelete: return "Deleted";
                 case SystemMailTest: return "Mail server tested";
+                case SystemSmsTest: return "SMS gateway tested";
+                case SystemPermissions: return "Permissions changed";
+                case SystemSettings: return "Settings changed";
+                case SystemDemoData: return "Demo data";
+                case SystemStatusFix: return "Statuses aligned";
                 default: return action;
             }
         }

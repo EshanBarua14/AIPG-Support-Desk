@@ -12,9 +12,9 @@
     var allTickets = !houseSide && !role.IsEngineer;
     var houses = Model.brocarages?.ToList() ?? new List<XFLCSMS.Models.Brocarage.Brokerage>();
     var engineers = Model.EmployeeNames?.ToList() ?? new List<string>();
-    var scope = role.IsMaker ? "The tickets you raised."
-        : role.IsHouseAdmin ? "The tickets raised by the people of your brokerage house."
-        : role.IsEngineer ? "The tickets assigned to you or closed by you."
+    var scope = role.IsEngineer ? "The tickets assigned to you or closed by you."
+        : role.SeesOwn ? (role.IsStaff ? "The tickets assigned to you and the ones you raised." : "The tickets you raised.")
+        : role.SeesHouse ? "The tickets raised by the people of your brokerage house."
         : "All tickets of all brokerage houses.";
 }
 <header class="page-head">
@@ -53,19 +53,16 @@
                     <option value="Low">Low</option>
                 </select>
             </div>
-            @if (!role.IsEngineer)
-            {
-                <div class="field">
-                    <label for="assigningStatus">Status</label>
-                    <select class="select" id="assigningStatus" name="@(prefix).AStatus">
-                        <option value="">Any status</option>
-                        <option value="Open">Open</option>
-                        <option value="Inqueue">In queue</option>
-                        <option value="Inprogress">In progress</option>
-                        <option value="Close">Closed</option>
-                    </select>
-                </div>
-            }
+            <div class="field">
+                <label for="assigningStatus">Status</label>
+                <select class="select" id="assigningStatus" name="@(prefix).AStatus">
+                    <option value="">Any status</option>
+                    @foreach (var status in TicketStatus.All)
+                    {
+                        <option value="@status.Key">@status.Name</option>
+                    }
+                </select>
+            </div>
             @if (allTickets)
             {
                 <div class="field">

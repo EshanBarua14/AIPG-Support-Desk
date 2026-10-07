@@ -50,7 +50,9 @@ namespace XFLCSMS.Infrastructure
                 _category = category;
             }
 
-            public IDisposable BeginScope<TState>(TState state) where TState : notnull => Nothing.Instance;
+            // Implemented explicitly, so the constraint on TState is the one of the framework in use:
+            // .NET 6 has none, later versions have "notnull". (Written out here it gives a warning on one or the other.)
+            IDisposable ILogger.BeginScope<TState>(TState state) => Nothing.Instance;
 
             public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning && logLevel != LogLevel.None;
 

@@ -135,6 +135,8 @@ namespace XFLCSMS.Controllers
             await _context.SaveChangesAsync(); // the account gets its id here
 
             Audit(AuditActions.Register, user, "Registered with " + user.Email + "; waits for activation");
+            // the administrators who can activate the account are told (bell, and e-mail if that is switched on)
+            HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationService>().AccountWaiting(user);
             await _context.SaveChangesAsync();
 
             try
@@ -282,6 +284,8 @@ namespace XFLCSMS.Controllers
             var role = Rbac.RoleOf(user);
             HttpContext.Session.SetString(Rbac.SessionKey(role), jsonString);
             HttpContext.Session.SetString(SessionAuthorizeAttribute.Stamp, SessionAuthorizeAttribute.StampOf(user.PasswordHash));
+            // the idle clock of this browser starts now (see NotificationHub.Clicked)
+            HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationHub>().Clicked(HttpContext.Session.Id);
 
             Audit(AuditActions.SignIn, user, null);
             await _context.SaveChangesAsync();
@@ -313,7 +317,7 @@ namespace XFLCSMS.Controllers
                 return View(verify);
             }
 
-            user.PasswordResetToken = CreateRandomToken();
+            user.PasswordResetToken = CreateResetToken();
             user.ResetTokenExpires = DateTime.Now.AddDays(1);
             Audit(AuditActions.PasswordResetRequest, user, "Asked for a password reset token by e-mail", bySelf: false);
             await _context.SaveChangesAsync();
@@ -388,9 +392,19 @@ namespace XFLCSMS.Controllers
             return Json(branches);
         }
 
+        /// <summary>The token typed in to activate an account: six characters, entered together with the e-mail address.</summary>
         private string CreateRandomToken()
         {
             return Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
+        }
+
+        /// <summary>
+        /// The token for a new password. It is the only thing that page asks for, so it must not be guessable:
+        /// 32 characters, copied from the e-mail.
+        /// </summary>
+        private string CreateResetToken()
+        {
+            return Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         }
     }
 }

@@ -24,6 +24,9 @@ namespace XFLCSMS.Models.Admin
         public int? YearlyTotalClosed { get; set; }
         public int? YearlyTotalQueue { get; set; }
 
+        /// <summary>Tickets per status (key: the stored status, see Services/TicketStatus.cs).</summary>
+        public Dictionary<string, int> ByStatus { get; set; } = new();
+
         /// <summary>Open tickets nobody is assigned to.</summary>
         public int Unassigned { get; set; }
 

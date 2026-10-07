@@ -35,6 +35,8 @@
             <dd class="@(string.IsNullOrEmpty(Model.Branch) ? "none" : "")">@(string.IsNullOrEmpty(Model.Branch) ? "Not set" : Model.Branch)</dd>
             <dt>Designation</dt>
             <dd class="@(string.IsNullOrEmpty(Model.Designation) ? "none" : "")">@(string.IsNullOrEmpty(Model.Designation) ? "Not set" : Model.Designation)</dd>
+            <dt>Role</dt>
+            <dd>@roleName<span class="muted" style="display: block; font-weight: 400">@Rbac.Summary(Rbac.RoleOf(Model.UCatagory, Model.UType, Model.Department))</span></dd>
             <dt>Account</dt>
             <dd>@(Model.UStatus ? "Active" : "Disabled")</dd>
         </dl>

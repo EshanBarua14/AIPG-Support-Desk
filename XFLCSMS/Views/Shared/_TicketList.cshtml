@@ -12,10 +12,16 @@
     int unassigned = ViewBag.UnassignedCount ?? 0;
     int mine = ViewBag.AssignedToMeCount ?? 0;
     var rows = Model.ToList();
+    var me = ViewBag.Profile as XFLCSMS.Models.Register.User;
+    var raisers = ViewBag.Raisers as Dictionary<int, string>;   // set for lists that show tickets of several people
+    var canAssign = role.Can(Permission.TicketAssign);
+    var canTake = role.Can(Permission.TicketTake);
+    var workAny = role.Can(Permission.TicketWorkAny);
+    var engineers = canAssign ? ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value : new List<XFLCSMS.Models.Admin.EngineerLoad>();
     ViewData["ShownCount"] = rows.Count;
     ViewData["SearchHint"] = "Search number, title, priority, status or engineer";
 
-    var tabs = new List<(string Text, string Action, int Count)> { (role.IsMaker ? "My tickets" : "All tickets", role.TicketList, 0) };
+    var tabs = new List<(string Text, string Action, int Count)> { (role.TicketListName, role.TicketList, 0) };
     if (role.IsEngineer) { tabs.Add(("Assigned to me", "AssignedTicketList", mine)); }
     tabs.Add(("Unassigned", "UnassignedTicketList", unassigned));
     tabs.Add(("Closed", "ClosedTicketList", 0));
@@ -94,7 +100,7 @@
                                 <td class="tick p-@Ui.PriorityKey(item.Priority)">@Ui.Sym(item.TNumber)</td>
                                 <td class="c-title">
                                     <a class="t-title" asp-action="TicketView" asp-route-id="@item.IssueId">@(string.IsNullOrWhiteSpace(item.ITitle) ? "(no title)" : item.ITitle)</a>
-                                    <span class="t-meta">Raised @Ui.Stamp(item.TDate)</span>
+                                    <span class="t-meta">Raised @Ui.Stamp(item.TDate)@(raisers != null && raisers.TryGetValue(item.UserId, out var raiser) ? " by " + raiser : "")</span>
                                 </td>
                                 <td class="c-who">
                                     @if (!string.IsNullOrEmpty(item.AssignBy))
@@ -112,8 +118,27 @@
                                     <a class="btn btn-icon btn-sm" asp-action="TicketView" asp-route-id="@item.IssueId" title="View" aria-label="View ticket @item.TNumber"><icon name="eye" /></a>
                                     @if (!closed)
                                     {
-                                        <a class="btn btn-icon btn-sm" asp-action="EditTicket" asp-route-id="@item.IssueId" title="Edit" aria-label="Edit ticket @item.TNumber"><icon name="pencil" /></a>
-                                        @if (role.IsAdmin)
+                                        var free = TicketService.IsUnassigned(item);
+                                        var mineNow = me != null && TicketService.IsAssignedTo(item, me);
+                                        @if (canAssign)
+                                        {
+                                            <button type="button" class="btn btn-sm" data-assign data-url="@Url.Action("AssignTicket", new { id = item.IssueId })"
+                                                    data-ticket="@item.TNumber" data-current="@(item.AssignedToId ?? engineers.FirstOrDefault(engineer => engineer.Name == item.AssignBy)?.Id)" data-current-name="@item.AssignBy"
+                                                    aria-label="@(free ? "Assign" : "Reassign") ticket @item.TNumber">
+                                                <icon name="user-check" /> @(free ? "Assign" : "Reassign")
+                                            </button>
+                                        }
+                                        @if (canTake && free)
+                                        {
+                                            <form asp-action="TakeTicket" asp-route-id="@item.IssueId" asp-route-returnTo="@action" method="post">
+                                                <button type="submit" class="btn btn-sm" aria-label="Take ticket @item.TNumber"><icon name="user-check" /> Take</button>
+                                            </form>
+                                        }
+                                        @if (workAny || mineNow || !role.IsStaff)
+                                        {
+                                            <a class="btn btn-icon btn-sm" asp-action="EditTicket" asp-route-id="@item.IssueId" title="Edit" aria-label="Edit ticket @item.TNumber"><icon name="pencil" /></a>
+                                        }
+                                        @if (role.Can(Permission.TicketDelete))
                                         {
                                             <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete ticket @item.TNumber"
                                                     data-delete data-url="@Url.Action("DeleteTicket", "Admin", new { id = item.IssueId })"
@@ -134,3 +159,8 @@
         <partial name="_Pager" />
     </div>
 </div>
+@if (canAssign)
+{
+    ViewData["ReturnTo"] = action;
+    <partial name="_AssignDialog" />
+}

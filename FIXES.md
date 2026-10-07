@@ -133,6 +133,27 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 
 **Checked with:** 250 server checks (`requests`), 80 browser checks in headless Chromium (every page of every role on desktop and phone width: no script errors, no failed or external requests, labelled controls; then the main flows clicked through), on a stand-in database. Not checked: real e-mail delivery, a real SQL Server, browsers other than Chromium.
 
+## 9. Fourth pass: brokerage house users can get in and work
+
+The ticket side for brokerage house users (role Maker) already worked. What could stop them was everything before it:
+
+| Blocker | Before | Now |
+|---|---|---|
+| The token e-mail does not arrive (mail server down, wrong mail password, spam filter) | registration was rolled back with "could not send"; nobody could register while mail was broken, and an administrator could do nothing about it | the account is kept as **Not verified**, the person is told to ask XFL support, the administrator sees the number of waiting accounts in the menu and presses **Activate** (`AdminController.ActivateUser`) |
+| Only self-registration | an administrator could not create an account at all | **Users > New user** (`CreateUser`): active at once, any role |
+| Lost password and the reset mail does not arrive | no way back in | **Users > Edit > Set new password** (`SetUserPassword`) |
+| A house without a branch | registration impossible for that house, nothing said so | the house list shows the number of branches and flags "No branch" with a link to add one; creating a house says so; the registration and new-user forms say whom to ask |
+| The application answers on `localhost` only | nobody on another computer could open it | launch profile **lan** (`dotnet run --launch-profile lan`: http on port 5100 on all network cards, Production mode); steps in `read me.txt` section 6 |
+
+Also changed
+- **A change by the administrator works at the next click** (`CsmsController.OnActionExecuting`): the session kept a copy of the user from sign-in and its time-out restarts with every request, so a disabled or deleted user, or one whose role or password was changed, stayed signed in for as long as they kept clicking. Each request now compares status, role and a fingerprint of the password hash with the database; a mismatch ends the session with a note on the sign-in page.
+- Only XFL staff can hold the position Support Engineer / Support Manager (`UpdateUser`, `CreateUser`, the assignee list on tickets). A brokerage house user stored as "Support Engineer" used to be offered as assignee although he signs in as Maker and cannot see the ticket.
+- The user list shows the brokerage house; the user page shows "Not verified" (it said "Active").
+- A user name can no longer contain a space or `@`, and user name and e-mail are checked against each other: both are accepted in the sign-in box. Length limits on name, e-mail and phone at registration.
+- Activate asks first and says that anybody can register under any name. New accounts, activations and passwords set by an administrator are written to the application log.
+
+**Checked with:** 349 server checks and 108 browser checks (both ways in, clicked through from the registration form to a closed ticket, on desktop and phone width), plus a run in Production mode through the network address of the machine. Not checked: real e-mail delivery, a real SQL Server, another physical computer, browsers other than Chromium.
+
 ## New files
 
 `Controllers/CsmsController.cs`, `Infrastructure/SessionAuthorizeAttribute.cs`, `Services/TicketService.cs`,
@@ -142,3 +163,5 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 
 Third pass: `Infrastructure/Ui.cs`, `Infrastructure/IconTagHelper.cs`, `Infrastructure/AntiforgeryFailureFilter.cs`, the shared views listed in section 8, `wwwroot/css/app.css`, `wwwroot/js/app.js`, `WORKFLOWS.md`.
 (`Views/Shared/_SidebarMenu.cshtml` became `_Nav.cshtml`; the two per-role `Profile.cshtml` copies are gone again.)
+
+Fourth pass: `Models/Admin/NewUser.cs`, `Views/Admin/CreateUser.cshtml`.

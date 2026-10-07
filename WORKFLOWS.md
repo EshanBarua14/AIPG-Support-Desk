@@ -5,13 +5,26 @@ tickets; the XFL support team assigns, works on and closes them.
 
 ## 1. Getting an account
 
+Before anybody of a brokerage house can start, an administrator creates the **house** and at least one **branch**
+(the house list flags a house without a branch: nobody can register for it).
+
+**Way 1 - the person registers**
 1. **Register** (`/RegisterLogin/Register`): name, email, phone, brokerage house, branch, employee ID, user name, password.
 2. A **token** (6 characters) arrives by email. Enter it on **Activate your account**.
-3. **Sign in** with user name or email.
-4. A new account is a **Maker**. An administrator changes that under **Users > Edit**.
+3. No email (mail server down, spam filter, mistyped address)? The account waits as **Not verified**. The administrator
+   sees the number of waiting accounts in the menu and presses **Activate** under **Users** - after the person has
+   confirmed that the registration is theirs (anybody can register under any name).
+4. **Sign in** with user name or email. A registered account is a **Maker**.
 
-Forgot the password: **Forgot your password?** emails a reset token (valid 24 hours).
-A session ends after 10 minutes without a request.
+**Way 2 - the administrator creates the account**
+**Users > New user**: same details plus the role. The account is active at once; the administrator passes the user name
+and password on. This is also how XFL engineers, managers and further administrators get their accounts.
+
+Forgot the password: **Forgot your password?** emails a reset token (valid 24 hours). If that mail does not arrive,
+the administrator sets a new password under **Users > Edit**.
+
+A session ends after 10 minutes without a request. It also ends at the next click when an administrator disables the
+account, changes its role, deletes it, or when its password changes.
 
 ## 2. Which role a user gets
 
@@ -56,7 +69,7 @@ Staff sets status Closed        stamps Closed by/on              ticket leaves t
 | Ticket report | own tickets: priority, status, dates | tickets assigned to / closed by self: house, priority, dates | all: house, priority, status, closed by, dates | same as manager |
 | To-do list (personal) | yes | yes | yes | yes |
 | Team to-dos + team to-do report | no | no | no | yes |
-| Users: change role, disable, delete | no | no | no | yes |
+| Users: create, activate, change role, set password, disable, delete | no | no | no | yes |
 | Master data (houses, branches, support types, categories, sub-categories, affected sections) | no | no | no | yes |
 | Profile, change password | yes | yes | yes | yes |
 
@@ -78,7 +91,7 @@ Same pages as the engineer without "Assigned to me". The ticket report covers al
 
 ### Administrator
 1. Everything the manager can do with tickets, plus **Delete** (open tickets; the files are removed as well).
-2. **Users**: see every account with role and state, change role settings, disable an account, delete an account that has raised no tickets.
+2. **Users**: see every account with house, role and state; create an account; activate one that waits; change role settings; set a new password; disable an account; delete an account that has raised no tickets.
 3. **Master data**: brokerage houses (name + acronym for ticket numbers), branches, and the four lists offered on the ticket form. An entry that is in use cannot be deleted.
 4. **Team to-dos** and **Team to-do report**: the to-dos of all users.
 5. First administrator on an empty database: user `admin`, password from `SeedAdmin` in `appsettings.Development.json`.
@@ -90,7 +103,7 @@ Statuses: In progress, Done, Canceled. **To-do report** filters by status and da
 
 ## 6. Where the system stands
 
-**Working** (checked in the test runs, see FIXES.md): registration, activation, sign-in, password reset and change;
+**Working** (checked in the test runs, see FIXES.md): registration, activation (by token or by the administrator), accounts created by the administrator, sign-in, password reset and change;
 creating, editing, assigning, closing and deleting tickets; attachments; lists with search, sorting and paging;
 ticket and to-do reports with print and CSV; to-dos; user and master-data administration.
 
@@ -104,7 +117,8 @@ ticket and to-do reports with print and CSV; to-dos; user and master-data admini
 | No "reopen" button on a closed ticket | a closed ticket can only be changed through the edit address |
 | No due date, SLA or escalation | old tickets are only visible as "oldest first" on the dashboard |
 | A maker sees only the own tickets | colleagues of the same branch or house cannot follow each other's tickets |
-| A user with position "Support Engineer" who is not XFL staff appears in the engineer list but signs in as Maker | a ticket can be assigned to somebody who cannot see it |
+| An administrator cannot correct the email, house or branch of an account | a wrong choice at registration means delete and create again (not possible once the user has raised tickets) |
+| No "send the token again" on the activation page | when the mail is lost, only the administrator can activate |
 | Lists and reports load all tickets and filter in memory | fine for thousands of tickets, slow for hundreds of thousands |
 
 **Security and operations**

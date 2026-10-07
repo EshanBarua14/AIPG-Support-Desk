@@ -30,5 +30,24 @@ namespace XFLCSMS.EmailService
             smtp.Send(email);
             smtp.Disconnect(true);
         }
+
+        public string? TestConnection()
+        {
+            try
+            {
+                using var smtp = new SmtpClient();
+                smtp.Timeout = 10000;
+                smtp.Connect(_config.GetSection("EmailHost").Value, 587, SecureSocketOptions.StartTls);
+                smtp.Authenticate(_config.GetSection("EmailUsername").Value, _config.GetSection("EmailPassword").Value);
+                smtp.Disconnect(true);
+                return null;
+            }
+            catch (Exception exception)
+            {
+                // the text goes to an administrator; it never contains the password
+                var message = (exception.InnerException ?? exception).Message.Replace("\r", " ").Replace("\n", " ");
+                return exception.GetType().Name + ": " + (message.Length > 300 ? message.Substring(0, 300) : message);
+            }
+        }
     }
 }

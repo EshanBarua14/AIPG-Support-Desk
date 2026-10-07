@@ -17,5 +17,13 @@
         public bool UCatagory { get; set; }
         public bool UType { get; set; } 
         public bool UStatus { get; set; }
+
+        /// <summary>Null until the account is activated (token from the e-mail, or by an administrator).</summary>
+        public DateTime? VerifiedAt { get; set; }
+
+        // Filled for the administrators' user page (not on "My profile").
+        public XFLCSMS.Infrastructure.Role Role { get; set; }
+        public bool IsSelf { get; set; }
+        public int TicketCount { get; set; }
     }
 }

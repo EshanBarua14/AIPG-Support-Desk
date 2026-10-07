@@ -39,13 +39,42 @@ appsettings.json to switch that off).
 4. E-mail
 ---------
 Registration and "forgot password" send a token by e-mail using EmailHost / EmailUsername / EmailPassword
-in appsettings.json (Gmail SMTP, port 587). If the mail cannot be sent the user now sees a message instead
-of an error page, and a registration whose mail failed is rolled back.
+in appsettings.json (Gmail SMTP, port 587). If the mail cannot be sent the user sees a message instead of
+an error page.
+The system also works without e-mail:
+   - a registration whose mail failed is kept as "Not verified"; the administrator activates it under
+     Users (the menu shows how many accounts wait);
+   - the administrator can create an account himself (Users > New user; active at once);
+   - the administrator can set a new password for a user (Users > Edit).
 
 5. Interface
 ------------
 The pages no longer use AdminLTE, Bootstrap, jQuery or any CDN: everything is in wwwroot (css/app.css,
 js/app.js, fonts, img/icons.svg), so the application also runs on a network without internet access.
 Colours and fonts are variables at the top of css/app.css. Pages shared by all roles are in Views/Shared.
+
+6. Letting other people use it (brokerage houses, colleagues)
+-------------------------------------------------------------
+"dotnet run" / F5 answers on localhost only: nobody else can open it. For other computers:
+
+a) Same office network
+   1. Start it with the "lan" profile (plain http on port 5100, all network cards, Production mode):
+          dotnet run --launch-profile lan
+   2. Allow the port in Windows Firewall, once, in a terminal opened "as administrator":
+          netsh advfirewall firewall add rule name="XFL CSMS" dir=in action=allow protocol=TCP localport=5100
+   3. Find the address of this computer:   ipconfig   (IPv4 Address, for example 192.168.1.25)
+   4. The others open   http://192.168.1.25:5100
+   The first start on an EMPTY database must be the normal profile (F5 / plain "dotnet run"): only that one
+   reads appsettings.Development.json and creates the first administrator.
+   Plain http means passwords cross the network unencrypted. Fine inside one office, not beyond it.
+
+b) Brokerage houses outside the office (the real use)
+   Needs a server they can reach and https: publish the project (dotnet publish -c Release), host it in IIS
+   (ASP.NET Core Hosting Bundle) or as a Windows service behind a reverse proxy, with a certificate and a
+   DNS name, and set ASPNETCORE_ENVIRONMENT=Production. The application itself needs no change for this.
+
+Before a brokerage house can start, the administrator needs: the house (Brokerage houses > New), at least
+one branch for it (the list flags a house without one), and then either the staff register themselves or
+the administrator creates their accounts.
 
 See WORKFLOWS.md for what each role can do, and FIXES.md for the list of what was changed.

@@ -39,6 +39,7 @@
                         <th scope="col" class="t-id">ID</th>
                     <th scope="col">Name</th>
                     <th scope="col">Acronym</th>
+                    <th scope="col">Branches</th>
                         <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -49,6 +50,17 @@
                             <td class="t-id">@item.BrokerageId</td>
                         <td class="c-title"><span class="t-title">@item.BrokerageHouseName</span></td>
                         <td>@item.BrokerageHouseAcronym</td>
+                        <td>
+                            @if ((item.branches?.Count ?? 0) == 0)
+                            {
+                                @Ui.Pill("st-pending", "No branch")
+                                <a class="small" asp-action="CreateBranch" asp-route-brokerageId="@item.BrokerageId" title="Staff of this house cannot register until it has a branch">Add a branch</a>
+                            }
+                            else
+                            {
+                                <span class="num">@item.branches!.Count</span>
+                            }
+                        </td>
                             <td class="t-actions">
                                 <a class="btn btn-icon btn-sm" asp-action="ViewBrocarageHouse" asp-route-id="@item.BrokerageId" title="View" aria-label="View @item.BrokerageHouseName"><icon name="eye" /></a>
                                 <a class="btn btn-icon btn-sm" asp-action="EditBrocarage" asp-route-id="@item.BrokerageId" title="Edit" aria-label="Edit @item.BrokerageHouseName"><icon name="pencil" /></a>
@@ -60,7 +72,7 @@
                             </td>
                         </tr>
                     }
-                    <tr data-empty hidden><td colspan="4" class="muted">Nothing matches the filter.</td></tr>
+                    <tr data-empty hidden><td colspan="5" class="muted">Nothing matches the filter.</td></tr>
                 </tbody>
             </table>
         </div>

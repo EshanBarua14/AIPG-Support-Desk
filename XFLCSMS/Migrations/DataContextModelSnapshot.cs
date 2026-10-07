@@ -39,6 +39,66 @@ namespace XFLCSMS.Migrations
                     b.ToTable("AffectedSectionss");
                 });
 
+            modelBuilder.Entity("XFLCSMS.Models.Audit.AuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"), 1L, 1);
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("BrokerageId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityLabel")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("At");
+
+                    b.HasIndex("BrokerageId");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("XFLCSMS.Models.Branch.Branchh", b =>
                 {
                     b.Property<int>("BranchId")
@@ -163,6 +223,9 @@ namespace XFLCSMS.Migrations
                     b.Property<DateTime?>("AssignOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("AssignedToId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("BranchhBranchId")
                         .HasColumnType("int");
 
@@ -219,6 +282,8 @@ namespace XFLCSMS.Migrations
                     b.HasKey("IssueId");
 
                     b.HasIndex("AffectedSectionId");
+
+                    b.HasIndex("AssignedToId");
 
                     b.HasIndex("BranchhBranchId");
 

@@ -1,0 +1,10 @@
+@* Main ticket list of the brokerage house roles: a house user sees the own tickets, a house admin those of the house. *@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    var houseAdmin = Ui.Role(ViewContext).IsHouseAdmin;
+    ViewData["Title"] = houseAdmin ? "House tickets" : "My tickets";
+    ViewData["ListSub"] = houseAdmin ? "Every ticket raised by the people of your brokerage house, newest first." : "Every ticket you have raised, newest first.";
+    ViewData["ListAction"] = "MackerTicketList";
+    ViewData["EmptyText"] = houseAdmin ? "Nobody of your house has raised a ticket yet" : "You have not raised a ticket yet";
+}
+<partial name="_TicketList" />

@@ -6,7 +6,7 @@ namespace XFLCSMS.Infrastructure
 {
     /// <summary>
     /// The application signs users in by storing their record in the session under a role specific key
-    /// (AdminData, SMData, SEData, MakerData). This filter refuses the request when none of the accepted
+    /// (AdminData, SMData, SEData, HouseAdminData, MakerData). This filter refuses the request when none of the accepted
     /// keys is present, so an action can no longer be reached just by typing its URL.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -16,8 +16,28 @@ namespace XFLCSMS.Infrastructure
         public const string SupportManager = "SMData";
         public const string SupportEngineer = "SEData";
         public const string Maker = "MakerData";
+        public const string HouseAdmin = "HouseAdminData";
 
-        public static readonly string[] AllKeys = { Admin, SupportManager, SupportEngineer, Maker };
+        public static readonly string[] AllKeys = { Admin, SupportManager, SupportEngineer, HouseAdmin, Maker };
+
+        /// <summary>Session entry that changes whenever the password changes (see <see cref="StampOf"/>).</summary>
+        public const string Stamp = "Stamp";
+
+        /// <summary>The role a user signs in with, as the session key of that role. The one place that decides it.</summary>
+        public static string KeyFor(bool isAdmin, bool isXflStaff, string? department)
+        {
+            return Rbac.SessionKey(Rbac.RoleOf(isAdmin, isXflStaff, department));
+        }
+
+        /// <summary>
+        /// A short fingerprint of the stored password hash. It is kept in the (server side) session at sign-in and
+        /// compared on every request, so a new password signs out every other browser that still uses the old one.
+        /// </summary>
+        public static string StampOf(byte[]? passwordHash)
+        {
+            var digest = System.Security.Cryptography.SHA256.HashData(passwordHash ?? Array.Empty<byte>());
+            return Convert.ToHexString(digest, 0, 8);
+        }
 
         private readonly string[] _sessionKeys;
 

@@ -14,12 +14,21 @@ namespace XFLCSMS.Controllers
         private readonly DataContext _context;
         private readonly IEmailServices _emailServices;
         private readonly ILogger<RegisterLoginController> _logger;
+        private readonly AuditService _audit;
 
-        public RegisterLoginController(DataContext context, IEmailServices emailServices, ILogger<RegisterLoginController> logger)
+        public RegisterLoginController(DataContext context, IEmailServices emailServices, ILogger<RegisterLoginController> logger, AuditService audit)
         {
             _context = context;
             _emailServices = emailServices;
             _logger = logger;
+            _audit = audit;
+        }
+
+        /// <summary>One line in the audit trail about an account, done by somebody who is not signed in (yet).</summary>
+        private void Audit(string action, User user, string? details, bool bySelf = true)
+        {
+            var label = user.FullName + " (" + user.UserName + ")";
+            _audit.Add(action, bySelf ? user : null, bySelf ? Rbac.Label(Rbac.RoleOf(user)) : null, Rbac.HouseOf(user), "User", user.Id, label, details, bySelf ? null : "(not signed in)");
         }
 
         public IActionResult Index()
@@ -45,18 +54,11 @@ namespace XFLCSMS.Controllers
         public IActionResult Login()
         {
             // Already signed in (for example after pressing "Start page"): go to the dashboard, not back to this form.
-            var roles = new (string Key, string Controller)[]
+            foreach (var role in Rbac.AllRoles)
             {
-                (SessionAuthorizeAttribute.Admin, "Admin"),
-                (SessionAuthorizeAttribute.SupportManager, "SupportManegar"),
-                (SessionAuthorizeAttribute.SupportEngineer, "SupportEngineer"),
-                (SessionAuthorizeAttribute.Maker, "Maker")
-            };
-            foreach (var role in roles)
-            {
-                if (!string.IsNullOrEmpty(HttpContext.Session.GetString(role.Key)))
+                if (!string.IsNullOrEmpty(HttpContext.Session.GetString(Rbac.SessionKey(role))))
                 {
-                    return RedirectToAction("Dashbord", role.Controller);
+                    return RedirectToAction("Dashbord", Rbac.Controller(role));
                 }
             }
 
@@ -90,12 +92,13 @@ namespace XFLCSMS.Controllers
                     ModelState.AddModelError("userRegisterRequest.Branch", "Please select your branch.");
                 }
 
-                if (_context.Users.Any(u => u.Email == request.Email))
+                // People sign in with user name OR email, so neither may collide with the other column.
+                if (_context.Users.Any(u => u.Email == request.Email || u.UserName == request.Email))
                 {
                     ModelState.AddModelError("userRegisterRequest.Email", "This email is already registered.");
                 }
 
-                if (_context.Users.Any(u => u.UserName == request.UserName))
+                if (_context.Users.Any(u => u.UserName == request.UserName || u.Email == request.UserName))
                 {
                     ModelState.AddModelError("userRegisterRequest.UserName", "This user name is already taken.");
                 }
@@ -129,6 +132,9 @@ namespace XFLCSMS.Controllers
             };
 
             await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync(); // the account gets its id here
+
+            Audit(AuditActions.Register, user, "Registered with " + user.Email + "; waits for activation");
             await _context.SaveChangesAsync();
 
             try
@@ -148,13 +154,13 @@ namespace XFLCSMS.Controllers
             }
             catch (Exception ex)
             {
-                // Without the email the user can never get the token, so do not leave a dead account behind.
+                // The mail server is down or refuses us. The account stays, waiting for activation: an administrator
+                // activates it under Users. (It used to be deleted, so nobody could register while mail was broken.)
                 _logger.LogError(ex, "Could not send the registration email to {Email}", request.Email);
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
 
-                ModelState.AddModelError(string.Empty, "We could not send the verification email. Please check the email address and try again later.");
-                return RegisterForm(registerView);
+                TempData["Notice"] = "Your account is created, but we could not send the activation email. " +
+                                      "Ask the XFL support team to activate your account; after that you can sign in.";
+                return RedirectToAction("Login");
             }
 
             TempData["Message"] = "Registration successful. Enter the token we emailed to you to activate your account.";
@@ -198,6 +204,7 @@ namespace XFLCSMS.Controllers
             if (user.VerifiedAt == null)
             {
                 user.VerifiedAt = DateTime.Now;
+                Audit(AuditActions.Verify, user, "Activated the account with the token from the e-mail");
                 await _context.SaveChangesAsync();
             }
 
@@ -219,12 +226,25 @@ namespace XFLCSMS.Controllers
             // Same message for "no such user" and "wrong password" so the form does not reveal who is registered.
             if (user == null || !PasswordHasher.Verify(request.Password, user.PasswordHash, user.PasswordSalt))
             {
+                if (user != null)
+                {
+                    // only for accounts that exist: made-up names must not be able to fill the audit trail
+                    Audit(AuditActions.SignInFailed, user, "Wrong password", bySelf: false);
+                    await _context.SaveChangesAsync();
+                }
+
                 return LoginFailed(request, "Invalid user name or password.");
+            }
+
+            if (user.VerifiedAt == null || !user.UStatus)
+            {
+                Audit(AuditActions.SignInFailed, user, user.VerifiedAt == null ? "Right password, but the account is not activated yet" : "Right password, but the account is disabled", bySelf: false);
+                await _context.SaveChangesAsync();
             }
 
             if (user.VerifiedAt == null)
             {
-                return LoginFailed(request, "Your account is not verified yet. Use the token from the registration email on the Verify page.");
+                return LoginFailed(request, "Your account is not verified yet. Enter the token from the registration email under \"Activate your account\", or ask the XFL support team to activate it.");
             }
 
             if (!user.UStatus)
@@ -258,26 +278,15 @@ namespace XFLCSMS.Controllers
                 PasswordSalt = Array.Empty<byte>()
             });
 
-            if (user.UCatagory)
-            {
-                HttpContext.Session.SetString(SessionAuthorizeAttribute.Admin, jsonString);
-                return RedirectToAction("Dashbord", "Admin");
-            }
+            // The role follows from three columns of the user: see Rbac.RoleOf.
+            var role = Rbac.RoleOf(user);
+            HttpContext.Session.SetString(Rbac.SessionKey(role), jsonString);
+            HttpContext.Session.SetString(SessionAuthorizeAttribute.Stamp, SessionAuthorizeAttribute.StampOf(user.PasswordHash));
 
-            if (user.UType && user.Department == "Support Maneger")
-            {
-                HttpContext.Session.SetString(SessionAuthorizeAttribute.SupportManager, jsonString);
-                return RedirectToAction("Dashbord", "SupportManegar");
-            }
+            Audit(AuditActions.SignIn, user, null);
+            await _context.SaveChangesAsync();
 
-            if (user.UType && user.Department == "Support Engineer")
-            {
-                HttpContext.Session.SetString(SessionAuthorizeAttribute.SupportEngineer, jsonString);
-                return RedirectToAction("Dashbord", "SupportEngineer");
-            }
-
-            HttpContext.Session.SetString(SessionAuthorizeAttribute.Maker, jsonString);
-            return RedirectToAction("Dashbord", "Maker");
+            return RedirectToAction("Dashbord", Rbac.Controller(role));
         }
 
         private IActionResult LoginFailed(UserLoginRequest request, string message)
@@ -306,6 +315,7 @@ namespace XFLCSMS.Controllers
 
             user.PasswordResetToken = CreateRandomToken();
             user.ResetTokenExpires = DateTime.Now.AddDays(1);
+            Audit(AuditActions.PasswordResetRequest, user, "Asked for a password reset token by e-mail", bySelf: false);
             await _context.SaveChangesAsync();
 
             try
@@ -352,6 +362,7 @@ namespace XFLCSMS.Controllers
             user.PasswordSalt = passwordSalt;
             user.PasswordResetToken = null;
             user.ResetTokenExpires = null;
+            Audit(AuditActions.PasswordReset, user, "Set a new password with the reset token");
 
             await _context.SaveChangesAsync();
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Newtonsoft.Json;
 using System.Security.Cryptography;
+using XFLCSMS.Infrastructure;
 using XFLCSMS.Models.Admin;
 using XFLCSMS.Models.Affected;
 using XFLCSMS.Models.Branch;
@@ -23,7 +24,7 @@ namespace XFLCSMS.Controllers
         private readonly DataContext _context;
         private readonly IWebHostEnvironment _webHostEnvironment;
 
-        protected override string SessionKey => "AdminData";
+        protected override Role MyRole => Role.PlatformAdmin;
 
         public AdminController(DataContext context, IWebHostEnvironment webHostEnvironment, TicketService tickets)
             : base(context, tickets)
@@ -53,7 +54,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -127,7 +128,7 @@ namespace XFLCSMS.Controllers
 
         public async Task<IActionResult> TicketView(int? id)
         {
-            var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+            var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
             User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
             ViewBag.Profile = LogSesson;
             try
@@ -155,7 +156,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var issueWithAttachments = _context.Issues
@@ -165,6 +166,12 @@ namespace XFLCSMS.Controllers
                 if (issueWithAttachments == null || !CanAccessIssue(issueWithAttachments))
                 {
                     return NotFound();
+                }
+
+                var refusal = RefuseEdit(issueWithAttachments);
+                if (refusal != null)
+                {
+                    return refusal;
                 }
 
 
@@ -190,7 +197,13 @@ namespace XFLCSMS.Controllers
                     return NotFound("The ticket was not found.");
                 }
 
-                Tickets.ApplyStaffEdit(issue, makerView, editor, canApprove: editor.UType);
+                var refusal = RefuseEdit(issue);
+                if (refusal != null)
+                {
+                    return refusal;
+                }
+
+                Tickets.ApplyStaffEdit(issue, makerView, editor, canApprove: true);
                 await _context.SaveChangesAsync();
 
                 var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
@@ -216,7 +229,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -294,7 +307,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -371,7 +384,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 
@@ -398,6 +411,7 @@ namespace XFLCSMS.Controllers
 
                 await _context.AddAsync(brokerage);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = $"{brokerage.BrokerageHouseName} is created. Add at least one branch: its staff choose a branch when they register.";
                 return RedirectToAction("BrocarageHouseList", "Admin");
             }
             catch (Exception ex)
@@ -425,6 +439,7 @@ namespace XFLCSMS.Controllers
 
 
         [HttpDelete]
+        [RequirePermission(Permission.TicketDelete)]
         public async Task<IActionResult> DeleteTicket(int id)
         {
             try
@@ -436,11 +451,14 @@ namespace XFLCSMS.Controllers
                 }
 
                 // remove the uploaded files too, not only the database rows
-                foreach (var attachment in issue.attachment?.ToList() ?? new List<Attachment>())
+                var files = issue.attachment?.ToList() ?? new List<Attachment>();
+                foreach (var attachment in files)
                 {
-                    await Tickets.DeleteAttachmentAsync(attachment);
+                    await Tickets.DeleteAttachmentAsync(attachment, quiet: true);
                 }
 
+                Tickets.Log(AuditActions.TicketDelete, issue, "Deleted the ticket \u201c" + issue.ITitle + "\u201d"
+                    + (files.Count == 0 ? string.Empty : " with " + files.Count + (files.Count == 1 ? " file" : " files")));
                 _context.Issues.Remove(issue);
                 await _context.SaveChangesAsync();
                 return Ok();
@@ -451,32 +469,20 @@ namespace XFLCSMS.Controllers
             }
         }
 
-        // The user list's Delete button used to call DeleteTicket with the USER id and deleted an unrelated ticket.
-        [HttpDelete]
-        public async Task<IActionResult> DeleteUser(int id)
+        // Accounts (list, create, edit, activate, password, delete) are in CsmsController.Users.cs: the house
+        // administrator uses the same pages for the people of the own house.
+
+        // ---- system health -------------------------------------------------------------------------
+
+        /// <summary>Is everything the system needs working? Database, e-mail, files, settings, and the support queue.</summary>
+        [HttpGet]
+        [RequirePermission(Permission.SystemHealth)]
+        public async Task<IActionResult> SystemHealth()
         {
             try
             {
-                if (id == CurrentUser!.Id)
-                {
-                    return Conflict("You cannot delete the account you are signed in with.");
-                }
-
-                var user = await _context.Users.FindAsync(id);
-                if (user == null)
-                {
-                    return NotFound("The user was not found.");
-                }
-
-                // Deleting the user would cascade and delete every ticket he raised.
-                if (await _context.Issues.AnyAsync(i => i.UserId == id))
-                {
-                    return Conflict("This user has raised tickets, so the account cannot be deleted. Disable the user instead (Edit > User Status).");
-                }
-
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
-                return Ok();
+                var health = HttpContext.RequestServices.GetRequiredService<SystemHealthService>();
+                return View(await health.BuildAsync());
             }
             catch (Exception ex)
             {
@@ -484,126 +490,19 @@ namespace XFLCSMS.Controllers
             }
         }
 
-        public async Task<IActionResult> UserList()
-        {
-            try
-            {
-
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var users = _context.Users.ToList();
-                return View(users);
-            }
-            catch (Exception ex)
-            {
-                return HandleError(ex);
-            }
-        }
-
-
-        public async Task<IActionResult> UserView(int id)
-        {
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var user = await _context.Users.FirstOrDefaultAsync(item => item.Id == id);
-
-                if (user == null)
-                {
-                    return NotFound(); // Or handle the case where the user is not found
-                }
-
-                var userView = new UserView
-                {
-                    Id = user.Id,
-                    FullName = user.FullName,
-                    Department = user.Department ?? string.Empty,
-                    Email = user.Email,
-                    PhonNumber = user.PhonNumber,
-                    Designation = user.Designation,
-                    BrokerageHouseName = GetBrocarageHouseName(user.BrokerageHouseName),
-                    Branch = GetBranchName(user.Branch),
-                    EmployeeId = user.EmployeeId,
-                    UserName = user.UserName,
-                    UCatagory = user.UCatagory,
-                    UType = user.UType,
-                    UStatus = user.UStatus
-                };
-
-
-                return View(userView);
-            }
-            catch (Exception ex)
-            {
-                return HandleError(ex);
-            }
-        }
-
-        public async Task<IActionResult> EditUser(int id)
-        {
-            try
-            {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-
-                var user = await _context.Users.FirstOrDefaultAsync(item => item.Id == id);
-
-                if (user == null)
-                {
-                    return NotFound(); // Or handle the case where the user is not found
-                }
-
-                var userView = new UserView
-                {
-                    Id = user.Id,
-                    FullName = user.FullName,
-                    Department = user.Department ?? string.Empty,
-                    Email = user.Email,
-                    PhonNumber = user.PhonNumber,
-                    Designation = user.Designation,
-                    BrokerageHouseName = GetBrocarageHouseName(user.BrokerageHouseName),
-                    Branch = GetBranchName(user.Branch),
-                    EmployeeId = user.EmployeeId,
-                    UserName = user.UserName,
-                    UCatagory = user.UCatagory,
-                    UType = user.UType,
-                    UStatus = user.UStatus
-                };
-                return View(userView);
-            }
-            catch (Exception ex)
-            {
-                return HandleError(ex);
-            }
-
-
-            
-        }
-
+        /// <summary>Signs in to the mail server (nothing is sent) and shows whether that worked.</summary>
         [HttpPost]
-        public async Task<IActionResult> UpdateUser( UserView userView)
+        [RequirePermission(Permission.SystemHealth)]
+        public async Task<IActionResult> TestMail()
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                var user = await _context.Users.FirstOrDefaultAsync(a => a.Id == userView.Id);
-
-                if (user != null)
-                {
-                    user.UType = userView.UType;
-                    user.UStatus = userView.UStatus;
-                    user.UCatagory = userView.UCatagory;
-                    user.Department = userView.Department;
-                    _context.Update(user);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction("UserList");
-                }
-                return RedirectToAction("UserList");
+                var health = HttpContext.RequestServices.GetRequiredService<SystemHealthService>();
+                var result = health.TestMail();
+                Audit(AuditActions.SystemMailTest, "System", null, "Mail server", result.Ok ? "The mail server accepted the sign-in" : result.Message, null);
+                await _context.SaveChangesAsync();
+                TempData[result.Ok ? "SuccessMessage" : "ErrorMessage"] = result.Message;
+                return RedirectToAction("SystemHealth");
             }
             catch (Exception ex)
             {
@@ -615,10 +514,10 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
-                var Brocareges = await _context.Brokerages.ToListAsync();
+                var Brocareges = await _context.Brokerages.Include(b => b.branches).ToListAsync();
                 return View(Brocareges);
             }
             catch (Exception ex)
@@ -631,7 +530,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var brocarage = await _context.Brokerages.FirstOrDefaultAsync(item => item.BrokerageId == id);
@@ -654,7 +553,7 @@ namespace XFLCSMS.Controllers
             try
             {
 
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var brocarage = await _context.Brokerages.FirstOrDefaultAsync(item => item.BrokerageId == id);
@@ -734,7 +633,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var Branch = await _context.Branchhs.ToListAsync();
@@ -756,17 +655,19 @@ namespace XFLCSMS.Controllers
             }
         }
 
-        public IActionResult CreateBranch()
+        // brokerageId: the house is already chosen when the page is opened from the house list ("Add a branch").
+        public IActionResult CreateBranch(int brokerageId = 0)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var Brocarage = _context.Brokerages.ToList();
 
                 BranchView BB = new BranchView();
                 BB.brocarage = Brocarage;
+                BB.BrokerageId = Brocarage.Any(b => b.BrokerageId == brokerageId) ? brokerageId : 0;
 
                 return View(BB);
             }
@@ -811,7 +712,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var branch = await _context.Branchhs.FirstOrDefaultAsync(item => item.BranchId == id);
@@ -840,7 +741,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var branch = await _context.Branchhs.FirstOrDefaultAsync(item => item.BranchId == id);
@@ -925,7 +826,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportType = await _context.SupportTypes.ToListAsync();
@@ -940,7 +841,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var brocarage = await _context.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == id);
@@ -962,7 +863,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 return View();
@@ -1000,7 +901,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var brocarage = await _context.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == id);
@@ -1076,7 +977,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportCatagory = await _context.SupportCatagories.ToListAsync();
@@ -1091,7 +992,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportCatagory = await _context.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == id);
@@ -1113,7 +1014,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 return View();
@@ -1150,7 +1051,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportCatagory = await _context.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == id);
@@ -1225,7 +1126,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportSubCatagory = await _context.SupportSubCatagories.ToListAsync();
@@ -1240,7 +1141,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportSubCatagory = await _context.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == id);
@@ -1261,7 +1162,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 return View();
@@ -1298,7 +1199,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var supportSubCatagory = await _context.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == id);
@@ -1375,7 +1276,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var affectedSectios = await _context.AffectedSectionss.ToListAsync();
@@ -1390,7 +1291,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var affectedsection = await _context.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == id);
@@ -1411,7 +1312,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 return View();
@@ -1448,7 +1349,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var affectedSection = await _context.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == id);
@@ -1522,7 +1423,7 @@ namespace XFLCSMS.Controllers
         [HttpGet]
         public async Task<IActionResult> Reports()
         {
-            var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+            var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
             User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
             ViewBag.Profile = LogSesson;
 
@@ -1612,7 +1513,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -1691,7 +1592,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (string.IsNullOrWhiteSpace(newTodo?.Todo?.Todoname))
@@ -1726,7 +1627,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 var todo = await _context.Todos.FindAsync(id);
@@ -1759,7 +1660,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
 
                 var existingTodo = await _context.Todos.FindAsync(model.Id);
@@ -1797,7 +1698,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -1874,7 +1775,7 @@ namespace XFLCSMS.Controllers
 
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -1953,7 +1854,7 @@ namespace XFLCSMS.Controllers
             {
 
 
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
 
@@ -1983,7 +1884,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 reportView.search ??= new XFLCSMS.Models.Todos.TodoSearch();
                 if (reportView.search != null)
@@ -2066,7 +1967,7 @@ namespace XFLCSMS.Controllers
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
                 if (page <= 0) { page = 1; }
@@ -2149,7 +2050,7 @@ namespace XFLCSMS.Controllers
             {
 
 
-                var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
                 User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
                 ViewBag.Profile = LogSesson;
 
@@ -2180,7 +2081,7 @@ namespace XFLCSMS.Controllers
         public async Task<IActionResult> AllTodoSearch(TodoReportView reportView)
         {
             try { 
-            var jsonStringFromSession = HttpContext.Session.GetString("AdminData");
+            var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
             User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
 
 

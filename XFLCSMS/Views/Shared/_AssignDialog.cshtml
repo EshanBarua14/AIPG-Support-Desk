@@ -1,0 +1,32 @@
+@*
+    The "Assign ticket" dialog of pages that list tickets (one per page). A button with data-assign opens it
+    (wwwroot/js/app.js): data-url is where the form goes, data-ticket the number, data-current the engineer now.
+*@
+@{
+    var engineers = ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value;
+}
+<dialog class="dialog" id="assignDialog" aria-labelledby="assignTitle">
+    <form method="post" action="">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="returnTo" value="@ViewData["ReturnTo"]">
+        <div class="dialog-body">
+            <h2 id="assignTitle">Assign ticket</h2>
+            <div class="field" style="margin-top: 12px">
+                <label for="assignEngineer">Support engineer</label>
+                <select class="select" name="engineerId" id="assignEngineer">
+                    @* the text of this option is set when the dialog opens: "Choose an engineer" or "Unassigned" *@
+                    <option value="">Unassigned</option>
+                    @foreach (var engineer in engineers)
+                    {
+                        <option value="@engineer.Id">@engineer.Name (@engineer.Open open)</option>
+                    }
+                </select>
+                <span class="hint" id="assignNote">@(engineers.Count == 0 ? "There is no active support engineer yet. A platform admin creates them under Users." : "The number is how many open tickets the engineer has now.")</span>
+            </div>
+        </div>
+        <div class="dialog-foot">
+            <button type="button" class="btn" value="no" data-close>Cancel</button>
+            <button type="submit" class="btn btn-primary">Assign</button>
+        </div>
+    </form>
+</dialog>

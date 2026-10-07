@@ -28,6 +28,13 @@ namespace XFLCSMS.Models.Issue
 
         public DateTime? AssignOn { get; set; }
         public string? AssignBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// User id of the support engineer the ticket is assigned to. AssignBy keeps the engineer's name for display.
+        /// Tickets assigned before this column existed have the name only (see TicketService.AssignedTo).
+        /// No foreign key on purpose: deleting a user must not be blocked by, or cascade into, old tickets.
+        /// </summary>
+        public int? AssignedToId { get; set; }
         public DateTime? ApproveOn { get; set; }
         public string? ApproveBy { get; set; } = string.Empty;
 

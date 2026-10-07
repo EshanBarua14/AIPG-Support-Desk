@@ -1,4 +1,7 @@
-@* One ticket, read-only. Used by all four roles. *@
+@*
+    One ticket. Everybody who may open it sees the same page; what can be done from it (edit, assign, take,
+    give back) depends on the role and on who holds the ticket (Model.CanEdit, role.Can(...)).
+*@
 @model XFLCSMS.Models.Issue.MakerView
 @{
     var role = Ui.Role(ViewContext);
@@ -7,6 +10,10 @@
     var assigned = !string.IsNullOrEmpty(Model.AssgnBy);
     var working = Ui.StatusKey(Model.IStatus) == "inprogress" || closed;
     var attachments = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
+    var canAssign = role.Can(Permission.TicketAssign) && !closed;
+    var canTake = role.Can(Permission.TicketTake) && !closed;
+    var engineers = canAssign ? ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value : new List<XFLCSMS.Models.Admin.EngineerLoad>();
+    var currentEngineer = Model.AssignedToId ?? engineers.Where(e => e.Name == Model.AssgnBy).Select(e => (int?)e.Id).FirstOrDefault();
 
     // where the ticket stands: the first step that is not done yet is the current one
     var steps = new List<(string Name, string Note, bool Done)>
@@ -18,7 +25,7 @@
     };
     var current = steps.FindIndex(step => !step.Done);
 }
-<a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @(role.IsMaker ? "My tickets" : "All tickets")</a>
+<a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @role.TicketListName</a>
 
 <header class="page-head">
     <div>
@@ -30,10 +37,10 @@
         <h1 class="page-title">@(string.IsNullOrWhiteSpace(Model.IssueTitle) ? "(no title)" : Model.IssueTitle)</h1>
         <p class="page-sub">Raised by @Model.CreatedBy@(string.IsNullOrEmpty(Model.BrokerageHouse) ? "" : ", " + Model.BrokerageHouse) on @Ui.Stamp(Model.CreatedOn)</p>
     </div>
-    @if (!closed)
+    @if (Model.CanEdit && (!closed || role.Can(Permission.TicketWorkAny)))
     {
         <div class="page-actions">
-            <a class="btn btn-primary" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> @(role.IsStaff ? "Edit or assign" : "Edit ticket")</a>
+            <a class="btn btn-primary" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> @(closed ? "Reopen or edit" : role.IsStaff ? "Edit or set status" : "Edit ticket")</a>
         </div>
     }
 </header>
@@ -106,18 +113,62 @@
     </div>
 
     <aside class="stack">
-        <section class="card">
+        <section class="card" id="assignment">
             <div class="card-head"><h2>Handling</h2></div>
+            @if (canAssign)
+            {
+                <form class="card-body assign-box" asp-action="AssignTicket" asp-route-id="@Model.IssueId" method="post">
+                    <div class="field">
+                        <label for="engineerId">Support engineer</label>
+                        <select class="select" name="engineerId" id="engineerId" required="@(!assigned)">
+                            <option value="">@(assigned ? "Unassigned" : "Choose an engineer")</option>
+                            @foreach (var engineer in engineers)
+                            {
+                                <option value="@engineer.Id" selected="@(engineer.Id == currentEngineer)">@engineer.Name (@engineer.Open open)</option>
+                            }
+                        </select>
+                        @if (engineers.Count == 0)
+                        {
+                            <span class="hint">There is no active support engineer yet. A platform admin creates them under Users.</span>
+                        }
+                        else if (assigned && currentEngineer == null)
+                        {
+                            <span class="hint">@Model.AssgnBy is no longer an active support engineer. Choose somebody else.</span>
+                        }
+                    </div>
+                    <button type="submit" class="btn btn-primary"><icon name="user-check" /> @(assigned ? "Reassign" : "Assign")</button>
+                </form>
+            }
+            else if (canTake && !assigned)
+            {
+                <form class="card-body assign-box" asp-action="TakeTicket" asp-route-id="@Model.IssueId" method="post">
+                    <p class="muted" style="margin: 0">Nobody works on this ticket yet.</p>
+                    <button type="submit" class="btn btn-primary"><icon name="user-check" /> Take this ticket</button>
+                </form>
+            }
+            else if (canTake && Model.IsMine)
+            {
+                <form class="card-body assign-box" asp-action="ReleaseTicket" asp-route-id="@Model.IssueId" method="post"
+                      data-confirm-submit="Give ticket @Model.TicketNumber back?" data-action="Give back"
+                      data-confirm-text="It becomes unassigned again, so another engineer or a manager can pick it up.">
+                    <p class="muted" style="margin: 0">This ticket is yours.</p>
+                    <button type="submit" class="btn"><icon name="undo-2" /> Give back</button>
+                </form>
+            }
+            else if (canTake)
+            {
+                <div class="card-body assign-box">
+                    <p class="muted" style="margin: 0">@Model.AssgnBy works on this ticket. A support manager can reassign it.</p>
+                </div>
+            }
             <div class="card-body">
                 <dl class="facts">
                     <dt>Assigned to</dt>
                     <dd class="@(assigned ? "" : "none")">@(assigned ? Model.AssgnBy : "Nobody yet")</dd>
                     <dt>Assigned on</dt>
                     <dd class="@(Model.AssgnOn.HasValue ? "" : "none")">@(Model.AssgnOn.HasValue ? Ui.Stamp(Model.AssgnOn) : "-")</dd>
-                    <dt>Approved by</dt>
+                    <dt>Assigned by</dt>
                     <dd class="@(string.IsNullOrEmpty(Model.ApproveBy) ? "none" : "")">@(string.IsNullOrEmpty(Model.ApproveBy) ? "-" : Model.ApproveBy)</dd>
-                    <dt>Approved on</dt>
-                    <dd class="@(Model.ApproveOn.HasValue ? "" : "none")">@(Model.ApproveOn.HasValue ? Ui.Stamp(Model.ApproveOn) : "-")</dd>
                     @if (Model.UpdatedOn.HasValue)
                     {
                         <dt>Last edited</dt>
@@ -133,5 +184,27 @@
         </section>
 
         <partial name="_TicketFacts" model="Model" />
+
+        <section class="card" id="history">
+            <div class="card-head"><h2>History</h2><span class="sub">Who did what</span></div>
+            <div class="card-body">
+                @if (Model.History.Count == 0)
+                {
+                    <p class="muted" style="margin: 0">Nothing was recorded for this ticket yet. Changes are recorded from now on.</p>
+                }
+                else
+                {
+                    <ol class="timeline">
+                        @foreach (var line in Model.History)
+                        {
+                            <li class="@AuditActions.Tone(line.Action)">
+                                <b>@(string.IsNullOrEmpty(line.Details) ? AuditActions.Name(line.Action) : line.Details)</b>
+                                <span>@line.UserName.Split(" (")[0]@(string.IsNullOrEmpty(line.Role) ? "" : ", " + line.Role) &middot; @Ui.Stamp(line.At)</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </section>
     </aside>
 </div>

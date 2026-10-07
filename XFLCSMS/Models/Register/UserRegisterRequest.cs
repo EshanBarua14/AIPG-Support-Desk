@@ -12,13 +12,16 @@ namespace XFLCSMS.Models.Register
         //[RegularExpression(@"^[a-zA-Z.]+$", ErrorMessage = "Only letters are allowed.")]
         [RegularExpression(@"^[a-zA-Z\s.]+$", ErrorMessage = "Only letters and spaces are allowed.")]
 
+        [StringLength(100, ErrorMessage = "The name is too long.")]
         [Display(Name = "Full Name")]
         public String FullName { get; set; } = string.Empty;
 
         [Required, EmailAddress(ErrorMessage = "Required")]
+        [StringLength(200, ErrorMessage = "The email address is too long.")]
         public string Email { get; set; } = string.Empty;
         [Required(ErrorMessage = "Required")]
         [RegularExpression("^[0-9+-]+$", ErrorMessage = "Invalid Phone Number")]
+        [StringLength(30, ErrorMessage = "The phone number is too long.")]
         [Display(Name = "Phone Number")]
         public string PhonNumber { get; set; } = string.Empty;
     
@@ -36,6 +39,8 @@ namespace XFLCSMS.Models.Register
         public string EmployeeId { get; set; } = string.Empty;
         [Required]
         [StringLength(25, MinimumLength = 5, ErrorMessage = "User name must be 5 to 25 characters.")]
+        // The sign-in box takes user name or email, so a user name must not look like somebody's email address.
+        [RegularExpression(@"^[^\s@]+$", ErrorMessage = "A user name has no spaces and no @.")]
         [Display(Name = "User Name")]
         public string UserName { get; set; } = string.Empty;
         [Required(ErrorMessage = "Password is required")]

@@ -1,0 +1,69 @@
+@* One account, read-only. *@
+@model XFLCSMS.Models.Admin.UserView
+@{
+    ViewData["Title"] = Model.FullName;
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="UserList"><icon name="arrow-left" /> Users</a>
+
+<header class="page-head">
+    <div class="row" style="gap: 16px; flex-wrap: nowrap">
+        <span class="avatar lg" aria-hidden="true">@Ui.Initials(Model.FullName)</span>
+        <div>
+            <h1 class="page-title">@Model.FullName</h1>
+            <p class="page-sub">
+                @Ui.RolePill(Model.Role)
+                @if (!Model.UStatus)
+                {
+                    @Ui.Pill("st-disabled", "Disabled")
+                }
+                else if (Model.VerifiedAt == null)
+                {
+                    @Ui.Pill("st-pending", "Not verified")
+                }
+                else
+                {
+                    @Ui.Pill("st-active", "Active")
+                }
+            </p>
+        </div>
+    </div>
+    <div class="page-actions">
+        @if (Model.VerifiedAt == null)
+        {
+            <form asp-action="ActivateUser" asp-route-id="@Model.Id" method="post"
+                  data-confirm-submit="Activate @Model.FullName?" data-action="Activate"
+                  data-confirm-text="Anybody can register under any name: activate only after this person has confirmed to you that the registration is theirs.">
+                <button type="submit" class="btn"><icon name="user-round-check" /> Activate account</button>
+            </form>
+        }
+        <a class="btn btn-primary" asp-action="EditUser" asp-route-id="@Model.Id"><icon name="pencil" /> Edit</a>
+    </div>
+</header>
+
+<section class="card">
+    <div class="card-body">
+        <dl class="facts">
+            <dt>User name</dt>
+            <dd>@Model.UserName</dd>
+            <dt>Email</dt>
+            <dd>@Model.Email</dd>
+            <dt>Phone</dt>
+            <dd>@Model.PhonNumber</dd>
+            <dt>Employee ID</dt>
+            <dd>@Model.EmployeeId</dd>
+            <dt>Brokerage house</dt>
+            <dd>@Model.BrokerageHouseName</dd>
+            <dt>Branch</dt>
+            <dd>@Model.Branch</dd>
+            <dt>Designation</dt>
+            <dd class="@(string.IsNullOrEmpty(Model.Designation) ? "none" : "")">@(string.IsNullOrEmpty(Model.Designation) ? "Not set" : Model.Designation)</dd>
+            <dt>Role</dt>
+            <dd>@Rbac.Label(Model.Role)<span class="muted" style="display: block; font-weight: 400">@Rbac.Summary(Model.Role)</span></dd>
+            <dt>Tickets raised</dt>
+            <dd class="num">@Model.TicketCount</dd>
+            <dt>Activated</dt>
+            <dd class="@(Model.VerifiedAt == null ? "none" : "")">@(Model.VerifiedAt == null ? "Not yet" : Ui.Date(Model.VerifiedAt))</dd>
+        </dl>
+    </div>
+</section>

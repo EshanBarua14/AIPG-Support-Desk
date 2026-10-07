@@ -1,5 +1,6 @@
 @*
-    Side menu. One list for the four roles; the entries depend on the role.
+    Side menu. One list for the five roles; an entry is there when the role holds the permission for it
+    (Infrastructure/Rbac.cs), so the menu and what the server allows cannot drift apart.
     (text, action, icon) - an empty action starts a new group.
 *@
 @{
@@ -7,6 +8,7 @@
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
     int unassigned = ViewBag.UnassignedCount ?? 0;
     int mine = ViewBag.AssignedToMeCount ?? 0;
+    int pendingUsers = ViewBag.PendingUsersCount ?? 0;
 
     var menu = new List<(string Text, string Action, string Icon)>
     {
@@ -19,7 +21,7 @@
         menu.Add(("Create ticket", "IssueRaiseFrom", "ticket-plus"));
     }
 
-    menu.Add((role.IsMaker ? "My tickets" : "All tickets", role.TicketList, "ticket"));
+    menu.Add((role.TicketListName, role.TicketList, "ticket"));
 
     if (role.IsEngineer)
     {
@@ -28,19 +30,27 @@
 
     menu.Add(("Unassigned", "UnassignedTicketList", "inbox"));
     menu.Add(("Closed", "ClosedTicketList", "circle-check-big"));
-    menu.Add(("Ticket report", "Reports", "chart-column"));
-
-    menu.Add(("To-do", "", ""));
-    menu.Add(("In progress", "ViewTodo", "list-todo"));
-    menu.Add(("All to-dos", "AllTodo", "list"));
-    menu.Add(("Completed", "CompletedTodo", "list-checks"));
-    menu.Add(("To-do report", "TodoReports", "file-text"));
-
-    if (role.IsAdmin)
+    if (role.Can(Permission.Workload))
     {
-        menu.Add(("Team to-dos", "ViewAllTodo", "users"));
-        menu.Add(("Team to-do report", "AllTodoReports", "clipboard-check"));
+        menu.Add(("Workload", "Workload", "signal-high"));
+    }
+    menu.Add(("Ticket report", "Reports", "chart-column"));
+    if (role.Can(Permission.AuditTickets))
+    {
+        menu.Add(("Ticket activity", "AuditTrail", "clipboard-check"));
+    }
 
+    if (role.Can(Permission.UsersHouse))
+    {
+        // the administrator of a brokerage house: the own house
+        menu.Add(("Organization", "", ""));
+        menu.Add(("Users", "UserList", "user-cog"));
+        menu.Add(("Branches", "Organization", "building-2"));
+        menu.Add(("Activity", "AuditTrail", "clipboard-check"));
+    }
+
+    if (role.Can(Permission.MasterData))
+    {
         menu.Add(("Administration", "", ""));
         menu.Add(("Users", "UserList", "user-cog"));
         menu.Add(("Brokerage houses", "BrocarageHouseList", "building-2"));
@@ -51,12 +61,32 @@
         menu.Add(("Affected sections", "AffectedSectionList", "puzzle"));
     }
 
+    if (role.Can(Permission.AuditAll) || role.Can(Permission.SystemHealth))
+    {
+        menu.Add(("System", "", ""));
+        if (role.Can(Permission.AuditAll)) { menu.Add(("Audit trail", "AuditTrail", "shield-check")); }
+        if (role.Can(Permission.SystemHealth)) { menu.Add(("System health", "SystemHealth", "circle-dot")); }
+    }
+
+    // the personal to-do list of every role comes last
+    menu.Add(("To-do", "", ""));
+    menu.Add(("In progress", "ViewTodo", "list-todo"));
+    menu.Add(("All to-dos", "AllTodo", "list"));
+    menu.Add(("Completed", "CompletedTodo", "list-checks"));
+    menu.Add(("To-do report", "TodoReports", "file-text"));
+
+    if (role.Can(Permission.TeamTodos))
+    {
+        menu.Add(("Team to-dos", "ViewAllTodo", "users"));
+        menu.Add(("Team to-do report", "AllTodoReports", "clipboard-check"));
+    }
+
     // pages that have no menu entry of their own light up the entry they belong to
     var parents = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["TicketView"] = role.TicketList, ["EditTicket"] = role.TicketList, ["Pagination"] = role.TicketList,
         ["GetTodo"] = "ViewTodo",
-        ["UserView"] = "UserList", ["EditUser"] = "UserList",
+        ["UserView"] = "UserList", ["EditUser"] = "UserList", ["CreateUser"] = "UserList",
         ["CreateBrocarage"] = "BrocarageHouseList", ["EditBrocarage"] = "BrocarageHouseList", ["ViewBrocarageHouse"] = "BrocarageHouseList",
         ["CreateBranch"] = "BranchList", ["EditBranch"] = "BranchList", ["ViewBranch"] = "BranchList",
         ["CreateSupportType"] = "SupportTypeList", ["EditSupportType"] = "SupportTypeList", ["ViewSupportType"] = "SupportTypeList",
@@ -105,6 +135,10 @@
                 @if (item.Action == "AssignedTicketList" && mine > 0)
                 {
                     <span class="nav-count" title="@mine open tickets assigned to you">@mine</span>
+                }
+                @if (item.Action == "UserList" && pendingUsers > 0)
+                {
+                    <span class="nav-count hot" title="@pendingUsers registered, waiting for activation">@pendingUsers</span>
                 }
             </a>
         }

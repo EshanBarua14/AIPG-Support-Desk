@@ -3,13 +3,14 @@
     Layout = null;
     int code = ViewBag.StatusCode ?? 404;
     var notFound = code == 404;
+    var refused = code == 403;
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@(notFound ? "Not found" : "Request refused") - XFL CSMS</title>
+    <title>@(notFound ? "Not found" : refused ? "Not allowed" : "Request refused") - XFL CSMS</title>
     <partial name="_Theme" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
 </head>
@@ -17,11 +18,15 @@
     <main class="error-page">
         <div class="card">
             <icon name="circle-alert" />
-            <h1>@(notFound ? "This page does not exist" : "The request could not be handled")</h1>
+            <h1>@(notFound ? "This page does not exist" : refused ? "Your role does not allow this" : "The request could not be handled")</h1>
             <p>
                 @if (notFound)
                 {
                     <text>The ticket or page may have been deleted, or it belongs to someone else. Check the address or go back to your list.</text>
+                }
+                else if (refused)
+                {
+                    <text>The page or action belongs to another role. If you need it, ask an administrator to change your role.</text>
                 }
                 else
                 {

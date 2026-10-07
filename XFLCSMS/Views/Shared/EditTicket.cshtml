@@ -1,6 +1,7 @@
 @*
-    Edit one ticket. Makers change the text, priority and files of their own tickets;
-    XFL staff also assign the engineer and set the status (see TicketService.ApplyOwnerEdit / ApplyStaffEdit).
+    Edit one ticket. The people of a brokerage house change the text, priority and files (house user: own tickets,
+    house admin: the tickets of the house). XFL staff also set the status; roles that may assign also choose the
+    engineer (see TicketService.CanEdit / ApplyOwnerEdit / ApplyStaffEdit).
 *@
 @model XFLCSMS.Models.Issue.MakerView
 @{
@@ -86,22 +87,34 @@
                 <div class="card-body stack">
                     @if (role.IsStaff)
                     {
-                        <div class="field">
-                            <label for="AssgnBy">Assigned to</label>
-                            <select class="select" name="AssgnBy" id="AssgnBy">
-                                <option value="">Unassigned</option>
-                                @if (!string.IsNullOrEmpty(Model.AssgnBy) && !engineers.Any(engineer => engineer.FullName == Model.AssgnBy))
-                                {
-                                    @* keep the current assignee selectable even when that user is no longer a support engineer *@
-                                    <option value="@Model.AssgnBy" selected>@Model.AssgnBy</option>
-                                }
-                                @foreach (var engineer in engineers)
-                                {
-                                    <option value="@engineer.FullName" selected="@(engineer.FullName == Model.AssgnBy)">@engineer.FullName</option>
-                                }
-                            </select>
-                            <span class="hint">The engineer finds the ticket under Assigned to me.</span>
-                        </div>
+                        @if (role.Can(Permission.TicketAssign))
+                        {
+                            var current = Model.AssignedToId ?? engineers.Where(e => e.FullName == Model.AssgnBy).Select(e => (int?)e.Id).FirstOrDefault();
+                            var gone = !string.IsNullOrEmpty(Model.AssgnBy) && (current == null || !engineers.Any(e => e.Id == current));
+                            <div class="field">
+                                <label for="AssignedToId">Assigned to</label>
+                                <select class="select" name="AssignedToId" id="AssignedToId">
+                                    <option value="">Unassigned</option>
+                                    @if (gone)
+                                    {
+                                        @* the engineer of this ticket is no longer in the list: -1 keeps the ticket as it is *@
+                                        <option value="@TicketService.KeepAssignee" selected>@Model.AssgnBy (no longer an engineer)</option>
+                                    }
+                                    @foreach (var engineer in engineers)
+                                    {
+                                        <option value="@engineer.Id" selected="@(!gone && engineer.Id == current)">@engineer.FullName</option>
+                                    }
+                                </select>
+                                <span class="hint">The engineer finds the ticket under Assigned to me.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <dl class="facts">
+                                <dt>Assigned to</dt>
+                                <dd>@(Model.IsMine ? "You" : Model.AssgnBy)</dd>
+                            </dl>
+                        }
 
                         <div class="field">
                             <label for="IStatus">Status</label>
@@ -134,7 +147,7 @@
                         </select>
                     </div>
 
-                    @if (role.IsMaker)
+                    @if (!role.IsStaff)
                     {
                         <dl class="facts">
                             <dt>Status</dt>

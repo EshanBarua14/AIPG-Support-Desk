@@ -7,6 +7,10 @@
 {
     <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@TempData["ErrorMessage"]</span></div>
 }
+@if (TempData["Notice"] != null)
+{
+    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>@TempData["Notice"]</span></div>
+}
 @if (TempData["Message"] != null)
 {
     <div class="alert alert-success" role="status"><icon name="check" /><span>@TempData["Message"]</span></div>

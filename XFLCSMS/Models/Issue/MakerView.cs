@@ -17,6 +17,8 @@ namespace XFLCSMS.Models.Issue
         public DateTime? AssgnOn { get; set; }
         /// <summary>Full name of the support engineer the ticket is assigned to.</summary>
         public string? AssgnBy { get; set; }
+        /// <summary>User id of that engineer. Posted by the "Assigned to" field: empty = nobody, -1 = leave as it is.</summary>
+        public int? AssignedToId { get; set; }
         public DateTime? ApproveOn { get; set; }
         public string? ApproveBy { get; set; }
         public DateTime? UpdatedOn { get; set; }
@@ -39,6 +41,15 @@ namespace XFLCSMS.Models.Issue
         public int? attachmentId { get; set; }
 
         public ICollection<Attachment>? Attachments { get; set; }
+
+        // Filled for the page only (never posted): what the signed-in user may do with this ticket, and its history.
+        /// <summary>May change title, details, priority and files.</summary>
+        public bool CanEdit { get; set; }
+        /// <summary>May set status and comments (XFL staff working on the ticket).</summary>
+        public bool CanWork { get; set; }
+        /// <summary>The ticket is assigned to the signed-in engineer.</summary>
+        public bool IsMine { get; set; }
+        public List<XFLCSMS.Models.Audit.AuditLog> History { get; set; } = new();
         public ICollection<User>? SupportEngineers { get; set; }
     }
 }

@@ -11,10 +11,14 @@ using XFLCSMS.Services;
 namespace XFLCSMS.Controllers
 {
     /// <summary>
-    /// Shared behaviour of the four role controllers (Admin, SupportManegar, SupportEngineer, Maker):
-    /// the session check, profile, change password, attachments, logout and error handling.
+    /// Shared behaviour of the five role controllers (Admin, SupportManegar, SupportEngineer, HouseAdmin, Maker):
+    /// the session and permission check, which tickets a role sees, profile, change password, attachments,
+    /// logout and error handling. The other parts of this class:
+    ///   CsmsController.Assignment.cs  assign / take / release a ticket, workload
+    ///   CsmsController.Users.cs       accounts (platform admin: all, house admin: own house)
+    ///   CsmsController.Audit.cs       audit trail
     /// </summary>
-    public abstract class CsmsController : Controller
+    public abstract partial class CsmsController : Controller
     {
         protected readonly DataContext Db;
         protected readonly TicketService Tickets;
@@ -26,8 +30,22 @@ namespace XFLCSMS.Controllers
             Tickets = tickets;
         }
 
-        /// <summary>Session key of the role this controller serves, e.g. "AdminData".</summary>
-        protected abstract string SessionKey { get; }
+        /// <summary>The role this controller serves. Everything a role may do follows from it (Infrastructure/Rbac.cs).</summary>
+        protected abstract Role MyRole { get; }
+
+        /// <summary>Session entry of that role, e.g. "AdminData".</summary>
+        protected string SessionKey => Rbac.SessionKey(MyRole);
+
+        protected bool Can(Permission permission) => Rbac.Can(MyRole, permission);
+
+        /// <summary>Writes the audit trail (Services/AuditService.cs).</summary>
+        protected AuditService AuditTrailLog => HttpContext.RequestServices.GetRequiredService<AuditService>();
+
+        /// <summary>One line in the audit trail, done by the signed-in user. It is saved with the next SaveChanges.</summary>
+        protected void Audit(string action, string? entityType, int? entityId, string? label, string? details, int? houseId)
+        {
+            AuditTrailLog.Add(action, CurrentUser, Rbac.Label(MyRole), houseId, entityType, entityId, label, details);
+        }
 
         /// <summary>The signed-in user of this role, or null when the session is missing or expired.</summary>
         protected User? CurrentUser
@@ -57,8 +75,47 @@ namespace XFLCSMS.Controllers
                 return;
             }
 
+            // The session holds a copy of the user from sign-in. Compare it with the database on every request, so that
+            // "Disabled", a role change, a deleted account or a new password works at once. (The session time-out restarts
+            // with every click, so a disabled user who kept working was never signed out.)
+            var stored = Db.Users
+                .Where(u => u.Id == user.Id)
+                .Select(u => new { u.UStatus, u.UCatagory, u.UType, u.Department, u.PasswordHash, u.BrokerageHouseName })
+                .FirstOrDefault();
+            if (stored == null
+                || !stored.UStatus
+                || Rbac.RoleOf(stored.UCatagory, stored.UType, stored.Department) != MyRole
+                || stored.BrokerageHouseName != user.BrokerageHouseName // the house decides what a house admin / house user sees
+                || SessionAuthorizeAttribute.StampOf(stored.PasswordHash) != HttpContext.Session.GetString(SessionAuthorizeAttribute.Stamp))
+            {
+                HttpContext.Session.Clear();
+                if (!SessionAuthorizeAttribute.IsAjax(Request))
+                {
+                    TempData["Notice"] = stored != null && !stored.UStatus
+                        ? "Your account is disabled. Please contact the XFL team."
+                        : "Your account was changed. Please sign in again.";
+                }
+
+                context.Result = SessionAuthorizeAttribute.Challenge(Request);
+                return;
+            }
+
+            // An action that needs a permission this role does not hold is refused here, before it runs.
+            var needed = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?
+                .MethodInfo.GetCustomAttributes(typeof(RequirePermissionAttribute), true).OfType<RequirePermissionAttribute>().FirstOrDefault();
+            if (needed != null && !needed.AnyOf.Any(Can))
+            {
+                context.Result = Refused();
+                return;
+            }
+
             // The layout prints ViewBag.Profile.FullName, so it must be set for every view.
             ViewBag.Profile = user;
+            Tickets.ActAs(user, MyRole);
+            Db.BeforeSaving = () => AuditTrailLog.AddMasterDataChanges(CurrentUser, Rbac.Label(MyRole));
+
+            // "Assigned to" choices, loaded only when a page really shows them.
+            ViewBag.EngineerChoices = new Lazy<List<EngineerLoad>>(LoadEngineerChoices);
 
             // Signed-in pages must not come back from the browser cache after "Log out" + Back.
             // (The old pages tried to do this with a script that pushed the history forward.)
@@ -73,15 +130,20 @@ namespace XFLCSMS.Controllers
             base.OnActionExecuting(context);
         }
 
-        /// <summary>The small numbers beside "Unassigned tickets" and "Assigned to me" in the side menu.</summary>
+        /// <summary>The small numbers beside "Unassigned", "Assigned to me" and "Users" in the side menu.</summary>
         private void SetMenuCounters(User user)
         {
             try
             {
                 ViewBag.UnassignedCount = VisibleIssues.Count(i => i.AssignBy == null && i.AssignOn == null && i.IStatus != "Close");
-                if (SessionKey == SessionAuthorizeAttribute.SupportEngineer)
+                if (MyRole == Role.SupportEngineer)
                 {
-                    ViewBag.AssignedToMeCount = Db.Issues.Count(i => i.AssignBy == user.FullName && i.IStatus != "Close");
+                    ViewBag.AssignedToMeCount = Db.Issues.Where(TicketService.AssignedTo(user)).Count(i => i.IStatus != "Close");
+                }
+                if (Can(Permission.UsersAll) || Can(Permission.UsersHouse))
+                {
+                    // registered, but the token from the e-mail was never entered: an administrator can activate them
+                    ViewBag.PendingUsersCount = ManagedUsers.Count(u => u.VerifiedAt == null && u.UStatus);
                 }
             }
             catch (Exception exception)
@@ -92,13 +154,94 @@ namespace XFLCSMS.Controllers
             }
         }
 
-        /// <summary>Tickets this role may see: everything for XFL staff, the user's own tickets for makers.</summary>
-        protected virtual IQueryable<IssueTable> VisibleIssues => Db.Issues;
-
-        /// <summary>Tickets this role may open. Makers are limited to their own tickets.</summary>
-        protected virtual bool CanAccessIssue(IssueTable issue)
+        /// <summary>The answer to a request this role is not allowed to make.</summary>
+        protected IActionResult Refused()
         {
-            return true;
+            if (SessionAuthorizeAttribute.IsAjax(Request))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, "You are not allowed to do this.");
+            }
+
+            return StatusCode(StatusCodes.Status403Forbidden); // shown as the "not allowed" page (Views/Shared/Status.cshtml)
+        }
+
+        /// <summary>
+        /// Tickets this role may see: every ticket for XFL staff, the tickets of the own brokerage house for a
+        /// house admin, the tickets he raised himself for a house user. Every list, report and counter starts here.
+        /// </summary>
+        protected IQueryable<IssueTable> VisibleIssues
+        {
+            get
+            {
+                if (Can(Permission.TicketsAll))
+                {
+                    return Db.Issues;
+                }
+
+                var me = CurrentUser;
+                var myId = me?.Id ?? 0;
+                if (Can(Permission.TicketsHouse))
+                {
+                    var myHouse = me?.BrokerageHouseName ?? 0;
+                    return Db.Issues.Where(i => i.BrokerageId == myHouse);
+                }
+
+                return Db.Issues.Where(i => i.UserId == myId);
+            }
+        }
+
+        /// <summary>May this role open that ticket? The same rule as <see cref="VisibleIssues"/>, for one ticket.</summary>
+        protected bool CanAccessIssue(IssueTable issue)
+        {
+            if (Can(Permission.TicketsAll))
+            {
+                return true;
+            }
+
+            var me = CurrentUser;
+            if (me == null)
+            {
+                return false;
+            }
+
+            return (Can(Permission.TicketsHouse) && issue.BrokerageId == me.BrokerageHouseName) || issue.UserId == me.Id;
+        }
+
+        /// <summary>
+        /// Null when the signed-in user may change this ticket; otherwise the way back to the ticket with the reason.
+        /// (Seeing a ticket is not the same as being allowed to change it: see TicketService.CanEdit.)
+        /// </summary>
+        protected IActionResult? RefuseEdit(IssueTable issue)
+        {
+            if (Tickets.CanEdit(issue))
+            {
+                return null;
+            }
+
+            if (MyRole == Role.SupportEngineer)
+            {
+                TempData["ErrorMessage"] = TicketService.IsUnassigned(issue)
+                    ? "Take ticket " + issue.TNumber + " first: you work on the tickets that are assigned to you."
+                    : "Ticket " + issue.TNumber + " is assigned to " + issue.AssignBy + ". A support manager can reassign it.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Ticket " + issue.TNumber + " is closed and can no longer be changed.";
+            }
+
+            return RedirectToAction("TicketView", new { id = issue.IssueId });
+        }
+
+        /// <summary>Lists that show tickets of several people (house admin) print who raised each ticket.</summary>
+        protected void SetRaisers(IEnumerable<IssueTable> tickets)
+        {
+            if (!Can(Permission.TicketsHouse))
+            {
+                return;
+            }
+
+            var ids = tickets.Select(t => t.UserId).Distinct().ToList();
+            ViewBag.Raisers = Db.Users.Where(u => ids.Contains(u.Id)).ToDictionary(u => u.Id, u => u.FullName);
         }
 
         /// <summary>
@@ -127,7 +270,7 @@ namespace XFLCSMS.Controllers
         {
             var me = CurrentUser!;
             var rows = await VisibleIssues
-                .Select(i => new { i.IssueId, i.BrokerageId, i.IStatus, i.TDate, i.AssignBy, i.AssignOn, i.Priority })
+                .Select(i => new { i.IssueId, i.BrokerageId, i.IStatus, i.TDate, i.AssignBy, i.AssignOn, i.AssignedToId, i.Priority })
                 .ToListAsync();
 
             var today = DateTime.Now.Date;
@@ -160,7 +303,7 @@ namespace XFLCSMS.Controllers
                 YearlyTotalQueue = Raised(year) - Closed(year),
                 Unassigned = rows.Count(r => r.AssignBy == null && r.AssignOn == null && r.IStatus != "Close"),
                 HighPriorityOpen = rows.Count(r => r.Priority == "High" && r.IStatus != "Close"),
-                AssignedToMe = rows.Count(r => r.AssignBy == me.FullName && r.IStatus != "Close")
+                AssignedToMe = rows.Count(r => (r.AssignedToId == me.Id || (r.AssignedToId == null && r.AssignBy == me.FullName)) && r.IStatus != "Close")
             };
 
             if (includeHouses)
@@ -220,6 +363,11 @@ namespace XFLCSMS.Controllers
                 SupportCatagory = Db.SupportCatagories.Where(x => x.SupportCatagoryId == issue.SupportCatagoryId).Select(x => x.SCatagory).FirstOrDefault(),
                 SupportSubCatagory = Db.SupportSubCatagories.Where(x => x.SupportSubCatagoryId == issue.SupportSubCatagoryId).Select(x => x.SubCatagory).FirstOrDefault(),
                 AffectedSection = Db.AffectedSectionss.Where(x => x.AffectedSectionId == issue.AffectedSectionId).Select(x => x.ASection).FirstOrDefault(),
+                AssignedToId = issue.AssignedToId,
+                CanEdit = Tickets.CanEdit(issue),
+                CanWork = Tickets.CanWorkOn(issue),
+                IsMine = CurrentUser != null && TicketService.IsAssignedTo(issue, CurrentUser),
+                History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList(),
                 TicketDetails = issue.Details,
                 Command = issue.Comments,
                 TicketStatus = issue.IStatus,
@@ -228,7 +376,7 @@ namespace XFLCSMS.Controllers
                 IssueTitle = issue.ITitle,
                 Attachments = issue.attachment ?? new List<Attachment>(),
                 SupportEngineers = includeEngineers
-                    ? Db.Users.Where(u => u.Department == "Support Engineer").OrderBy(u => u.FullName).ToList()
+                    ? Tickets.Engineers().OrderBy(u => u.FullName).ToList()
                     : null
             };
         }
@@ -240,6 +388,12 @@ namespace XFLCSMS.Controllers
         [HttpPost]
         public IActionResult Logout()
         {
+            if (CurrentUser != null)
+            {
+                Audit(AuditActions.SignOut, "User", CurrentUser.Id, CurrentUser.FullName + " (" + CurrentUser.UserName + ")", null, Rbac.HouseOf(CurrentUser));
+                Db.SaveChanges();
+            }
+
             HttpContext.Session.Clear();
             return RedirectToAction("Login", "RegisterLogin");
         }
@@ -326,6 +480,7 @@ namespace XFLCSMS.Controllers
                 PasswordHasher.Create(password.NewPassword, out byte[] passwordHash, out byte[] passwordSalt);
                 user.PasswordHash = passwordHash;
                 user.PasswordSalt = passwordSalt;
+                Audit(AuditActions.PasswordChange, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Changed the own password", Rbac.HouseOf(user));
                 await Db.SaveChangesAsync();
 
                 TempData["Message"] = "Your password was changed. Sign in with the new password.";
@@ -366,6 +521,12 @@ namespace XFLCSMS.Controllers
             if (attachment == null || attachment.issue == null || !CanAccessIssue(attachment.issue))
             {
                 return NotFound();
+            }
+
+            // seeing a ticket is not enough to remove its files: the same rule as for editing it
+            if (!Tickets.CanEdit(attachment.issue))
+            {
+                return Refused();
             }
 
             await Tickets.DeleteAttachmentAsync(attachment);

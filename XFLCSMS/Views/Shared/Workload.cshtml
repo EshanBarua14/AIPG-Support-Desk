@@ -1,0 +1,133 @@
+@* Who has how much: one line per support engineer, and the tickets that wait for one. *@
+@model XFLCSMS.Models.Admin.WorkloadView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Workload";
+    var busiest = Model.Engineers.Count == 0 ? 0 : Model.Engineers.Max(engineer => engineer.Open);
+    var houses = ViewBag.Houses as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var totalOpen = Model.Engineers.Sum(engineer => engineer.Open);
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Workload</h1>
+        <p class="page-sub">Open tickets per support engineer, and the tickets still waiting for one.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" asp-action="UnassignedTicketList"><icon name="inbox" /> All unassigned</a>
+    </div>
+</header>
+
+@if (Model.Orphaned > 0)
+{
+    <div class="alert alert-warning" role="status">
+        <icon name="triangle-alert" />
+        <span><b>@Model.Orphaned open @(Model.Orphaned == 1 ? "ticket is" : "tickets are") assigned to somebody who is no longer an active support engineer.</b> Find them in <a asp-action="@role.TicketList">All tickets</a> and reassign them.</span>
+    </div>
+}
+
+<div class="board">
+    <section class="card flush">
+        <div class="card-head">
+            <h2>Support engineers</h2>
+            <span class="sub">@Model.Engineers.Count active, @totalOpen open @(totalOpen == 1 ? "ticket" : "tickets") assigned</span>
+        </div>
+        @if (Model.Engineers.Count == 0)
+        {
+            <div class="empty">
+                <icon name="users" />
+                <b>No active support engineer yet</b>
+                <span>Tickets can only be assigned to XFL staff with the role Support engineer.@(role.Can(Permission.UsersAll) ? "" : " A platform admin creates them.")</span>
+                @if (role.Can(Permission.UsersAll))
+                {
+                    <div><a class="btn btn-primary" asp-action="CreateUser"><icon name="plus" /> New user</a></div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table" id="workloadTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Engineer</th>
+                            <th scope="col" class="rate">Open tickets</th>
+                            <th scope="col" class="t-right">In progress</th>
+                            <th scope="col" class="t-right">High priority</th>
+                            <th scope="col">Oldest since</th>
+                            <th scope="col" class="t-right">Closed, 30 days</th>
+                            <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var engineer in Model.Engineers)
+                        {
+                            <tr>
+                                <td>@Ui.Person(engineer.Name, engineer.UserName)</td>
+                                <td class="rate">
+                                    <div class="meter load" title="@engineer.Open open tickets">
+                                        <div class="meter-track"><i style="width: @(busiest == 0 ? 0 : Ui.Percent(engineer.Open, busiest))%"></i></div>
+                                        <b>@engineer.Open</b>
+                                    </div>
+                                </td>
+                                <td class="t-right num">@engineer.InProgress</td>
+                                <td class="t-right num">@engineer.HighPriority</td>
+                                <td class="@(engineer.OldestOpen == null ? "muted" : "")">@(engineer.OldestOpen == null ? "-" : Ui.Date(engineer.OldestOpen))</td>
+                                <td class="t-right num">@engineer.ClosedLast30Days</td>
+                                <td class="t-actions">
+                                    <a class="btn btn-sm" asp-action="@role.TicketList" asp-route-searchString="@engineer.Name">Tickets</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="card flush">
+        <div class="card-head">
+            <h2>Waiting for an engineer</h2>
+            <span class="sub">@Model.UnassignedCount unassigned, longest waiting first</span>
+        </div>
+        @if (Model.Unassigned.Count == 0)
+        {
+            <div class="empty"><icon name="circle-check-big" /><b>Every open ticket has an engineer</b></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table tickets" id="waitingTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Ticket</th>
+                            <th scope="col">Title</th>
+                            <th scope="col">Brokerage house</th>
+                            <th scope="col">Priority</th>
+                            <th scope="col">Waiting since</th>
+                            <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ticket in Model.Unassigned)
+                        {
+                            <tr>
+                                <td class="tick p-@Ui.PriorityKey(ticket.Priority)">@Ui.Sym(ticket.TNumber)</td>
+                                <td class="c-title"><a class="t-title" asp-action="TicketView" asp-route-id="@ticket.IssueId">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a></td>
+                                <td>@(houses.TryGetValue(ticket.BrokerageId, out var house) ? house : "")</td>
+                                <td>@Ui.PriorityPill(ticket.Priority)</td>
+                                <td>@Ui.Date(ticket.TDate)</td>
+                                <td class="t-actions">
+                                    <button type="button" class="btn btn-sm" data-assign data-url="@Url.Action("AssignTicket", new { id = ticket.IssueId })" data-ticket="@ticket.TNumber" aria-label="Assign ticket @ticket.TNumber">
+                                        <icon name="user-check" /> Assign
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+@{ ViewData["ReturnTo"] = "Workload"; }
+<partial name="_AssignDialog" />

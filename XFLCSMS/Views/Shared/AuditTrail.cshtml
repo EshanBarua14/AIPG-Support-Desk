@@ -1,0 +1,158 @@
+@*
+    The audit trail: who did what, newest first. What arrives here is already limited to what the role
+    may read (CsmsController.VisibleAudit): everything, ticket lines, or the lines of the own house.
+*@
+@model XFLCSMS.Models.Audit.AuditPage
+@{
+    var role = Ui.Role(ViewContext);
+    var all = role.Can(Permission.AuditAll);
+    ViewData["Title"] = all ? "Audit trail" : role.IsHouseAdmin ? "Activity" : "Ticket activity";
+    var canOpenUsers = role.Can(Permission.UsersAll) || role.Can(Permission.UsersHouse);
+    var filtered = Model.From != null || Model.To != null || Model.Category != null || Model.Q != null || Model.House != null;
+    Func<int, string> pageUrl = number => Url.Action("AuditTrail", new
+    {
+        from = Model.From?.ToString("yyyy-MM-dd"), to = Model.To?.ToString("yyyy-MM-dd"), category = Model.Category, q = Model.Q, house = Model.House, page = number
+    })!;
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-sub">@Model.Reach Lines cannot be changed or deleted.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" href="@Url.Action("AuditTrail", new { from = Model.From?.ToString("yyyy-MM-dd"), to = Model.To?.ToString("yyyy-MM-dd"), category = Model.Category, q = Model.Q, house = Model.House, format = "csv" })"><icon name="file-down" /> Export CSV</a>
+    </div>
+</header>
+
+<form class="card no-print" method="get" asp-action="AuditTrail" id="auditFilter">
+    <div class="card-body">
+        <div class="form-grid three">
+            <div class="field">
+                <label for="q">Search</label>
+                <input class="input" type="search" name="q" id="q" value="@Model.Q" placeholder="Name, ticket number or a word">
+            </div>
+            <div class="field">
+                <label for="category">What</label>
+                <select class="select" name="category" id="category">
+                    <option value="">Everything</option>
+                    @foreach (var item in Model.Categories)
+                    {
+                        <option value="@item.Key" selected="@(item.Key == Model.Category)">@item.Name</option>
+                    }
+                </select>
+            </div>
+            @if (Model.CanFilterHouse)
+            {
+                <div class="field">
+                    <label for="house">Brokerage house</label>
+                    <select class="select" name="house" id="house">
+                        <option value="">All houses and the platform</option>
+                        @foreach (var item in Model.Houses.OrderBy(pair => pair.Value))
+                        {
+                            <option value="@item.Key" selected="@(item.Key == Model.House)">@item.Value</option>
+                        }
+                    </select>
+                </div>
+            }
+            <div class="field">
+                <label for="from">From</label>
+                <input class="input" type="date" name="from" id="from" value="@Model.From?.ToString("yyyy-MM-dd")">
+            </div>
+            <div class="field">
+                <label for="to">To</label>
+                <input class="input" type="date" name="to" id="to" value="@Model.To?.ToString("yyyy-MM-dd")">
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="search" /> Show</button>
+        @if (filtered)
+        {
+            <a class="btn" asp-action="AuditTrail">Clear filters</a>
+        }
+        <span class="spacer"></span>
+        <span class="muted small num" id="auditCount">@Model.Total.ToString("N0") @(Model.Total == 1 ? "line" : "lines")</span>
+    </div>
+</form>
+
+<div class="card flush" style="margin-top: 18px">
+    @if (Model.Lines.Count == 0)
+    {
+        <div class="empty">
+            <icon name="clipboard-check" />
+            <b>@(filtered ? "No line matches the filter" : "Nothing has been recorded yet")</b>
+            <span>@(filtered ? "Widen the dates or clear the filters." : "Sign-ins, changes to tickets and accounts appear here as they happen.")</span>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table audit" id="auditTable">
+                <thead>
+                    <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Who</th>
+                        <th scope="col">What</th>
+                        <th scope="col">Item</th>
+                        <th scope="col">Details</th>
+                        @if (all)
+                        {
+                            <th scope="col">House</th>
+                            <th scope="col">Address</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in Model.Lines)
+                    {
+                        var deleted = line.Action == AuditActions.TicketDelete || line.Action == AuditActions.UserDelete || line.Action == AuditActions.DataDelete;
+                        <tr>
+                            <td class="when num">@Ui.Stamp(line.At)</td>
+                            <td>@Ui.Person(line.UserName.Split(" (")[0], line.Role)</td>
+                            <td>@Ui.Pill("au-" + AuditActions.Tone(line.Action) + " plain", AuditActions.Name(line.Action))</td>
+                            <td>
+                                @if (line.EntityType == "Ticket" && line.EntityId != null && !deleted)
+                                {
+                                    <a asp-action="TicketView" asp-route-id="@line.EntityId">@line.EntityLabel</a>
+                                }
+                                else if (line.EntityType == "User" && line.EntityId != null && !deleted && canOpenUsers)
+                                {
+                                    <a asp-action="UserView" asp-route-id="@line.EntityId">@line.EntityLabel</a>
+                                }
+                                else
+                                {
+                                    @line.EntityLabel
+                                }
+                                @if (line.EntityType != "Ticket" && line.EntityType != "User" && !string.IsNullOrEmpty(line.EntityType))
+                                {
+                                    <span class="t-meta">@line.EntityType</span>
+                                }
+                            </td>
+                            <td class="what">@line.Details</td>
+                            @if (all)
+                            {
+                                <td>@(line.BrokerageId != null && Model.Houses.TryGetValue(line.BrokerageId.Value, out var house) ? house : "")</td>
+                                <td class="num muted">@line.Ip</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.Pages > 1)
+        {
+            <nav class="pager" aria-label="Pages">
+                <span class="muted small num">Page @Model.Page of @Model.Pages</span>
+                <span class="spacer"></span>
+                @if (Model.Page > 1)
+                {
+                    <a class="btn btn-sm" href="@pageUrl(Model.Page - 1)" rel="prev"><icon name="chevron-left" /> Newer</a>
+                }
+                @if (Model.Page < Model.Pages)
+                {
+                    <a class="btn btn-sm" href="@pageUrl(Model.Page + 1)" rel="next">Older <icon name="chevron-right" /></a>
+                }
+            </nav>
+        }
+    }
+</div>

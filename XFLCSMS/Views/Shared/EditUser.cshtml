@@ -1,0 +1,202 @@
+@*
+    One account: details, role, whether it may sign in, and its password.
+    The platform admin edits anybody; a house admin the people of the own brokerage house.
+*@
+@model XFLCSMS.Models.Admin.EditUserForm
+@{
+    ViewData["Title"] = "Edit " + Model.FullName;
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="UserList"><icon name="arrow-left" /> Users</a>
+
+<header class="page-head">
+    <div class="row" style="gap: 16px; flex-wrap: nowrap">
+        <span class="avatar lg" aria-hidden="true">@Ui.Initials(Model.FullName)</span>
+        <div>
+            <h1 class="page-title">@Model.FullName</h1>
+            <p class="page-sub">@Model.UserName, @Model.Email</p>
+        </div>
+    </div>
+</header>
+
+<form class="card" asp-action="UpdateUser" method="post" id="userForm" autocomplete="off">
+    <input type="hidden" asp-for="Id">
+    <div class="card-head"><h2>Role and access</h2></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="form-grid">
+            @{ ViewData["Roles"] = Model.Roles; ViewData["Role"] = Model.Role; ViewData["Locked"] = Model.IsSelf; }
+            <partial name="_RoleChoice" />
+            <span asp-validation-for="Role"></span>
+            <div class="field">
+                <label for="UStatus">Account</label>
+                <select class="select" name="UStatus" id="UStatus" disabled="@Model.IsSelf">
+                    <option value="True" selected="@Model.UStatus">Active</option>
+                    <option value="False" selected="@(!Model.UStatus)">Disabled</option>
+                </select>
+                @if (Model.IsSelf)
+                {
+                    <input type="hidden" name="UStatus" value="@Model.UStatus">
+                    <span class="hint">This is your own account: role and access can only be changed by another administrator.</span>
+                }
+                else
+                {
+                    <span class="hint">A disabled user cannot sign in and is signed out at the next click. Tickets and to-dos are kept.</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card-head"><h2>Details</h2></div>
+    <div class="card-body">
+        <div class="form-grid">
+            <div class="field wide">
+                <label asp-for="FullName">Full name</label>
+                <input class="input" asp-for="FullName" required maxlength="100">
+                <span asp-validation-for="FullName"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Email">Email</label>
+                <input class="input" type="email" asp-for="Email" required>
+                <span asp-validation-for="Email"></span>
+            </div>
+            <div class="field">
+                <label asp-for="PhonNumber">Phone</label>
+                <input class="input" type="tel" asp-for="PhonNumber" required pattern="[0-9+\-]+" title="Digits, + and - only">
+                <span asp-validation-for="PhonNumber"></span>
+            </div>
+            <div class="field">
+                <label asp-for="BrokerageId">Brokerage house</label>
+                <select class="select" asp-for="BrokerageId" disabled="@(!Model.CanChangeHouse)">
+                    @foreach (var house in Model.Brokerages)
+                    {
+                        <option value="@house.BrokerageId">@house.BrokerageHouseName</option>
+                    }
+                </select>
+                @if (!Model.CanChangeHouse)
+                {
+                    <input type="hidden" name="BrokerageId" value="@Model.BrokerageId">
+                    <span class="hint">@(Model.TicketCount > 0 ? "This user has raised " + Model.TicketCount + (Model.TicketCount == 1 ? " ticket" : " tickets") + " for this house, so the house stays." : "Accounts stay with their house.")</span>
+                }
+                <span asp-validation-for="BrokerageId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="BranchId">Branch</label>
+                <select class="select" asp-for="BranchId" required>
+                    @if (Model.Branches.Count == 0)
+                    {
+                        <option value="">No branch yet</option>
+                    }
+                    @foreach (var branch in Model.Branches)
+                    {
+                        <option value="@branch.BranchId">@branch.BranchName</option>
+                    }
+                </select>
+                <span asp-validation-for="BranchId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="EmployeeId">Employee ID</label>
+                <input class="input" asp-for="EmployeeId" required maxlength="15">
+                <span asp-validation-for="EmployeeId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Designation">Designation <span class="muted">(optional)</span></label>
+                <input class="input" asp-for="Designation" maxlength="100">
+            </div>
+        </div>
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="UserList">Cancel</a>
+    </div>
+</form>
+
+<section class="card" style="margin-top: 18px" id="signin">
+    <div class="card-head">
+        <h2>Sign-in</h2>
+        <span class="sub right">
+            @if (Model.VerifiedAt == null)
+            {
+                @Ui.Pill("st-pending", "Not verified")
+            }
+            else
+            {
+                <span>Activated @Ui.Date(Model.VerifiedAt)</span>
+            }
+        </span>
+    </div>
+    @if (Model.VerifiedAt == null)
+    {
+        <div class="card-body">
+            <p style="margin: 0 0 12px">This user registered but has not entered the token from the email, so signing in is refused. Anybody can register under any name: activate the account only after the person has confirmed to you that the registration is theirs.</p>
+            <form asp-action="ActivateUser" asp-route-id="@Model.Id" method="post">
+                <button type="submit" class="btn btn-primary"><icon name="user-round-check" /> Activate account</button>
+            </form>
+        </div>
+    }
+    @if (Model.IsSelf)
+    {
+        <div class="card-body">
+            <p class="muted" style="margin: 0">This is your own account. Change your password under <a asp-action="ChangePassword">Change password</a>.</p>
+        </div>
+    }
+    else
+    {
+    <form asp-action="SetUserPassword" method="post" autocomplete="off">
+        <input type="hidden" name="Id" value="@Model.Id">
+        <div class="card-body" style="@(Model.VerifiedAt == null ? "border-top: 1px solid var(--line)" : "")">
+            <p class="muted" style="margin: 0 0 12px">Lost password and the reset email does not arrive? Set a new one here and tell the user. Whoever is signed in with this account is signed out.</p>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="NewPassword">New password</label>
+                    <div class="input-wrap">
+                        <input class="input" type="password" name="NewPassword" id="NewPassword" required minlength="6" autocomplete="new-password">
+                        <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+                    </div>
+                    <span class="hint">6 or more characters with a small letter, a capital letter, a digit and one of @@ $ ! % * ? &amp;</span>
+                </div>
+                <div class="field">
+                    <label for="ConfirmPassword">New password again</label>
+                    <div class="input-wrap">
+                        <input class="input" type="password" name="ConfirmPassword" id="ConfirmPassword" required data-match="#NewPassword" autocomplete="new-password">
+                        <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn"><icon name="key-round" /> Set new password</button>
+        </div>
+    </form>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('userForm');
+            var house = form.BrokerageId;
+            var branch = form.BranchId;
+            // the platform admin may move an account without tickets to another house: its branches follow
+            if (house && house.tagName === 'SELECT' && !house.disabled) {
+                house.addEventListener('change', function () {
+                    branch.innerHTML = '<option value="">Loading branches...</option>';
+                    fetch('@Url.Action("GetBranches", "RegisterLogin")?brokerageId=' + encodeURIComponent(house.value), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (response) { return response.json(); })
+                        .then(function (branches) {
+                            branch.innerHTML = branches.length ? '<option value="">Choose the branch</option>' : '<option value="">No branch yet</option>';
+                            branches.forEach(function (item) {
+                                var entry = document.createElement('option');
+                                entry.value = item.branchId;
+                                entry.textContent = item.branchName;
+                                branch.appendChild(entry);
+                            });
+                        })
+                        .catch(function () {
+                            branch.innerHTML = '<option value="">Could not load the branches. Choose the house again.</option>';
+                        });
+                });
+            }
+        })();
+    </script>
+}

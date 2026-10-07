@@ -1,0 +1,85 @@
+@* The own brokerage house of a house admin: what it is, and its branches. *@
+@model XFLCSMS.Models.Admin.OrganizationView
+@{
+    ViewData["Title"] = "Organization";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@Model.Name</h1>
+        <p class="page-sub">Your brokerage house. Ticket numbers start with <b>@(Model.Acronym)_</b>. Name and acronym are changed by XFL.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn" asp-action="UserList"><icon name="user-cog" /> Users</a>
+        <a class="btn" asp-action="AuditTrail"><icon name="clipboard-check" /> Activity</a>
+    </div>
+</header>
+
+<div class="board">
+    <section class="card queue" aria-label="Your house in numbers">
+        <div class="queue-side" style="margin-left: 0">
+            <div class="kpi"><a class="fig num" asp-action="UserList">@Model.Users</a><span>@(Model.Users == 1 ? "account" : "accounts")</span></div>
+            <div class="kpi"><span class="fig num">@Model.Admins</span><span>@(Model.Admins == 1 ? "house admin" : "house admins")</span></div>
+            <div class="kpi"><a class="fig num" asp-action="UserList">@Model.Waiting</a><span>waiting for activation</span></div>
+            <div class="kpi"><span class="fig num">@Model.Branches.Count</span><span>@(Model.Branches.Count == 1 ? "branch" : "branches")</span></div>
+            <div class="kpi"><a class="fig num" asp-action="MackerTicketList">@Model.OpenTickets</a><span>open tickets</span></div>
+            <div class="kpi"><a class="fig num" asp-action="ClosedTicketList">@Model.ClosedTickets</a><span>closed tickets</span></div>
+        </div>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head">
+            <h2>Branches</h2>
+            <span class="sub">People choose their branch when they register</span>
+        </div>
+        <form class="toolbar" asp-action="AddBranch" method="post" autocomplete="off">
+            <div class="input-wrap">
+                <icon name="map-pin" />
+                <input class="input" type="text" name="branchName" id="branchName" required maxlength="100" pattern="[A-Za-z .]+" title="Letters, spaces and dots" placeholder="Name of a new branch, for example Motijheel" aria-label="Name of a new branch">
+            </div>
+            <button type="submit" class="btn btn-primary"><icon name="plus" /> Add branch</button>
+        </form>
+        @if (Model.Branches.Count == 0)
+        {
+            <div class="empty">
+                <icon name="map-pin" />
+                <b>No branch yet</b>
+                <span>Nobody can register for your house, and you cannot create accounts, until it has a branch.</span>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table" id="branchTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Branch</th>
+                            <th scope="col" class="t-right">Accounts</th>
+                            <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var branch in Model.Branches)
+                        {
+                            <tr>
+                                <td>
+                                    <form class="inline-edit" asp-action="RenameBranch" asp-route-id="@branch.Id" method="post" autocomplete="off">
+                                        <input class="input input-sm" type="text" name="branchName" value="@branch.Name" required maxlength="100" pattern="[A-Za-z .]+" title="Letters, spaces and dots" aria-label="Name of branch @branch.Name">
+                                        <button type="submit" class="btn btn-sm">Rename</button>
+                                    </form>
+                                </td>
+                                <td class="t-right num">@branch.Users</td>
+                                <td class="t-actions">
+                                    <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete branch @branch.Name"
+                                            data-delete data-url="@Url.Action("DeleteBranch", new { id = branch.Id })"
+                                            data-confirm="Delete the branch @branch.Name?" data-confirm-text="A branch with accounts cannot be deleted.">
+                                        <icon name="trash-2" />
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

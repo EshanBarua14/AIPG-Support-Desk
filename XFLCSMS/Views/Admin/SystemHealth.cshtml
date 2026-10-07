@@ -1,0 +1,103 @@
+@*
+    System health (platform admin only): is everything the system needs working, and is the support work stuck?
+    The checks are in Services/SystemHealthService.cs.
+*@
+@model XFLCSMS.Models.Admin.HealthReport
+@{
+    ViewData["Title"] = "System health";
+    var failed = Model.Count(XFLCSMS.Models.Admin.HealthLevel.Failed);
+    var warnings = Model.Count(XFLCSMS.Models.Admin.HealthLevel.Warning);
+    var overall = Model.Overall;
+    string Css(XFLCSMS.Models.Admin.HealthLevel level) => level == XFLCSMS.Models.Admin.HealthLevel.Failed ? "bad" : level == XFLCSMS.Models.Admin.HealthLevel.Warning ? "warn" : level == XFLCSMS.Models.Admin.HealthLevel.Info ? "info" : "ok";
+    string Word(XFLCSMS.Models.Admin.HealthLevel level) => level == XFLCSMS.Models.Admin.HealthLevel.Failed ? "Failed" : level == XFLCSMS.Models.Admin.HealthLevel.Warning ? "Attention" : level == XFLCSMS.Models.Admin.HealthLevel.Info ? "Note" : "OK";
+    string Icon(XFLCSMS.Models.Admin.HealthLevel level) => level == XFLCSMS.Models.Admin.HealthLevel.Failed ? "circle-alert" : level == XFLCSMS.Models.Admin.HealthLevel.Warning ? "triangle-alert" : level == XFLCSMS.Models.Admin.HealthLevel.Info ? "info" : "circle-check-big";
+    var areas = Model.Checks.GroupBy(check => check.Area).ToList();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">System health</h1>
+        <p class="page-sub">Checked @Ui.Stamp(Model.At). Monitoring tools can ask <a href="~/health">/health</a>: it answers Healthy or Unhealthy without signing in.</p>
+    </div>
+    <div class="page-actions">
+        <form asp-action="TestMail" method="post">
+            <button type="submit" class="btn"><icon name="mail" /> Test mail server</button>
+        </form>
+        <a class="btn btn-primary" asp-action="SystemHealth"><icon name="rotate-ccw" /> Check again</a>
+    </div>
+</header>
+
+<section class="card health-top @Css(overall)" aria-label="Overall">
+    <icon name="@Icon(overall)" />
+    <div>
+        <b id="healthVerdict">@(failed > 0 ? failed + (failed == 1 ? " check failed" : " checks failed") : warnings > 0 ? warnings + (warnings == 1 ? " point needs attention" : " points need attention") : "Everything works")</b>
+        <span>@Model.Count(XFLCSMS.Models.Admin.HealthLevel.Ok) OK, @warnings attention, @failed failed, @Model.Count(XFLCSMS.Models.Admin.HealthLevel.Info) notes.</span>
+    </div>
+</section>
+
+<div class="board" style="margin-top: 18px">
+    @foreach (var area in areas)
+    {
+        <section class="card flush" aria-label="@area.Key">
+            <div class="card-head"><h2>@area.Key</h2></div>
+            <ul class="health" id="health-@area.Key.Replace(" ", "-").Replace("-", "").ToLowerInvariant()">
+                @foreach (var check in area)
+                {
+                    <li class="@Css(check.Level)">
+                        <span class="state"><icon name="@Icon(check.Level)" /><span>@Word(check.Level)</span></span>
+                        <div>
+                            <b>@check.Name</b>
+                            <span>@check.Summary</span>
+                            @if (!string.IsNullOrEmpty(check.Advice))
+                            {
+                                <span class="advice">@check.Advice</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(check.LinkAction))
+                        {
+                            <a class="btn btn-sm" asp-action="@check.LinkAction">@check.LinkText</a>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <div class="grid-2">
+        <section class="card">
+            <div class="card-head"><h2>This installation</h2></div>
+            <div class="card-body">
+                <dl class="facts">
+                    @foreach (var fact in Model.Facts)
+                    {
+                        <dt>@fact.Name</dt>
+                        <dd>@fact.Value</dd>
+                    }
+                </dl>
+            </div>
+        </section>
+
+        <section class="card flush">
+            <div class="card-head">
+                <h2>Recent warnings and errors</h2>
+                <span class="sub">Since the application started, newest first</span>
+            </div>
+            @if (Model.Log.Count == 0)
+            {
+                <div class="empty"><icon name="circle-check-big" /><b>Nothing was logged as a warning or an error</b></div>
+            }
+            else
+            {
+                <ul class="loglist">
+                    @foreach (var entry in Model.Log)
+                    {
+                        <li class="@(entry.Level >= LogLevel.Error ? "bad" : "warn")">
+                            <span class="num">@entry.At.ToString("dd MMM, HH:mm:ss")</span>
+                            <b>@(entry.Level >= LogLevel.Error ? "Error" : "Warning") &middot; @entry.Category</b>
+                            <span>@entry.Message</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    </div>
+</div>

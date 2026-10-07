@@ -31,6 +31,11 @@ builder.Services.AddSession(option =>
 });
 
 builder.Services.AddScoped<IEmailServices, EmailService>();
+builder.Services.AddScoped<AuditService>();
+builder.Services.AddScoped<SystemHealthService>();
+
+// The last warnings and errors are kept in memory for the system health page.
+builder.Logging.AddProvider(XFLCSMS.Infrastructure.RecentLog.Instance);
 builder.Services.AddScoped<TicketService>();
 
 // Connection string lives in appsettings.json -> ConnectionStrings:DefaultConnection
@@ -78,6 +83,11 @@ app.UseRouting();
 
 app.UseSession();
 app.UseAuthorization();
+
+// For monitoring tools: answers "Healthy" (200) or "Unhealthy" (503), nothing else, without signing in.
+// The details are on the system health page of the platform admin.
+app.MapGet("/health", async (SystemHealthService health) =>
+    await health.IsAliveAsync() ? Results.Text("Healthy") : Results.Text("Unhealthy", statusCode: StatusCodes.Status503ServiceUnavailable));
 
 app.MapControllerRoute(
     name: "default",

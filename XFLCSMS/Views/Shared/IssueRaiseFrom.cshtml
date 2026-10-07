@@ -4,7 +4,7 @@
     var role = Ui.Role(ViewContext);
     ViewData["Title"] = "Create ticket";
 }
-<a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @(role.IsMaker ? "My tickets" : "All tickets")</a>
+<a class="back" asp-action="@role.TicketList"><icon name="arrow-left" /> @role.TicketListName</a>
 
 <header class="page-head">
     <div>

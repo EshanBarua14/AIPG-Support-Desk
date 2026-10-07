@@ -1,0 +1,23 @@
+@*
+    The "Role" field of the user forms. ViewData: "Roles" (the roles this administrator may give),
+    "Role" (the chosen one), "Locked" (true: shown but not changeable).
+*@
+@{
+    var roles = ViewData["Roles"] as List<Role> ?? new List<Role>();
+    var chosen = ViewData["Role"] as Role? ?? Role.HouseUser;
+    var locked = ViewData["Locked"] as bool? ?? false;
+}
+<div class="field wide">
+    <label for="Role">Role</label>
+    <select class="select" name="Role" id="Role" disabled="@locked" data-role-choice>
+        @foreach (var item in roles)
+        {
+            <option value="@item" selected="@(item == chosen)" data-summary="@Rbac.Summary(item)" data-staff="@(Rbac.IsStaff(item) ? "true" : "false")">@Rbac.Label(item)</option>
+        }
+    </select>
+    @if (locked)
+    {
+        <input type="hidden" name="Role" value="@chosen">
+    }
+    <span class="hint" id="RoleSummary">@Rbac.Summary(chosen)</span>
+</div>

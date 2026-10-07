@@ -15,19 +15,29 @@ namespace XFLCSMS.Infrastructure
     /// </summary>
     public static class Ui
     {
+        /// <summary>Shown in the footer and on the system health page.</summary>
+        public const string Version = "2.1";
+
         /// <summary>The role a page belongs to. Each role has its own controller, so the controller name decides.</summary>
         public sealed class RoleInfo
         {
-            public string Controller { get; init; } = "Admin";
-            public string Label { get; init; } = "Administrator";
-            public bool IsAdmin { get; init; }
-            public bool IsMaker { get; init; }
-            public bool IsEngineer { get; init; }
-            /// <summary>XFL staff: admin, support manager, support engineer.</summary>
-            public bool IsStaff => !IsMaker;
+            public Role Role { get; init; } = Role.PlatformAdmin;
+            public string Controller => Rbac.Controller(Role);
+            public string Label => Rbac.Label(Role);
+            public bool IsAdmin => Role == Role.PlatformAdmin;
+            public bool IsManager => Role == Role.SupportManager;
+            public bool IsEngineer => Role == Role.SupportEngineer;
+            public bool IsHouseAdmin => Role == Role.HouseAdmin;
+            /// <summary>House user: sees the tickets he raised himself. (The area is called "Maker" for historical reasons.)</summary>
+            public bool IsMaker => Role == Role.HouseUser;
+            /// <summary>XFL staff: platform admin, support manager, support engineer.</summary>
+            public bool IsStaff => Rbac.IsStaff(Role);
             /// <summary>Action name of the role's main ticket list.</summary>
-            public string TicketList { get; init; } = "AdminView";
-            public bool CanCreateTicket => !IsAdmin;
+            public string TicketList => Role == Role.PlatformAdmin ? "AdminView" : IsStaff ? "AllTicketList" : "MackerTicketList";
+            /// <summary>Heading of that list.</summary>
+            public string TicketListName => IsStaff ? "All tickets" : IsHouseAdmin ? "House tickets" : "My tickets";
+            public bool CanCreateTicket => Can(Permission.TicketCreate);
+            public bool Can(Permission permission) => Rbac.Can(Role, permission);
         }
 
         public static RoleInfo Role(ViewContext context)
@@ -35,38 +45,40 @@ namespace XFLCSMS.Infrastructure
             return Role(context.RouteData.Values["controller"]?.ToString());
         }
 
+        /// <summary>Each role has its own controller, so the controller name decides.</summary>
         public static RoleInfo Role(string? controller)
         {
-            switch (controller)
-            {
-                case "Maker":
-                    return new RoleInfo { Controller = "Maker", Label = "Maker", IsMaker = true, TicketList = "MackerTicketList" };
-                case "SupportEngineer":
-                    return new RoleInfo { Controller = "SupportEngineer", Label = "Support Engineer", IsEngineer = true, TicketList = "AllTicketList" };
-                case "SupportManegar":
-                    return new RoleInfo { Controller = "SupportManegar", Label = "Support Manager", TicketList = "AllTicketList" };
-                default:
-                    return new RoleInfo { Controller = "Admin", Label = "Administrator", IsAdmin = true, TicketList = "AdminView" };
-            }
+            return new RoleInfo { Role = Rbac.RoleOfController(controller) ?? Infrastructure.Role.PlatformAdmin };
         }
 
-        /// <summary>The role a user gets when signing in (same order as RegisterLoginController.Login).</summary>
+        /// <summary>Name of the role a user gets when signing in.</summary>
         public static string RoleOf(User user)
         {
-            return RoleOf(user.UCatagory, user.UType, user.Department);
+            return Rbac.Label(Rbac.RoleOf(user));
         }
 
         public static string RoleOf(bool isAdmin, bool isXflStaff, string? department)
         {
-            if (isAdmin) { return "Administrator"; }
-            if (isXflStaff && department == "Support Maneger") { return "Support Manager"; }
-            if (isXflStaff && department == "Support Engineer") { return "Support Engineer"; }
-            return "Maker";
+            return Rbac.Label(Rbac.RoleOf(isAdmin, isXflStaff, department));
+        }
+
+        public static IHtmlContent RolePill(Role role)
+        {
+            var look = role == Infrastructure.Role.PlatformAdmin ? "role-admin"
+                : Rbac.IsStaff(role) ? "role-staff"
+                : role == Infrastructure.Role.HouseAdmin ? "role-house"
+                : string.Empty;
+            return Pill(look + " plain", Rbac.Label(role));
         }
 
         public static IHtmlContent RolePill(string roleName)
         {
-            return Pill((roleName == "Administrator" ? "role-admin" : roleName == "Maker" ? string.Empty : "role-staff") + " plain", roleName);
+            foreach (var role in Rbac.AllRoles)
+            {
+                if (Rbac.Label(role) == roleName) { return RolePill(role); }
+            }
+
+            return Pill("plain", roleName);
         }
 
         public static string Date(DateTime? value)

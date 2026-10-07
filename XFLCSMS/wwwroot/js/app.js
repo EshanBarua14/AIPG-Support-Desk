@@ -14,6 +14,8 @@
      data-report="#target"      report filter form: load the result into the target
      data-print / data-export-csv="#tableId"
      data-confirm-submit        form asks before submitting
+     data-assign                button that opens the "assign ticket" dialog (data-url, data-ticket, data-current)
+     data-role-choice           role select of the user forms: shows what the role may do
 */
 (function () {
     'use strict';
@@ -287,6 +289,39 @@
             if (empty) { empty.hidden = shown > 0; }
             if (counter) { counter.textContent = shown; }
         });
+    });
+
+    /* ---- assign a ticket (dialog rendered by Views/Shared/_AssignDialog.cshtml) ---- */
+    on(doc, 'click', function (event) {
+        var opener = event.target.closest('[data-assign]');
+        var dialog = $('#assignDialog');
+        if (opener && dialog && dialog.showModal) {
+            var form = $('form', dialog);
+            var select = $('select', dialog);
+            var current = opener.getAttribute('data-current') || '';
+            form.action = opener.getAttribute('data-url');
+            $('#assignTitle', dialog).textContent = 'Assign ticket ' + (opener.getAttribute('data-ticket') || '');
+            // a ticket nobody has: an engineer must be chosen. A ticket somebody has: "Unassigned" takes it away.
+            var holder = opener.getAttribute('data-current-name') || '';
+            select.options[0].textContent = holder ? 'Unassigned' : 'Choose an engineer';
+            select.required = !holder;
+            select.value = current;
+            if (select.value !== current) { select.value = ''; }
+            dialog.showModal();
+            select.focus();
+            return;
+        }
+        var closer = event.target.closest('dialog [data-close]');
+        if (closer) { closer.closest('dialog').close(); }
+    });
+
+    /* ---- user forms: what the chosen role may do ------------------------ */
+    on(doc, 'change', function (event) {
+        var choice = event.target.closest('[data-role-choice]');
+        var note = $('#RoleSummary');
+        if (!choice || !note) { return; }
+        var option = choice.options[choice.selectedIndex];
+        note.textContent = option ? option.getAttribute('data-summary') || '' : '';
     });
 
     /* ---- forms ---------------------------------------------------------- */

@@ -1,6 +1,6 @@
 @*
-    Dashboard of every role. Makers see their own tickets; XFL staff see all tickets plus the
-    load per brokerage house. The numbers come from CsmsController.BuildDashboardAsync.
+    Dashboard of every role. A house user sees the own tickets, a house admin those of the house; XFL staff
+    see all tickets plus the load per brokerage house. The numbers come from CsmsController.BuildDashboardAsync.
 *@
 @model XFLCSMS.Models.Admin.Dashboard
 @{
@@ -20,10 +20,14 @@
 }
 <header class="page-head">
     <div>
-        <h1 class="page-title">@(role.IsMaker ? "Your tickets" : "Support board")</h1>
-        <p class="page-sub">@(role.IsMaker ? "Everything you have raised with XFL support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
+        <h1 class="page-title">@(role.IsMaker ? "Your tickets" : role.IsHouseAdmin ? "Tickets of your house" : "Support board")</h1>
+        <p class="page-sub">@(role.IsMaker ? "Everything you have raised with XFL support." : role.IsHouseAdmin ? "Everything the people of your brokerage house have raised with XFL support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
     </div>
     <div class="page-actions">
+        @if (role.Can(Permission.Workload))
+        {
+            <a class="btn" asp-action="Workload"><icon name="users" /> Workload</a>
+        }
         <a class="btn" asp-action="Reports"><icon name="chart-column" /> Ticket report</a>
     </div>
 </header>
@@ -38,7 +42,7 @@
             <div class="queue-side">
                 <div class="kpi">
                     <a class="fig num" asp-action="UnassignedTicketList">@Model.Unassigned.ToString("N0")</a>
-                    <span>@(role.IsMaker ? "waiting for an engineer" : "unassigned")</span>
+                    <span>@(role.IsStaff ? "unassigned" : "waiting for an engineer")</span>
                 </div>
                 @if (role.IsEngineer)
                 {
@@ -76,7 +80,7 @@
         else
         {
             <p class="muted" style="margin-top: 16px">
-                @(role.IsMaker ? "You have not raised a ticket yet." : "No tickets have been raised yet.")
+                @(role.IsMaker ? "You have not raised a ticket yet." : role.IsHouseAdmin ? "Nobody of your house has raised a ticket yet." : "No tickets have been raised yet.")
                 @if (role.CanCreateTicket) { <a asp-action="IssueRaiseFrom">Create the first one</a> }
             </p>
         }
@@ -147,7 +151,7 @@
                         {
                             <li>
                                 @Ui.Sym(ticket.TNumber)
-                                <a class="t-title" asp-action="EditTicket" asp-route-id="@ticket.IssueId" title="Assign ticket @ticket.TNumber">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a>
+                                <a class="t-title" asp-action="TicketView" asp-route-id="@ticket.IssueId" asp-fragment="assignment" title="@(role.Can(Permission.TicketAssign) ? "Assign" : "Open") ticket @ticket.TNumber">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a>
                                 @Ui.PriorityPill(ticket.Priority)
                                 <span class="t-meta hide-s">@Ui.Date(ticket.TDate)</span>
                             </li>

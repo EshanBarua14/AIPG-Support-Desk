@@ -1,0 +1,115 @@
+@*
+    Accounts. The platform admin sees everybody; a house admin sees the people of the own brokerage house
+    (CsmsController.ManagedUsers decides what arrives here).
+*@
+@model IEnumerable<XFLCSMS.Models.Register.User>
+@{
+    var role = Ui.Role(ViewContext);
+    var all = role.Can(Permission.UsersAll);
+    ViewData["Title"] = "Users";
+    var rows = Model.OrderBy(user => user.FullName).ToList();
+    var me = ViewBag.Profile as XFLCSMS.Models.Register.User;
+    var houses = ViewBag.Houses as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var branches = ViewBag.Branches as Dictionary<int, string> ?? new Dictionary<int, string>();
+    var waiting = rows.Count(user => user.VerifiedAt == null && user.UStatus);
+    var myHouse = me != null && houses.TryGetValue(me.BrokerageHouseName, out var mine) ? mine : "your brokerage house";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Users</h1>
+        <p class="page-sub">
+            @if (all)
+            {
+                <text>Everybody with an account. Staff of brokerage houses register themselves and start as House user, or an administrator creates the account.</text>
+            }
+            else
+            {
+                <text>The people of @myHouse. They register themselves, or you create the account for them.</text>
+            }
+        </p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="CreateUser"><icon name="plus" /> New user</a>
+    </div>
+</header>
+
+@if (waiting > 0)
+{
+    <div class="alert alert-warning" role="status">
+        <icon name="triangle-alert" />
+        <span><b>@waiting @(waiting == 1 ? "account waits" : "accounts wait") for activation.</b> They registered but have not entered the token from the email. Once the person has confirmed the registration to you, press Activate.</span>
+    </div>
+}
+
+<div class="card flush">
+    <div class="toolbar">
+        <div class="input-wrap">
+            <icon name="search" />
+            <input class="input" type="search" data-filter="#issuesTable" data-count="#shownCount" placeholder="@(all ? "Filter by name, email, house, role or status" : "Filter by name, email, branch, role or status")" aria-label="Filter users" autocomplete="off">
+        </div>
+        <span class="spacer"></span>
+        <span class="muted small num"><span id="shownCount">@rows.Count</span> of <span data-total>@rows.Count</span></span>
+    </div>
+    <div class="table-wrap">
+        <table class="table" id="issuesTable">
+            <thead>
+                <tr>
+                    <th scope="col">User</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">@(all ? "Brokerage house" : "Branch")</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Account</th>
+                    <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in rows)
+                {
+                    houses.TryGetValue(item.BrokerageHouseName, out var house);
+                    branches.TryGetValue(item.Branch, out var branch);
+                    <tr>
+                        <td>@Ui.Person(item.FullName, item.UserName)</td>
+                        <td>@item.Email</td>
+                        <td>@(all ? house : branch)</td>
+                        <td>@Ui.RolePill(Rbac.RoleOf(item))</td>
+                        <td>
+                            @if (!item.UStatus)
+                            {
+                                @Ui.Pill("st-disabled", "Disabled")
+                            }
+                            else if (item.VerifiedAt == null)
+                            {
+                                @Ui.Pill("st-pending", "Not verified")
+                            }
+                            else
+                            {
+                                @Ui.Pill("st-active", "Active")
+                            }
+                        </td>
+                        <td class="t-actions">
+                            @if (item.VerifiedAt == null)
+                            {
+                                <form asp-action="ActivateUser" asp-route-id="@item.Id" method="post"
+                                      data-confirm-submit="Activate @item.FullName?" data-action="Activate"
+                                      data-confirm-text="Registered for @(house ?? "a brokerage house") with @item.Email. Anybody can register under any name: activate only after this person has confirmed to you that the registration is theirs.">
+                                    <button type="submit" class="btn btn-sm"><icon name="user-round-check" /> Activate</button>
+                                </form>
+                            }
+                            <a class="btn btn-icon btn-sm" asp-action="UserView" asp-route-id="@item.Id" title="View" aria-label="View @item.FullName"><icon name="eye" /></a>
+                            <a class="btn btn-icon btn-sm" asp-action="EditUser" asp-route-id="@item.Id" title="Edit" aria-label="Edit @item.FullName"><icon name="pencil" /></a>
+                            @if (me == null || item.Id != me.Id)
+                            {
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.FullName"
+                                        data-delete data-url="@Url.Action("DeleteUser", new { id = item.Id })" data-issue-id="@item.Id"
+                                        data-confirm="Delete @item.FullName?" data-confirm-text="Users who have raised tickets cannot be deleted. Disable them instead.">
+                                    <icon name="trash-2" />
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+                <tr data-empty hidden><td colspan="6" class="muted">Nothing matches the filter.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

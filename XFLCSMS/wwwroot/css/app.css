@@ -653,3 +653,69 @@ a.t-title:hover { color: var(--brand); }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---- roles, assignment, history, audit trail, system health ---------------------------------- */
+.role-house { background: var(--green-soft); color: var(--green-ink); }
+.au-good { background: var(--green-soft); color: var(--green-ink); }
+.au-bad { background: var(--red-soft); color: var(--red-ink); }
+.au- { background: var(--surface-3); color: var(--ink-2); }
+
+.assign-box { display: flex; flex-direction: column; gap: 12px; align-items: stretch; border-bottom: 1px solid var(--line); }
+.assign-box .btn { align-self: flex-start; }
+.dialog form { margin: 0; }
+.dialog .field label { display: block; margin-bottom: 6px; }
+
+.inline-edit { display: flex; gap: 8px; align-items: center; max-width: 460px; }
+.inline-edit .input { flex: 1; min-width: 0; }
+form.toolbar { margin: 0; }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li { position: relative; padding: 0 0 14px 20px; }
+.timeline li::before { content: ""; position: absolute; left: 4px; top: 14px; bottom: -4px; width: 2px; background: var(--line); }
+.timeline li::after { content: ""; position: absolute; left: 0; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px var(--surface); }
+.timeline li:last-child { padding-bottom: 0; }
+.timeline li:last-child::before { display: none; }
+.timeline li.good::after { background: var(--green); }
+.timeline li.bad::after { background: var(--red); }
+.timeline b { display: block; font-weight: 500; overflow-wrap: anywhere; }
+.timeline span { display: block; color: var(--ink-3); font-size: 12.5px; margin-top: 1px; }
+
+.table.audit td { vertical-align: top; }
+.table.audit .when { white-space: nowrap; color: var(--ink-2); }
+.table.audit .what { min-width: 220px; max-width: 520px; overflow-wrap: anywhere; }
+.table.audit .t-meta { display: block; }
+.meter.load .meter-track { background: color-mix(in srgb, var(--series-open) 18%, var(--surface)); }
+.meter.load .meter-track i { background: var(--series-open); }
+
+.health-top { display: flex; gap: 14px; align-items: center; padding: 18px 20px; border-left: 4px solid var(--green); }
+.health-top > .icon { width: 28px; height: 28px; color: var(--green); flex: none; }
+.health-top b { display: block; font: 600 20px/1.2 var(--font-cond); }
+.health-top span { color: var(--ink-2); }
+.health-top.warn { border-left-color: var(--amber); } .health-top.warn > .icon { color: var(--amber); }
+.health-top.bad { border-left-color: var(--red); } .health-top.bad > .icon { color: var(--red); }
+
+.health { list-style: none; margin: 0; padding: 0; }
+.health li { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 12px 18px; border-top: 1px solid var(--line); }
+.health li:first-child { border-top: 0; }
+.health .state { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; font-size: 13px; color: var(--green-ink); }
+.health .state .icon { width: 16px; height: 16px; }
+.health li.warn .state { color: var(--amber-ink); }
+.health li.bad .state { color: var(--red-ink); }
+.health li.info .state { color: var(--ink-3); }
+.health li b { display: block; font-weight: 600; }
+.health li div > span { display: block; color: var(--ink-2); overflow-wrap: anywhere; }
+.health li .advice { color: var(--ink); margin-top: 3px; }
+.health li.bad { background: color-mix(in srgb, var(--red-soft) 45%, transparent); }
+
+.loglist { list-style: none; margin: 0; padding: 0; max-height: 460px; overflow-y: auto; }
+.loglist li { padding: 10px 18px; border-top: 1px solid var(--line); font-size: 13px; }
+.loglist li:first-child { border-top: 0; }
+.loglist li .num { color: var(--ink-3); margin-right: 8px; }
+.loglist li b { font-weight: 600; color: var(--amber-ink); }
+.loglist li.bad b { color: var(--red-ink); }
+.loglist li > span:last-child { display: block; color: var(--ink-2); overflow-wrap: anywhere; margin-top: 2px; }
+
+@media (max-width: 720px) {
+    .health li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .inline-edit { max-width: none; }
+}

@@ -1,7 +1,11 @@
 @model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
 @{
     ViewData["Title"] = "Unassigned";
-    ViewData["ListSub"] = (Ui.Role(ViewContext).IsMaker ? "Your tickets that are still waiting for a support engineer." : "Tickets waiting for a support engineer. Open one and choose who takes it.");
+    var role = Ui.Role(ViewContext);
+    ViewData["ListSub"] = role.IsMaker ? "Your tickets that are still waiting for a support engineer."
+        : role.IsHouseAdmin ? "Tickets of your house that are still waiting for a support engineer."
+        : role.Can(Permission.TicketAssign) ? "Tickets waiting for a support engineer. Press Assign and choose who takes it."
+        : "Tickets waiting for a support engineer. Press Take to make one yours.";
     ViewData["ListAction"] = "UnassignedTicketList";
     ViewData["EmptyText"] = "No tickets are waiting for an engineer";
 }

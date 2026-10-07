@@ -1,6 +1,7 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
 using XFLCSMS.Models.Affected;
+using XFLCSMS.Models.Audit;
 using XFLCSMS.Models.Branch;
 using XFLCSMS.Models.Brocarage;
 using XFLCSMS.Models.Issue;
@@ -31,6 +32,58 @@ namespace XFLCSMS.Data
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Attachment> Attachments { get; set; }
         public DbSet<Todo> Todos { get; set; }
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+        /// <summary>
+        /// Runs right before changes are written. The signed-in area sets it to add the audit lines for master data
+        /// (houses, branches, support lists), so those are recorded wherever such a row is created, changed or deleted.
+        /// </summary>
+        public Action? BeforeSaving { get; set; }
+
+        private bool _beforeSavingRuns;
+
+        private void RunBeforeSaving()
+        {
+            if (BeforeSaving == null || _beforeSavingRuns)
+            {
+                return;
+            }
+
+            _beforeSavingRuns = true;
+            try
+            {
+                BeforeSaving();
+            }
+            finally
+            {
+                _beforeSavingRuns = false;
+            }
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            RunBeforeSaving();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            RunBeforeSaving();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // The audit trail is read newest first, per item (history of a ticket) and per brokerage house.
+            modelBuilder.Entity<AuditLog>().HasIndex(log => log.At);
+            modelBuilder.Entity<AuditLog>().HasIndex(log => new { log.EntityType, log.EntityId });
+            modelBuilder.Entity<AuditLog>().HasIndex(log => log.BrokerageId);
+
+            // "Assigned to me" is looked up by the engineer's user id.
+            modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.AssignedToId);
+        }
 
 
     }

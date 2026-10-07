@@ -1,16 +1,19 @@
 @*
     Ticket report of every role. The filters differ per role, and so does the name the controller
-    binds them to: search.* (admin, support manager), SESearch.* (support engineer), MakerSearch.* (maker).
+    binds them to: search.* (platform admin, support manager), SESearch.* (support engineer),
+    MakerSearch.* (house user and house admin).
 *@
 @model XFLCSMS.Models.Admin.ReportView
 @{
     var role = Ui.Role(ViewContext);
     ViewData["Title"] = "Ticket report";
-    var prefix = role.IsMaker ? "MakerSearch" : role.IsEngineer ? "SESearch" : "search";
-    var allTickets = !role.IsMaker && !role.IsEngineer;
+    var houseSide = !role.IsStaff;
+    var prefix = houseSide ? "MakerSearch" : role.IsEngineer ? "SESearch" : "search";
+    var allTickets = !houseSide && !role.IsEngineer;
     var houses = Model.brocarages?.ToList() ?? new List<XFLCSMS.Models.Brocarage.Brokerage>();
     var engineers = Model.EmployeeNames?.ToList() ?? new List<string>();
     var scope = role.IsMaker ? "The tickets you raised."
+        : role.IsHouseAdmin ? "The tickets raised by the people of your brokerage house."
         : role.IsEngineer ? "The tickets assigned to you or closed by you."
         : "All tickets of all brokerage houses.";
 }
@@ -28,7 +31,7 @@
 <form class="card no-print" id="advancedSearchForm" action="@Url.Action("Search")" method="get" data-report="#searchResults">
     <div class="card-body">
         <div class="form-grid three">
-            @if (!role.IsMaker)
+            @if (!houseSide)
             {
                 <div class="field">
                     <label for="brokerageCodes">Brokerage house</label>

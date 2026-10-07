@@ -1,0 +1,177 @@
+@*
+    An administrator creates an account for somebody else. The platform admin: anybody, any role.
+    A house admin: people of the own brokerage house. The account is active at once, so it does not
+    depend on the token e-mail of the public registration.
+*@
+@model XFLCSMS.Models.Admin.NewUser
+@{
+    ViewData["Title"] = "New user";
+    ViewData["PageClass"] = "narrow";
+    var fixedHouse = Model.FixedHouseName != null;
+}
+<a class="back" asp-action="UserList"><icon name="arrow-left" /> Users</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New user</h1>
+        <p class="page-sub">The account works at once: no token, no email. Give the user name and password to the person yourself.</p>
+    </div>
+</header>
+
+@if (Model.Brokerages.Count == 0)
+{
+    <div class="alert alert-warning" role="status">
+        <icon name="triangle-alert" />
+        <span>There is no brokerage house yet. Create a house and a branch first: every user belongs to one.</span>
+    </div>
+}
+
+<form class="card" asp-action="CreateUser" method="post" id="userForm" autocomplete="off">
+    <div class="card-head"><h2>Person</h2></div>
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly"></div>
+        <div class="form-grid">
+            <div class="field wide">
+                <label asp-for="FullName">Full name</label>
+                <input class="input" asp-for="FullName" required maxlength="100" autocomplete="off">
+                <span asp-validation-for="FullName"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Email">Email</label>
+                <input class="input" type="email" asp-for="Email" required autocomplete="off">
+                <span asp-validation-for="Email"></span>
+            </div>
+            <div class="field">
+                <label asp-for="PhonNumber">Phone</label>
+                <input class="input" type="tel" asp-for="PhonNumber" required pattern="[0-9+\-]+" title="Digits, + and - only" autocomplete="off">
+                <span asp-validation-for="PhonNumber"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-head"><h2>Works at</h2></div>
+    <div class="card-body">
+        <div class="form-grid">
+            <div class="field">
+                <label for="@(fixedHouse ? "HouseName" : "BrokerageId")">Brokerage house</label>
+                @if (fixedHouse)
+                {
+                    <input type="hidden" name="BrokerageId" value="@Model.BrokerageId">
+                    <input class="input" id="HouseName" value="@Model.FixedHouseName" readonly>
+                    <span class="hint">You create accounts for your own house.</span>
+                }
+                else
+                {
+                    <select class="select" asp-for="BrokerageId" required>
+                        <option value="">Choose the house</option>
+                        @foreach (var house in Model.Brokerages)
+                        {
+                            <option value="@house.BrokerageId">@house.BrokerageHouseName</option>
+                        }
+                    </select>
+                    <span class="hint">Tickets raised by this user get the number of this house.</span>
+                }
+                <span asp-validation-for="BrokerageId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="BranchId">Branch</label>
+                <select class="select" asp-for="BranchId" required>
+                    <option value="">@(Model.Branches.Count == 0 ? (fixedHouse ? "No branch yet" : "Choose the house first") : "Choose the branch")</option>
+                    @foreach (var branch in Model.Branches)
+                    {
+                        <option value="@branch.BranchId">@branch.BranchName</option>
+                    }
+                </select>
+                <span class="hint" id="BranchHint" hidden="@(!(fixedHouse && Model.Branches.Count == 0))">This house has no branch yet. Add one first.</span>
+                <span asp-validation-for="BranchId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="EmployeeId">Employee ID</label>
+                <input class="input" asp-for="EmployeeId" required maxlength="15" autocomplete="off">
+                <span asp-validation-for="EmployeeId"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Designation">Designation <span class="muted">(optional)</span></label>
+                <input class="input" asp-for="Designation" maxlength="100" autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+    <div class="card-head"><h2>Sign-in</h2></div>
+    <div class="card-body">
+        <div class="form-grid">
+            <div class="field wide">
+                <label asp-for="UserName">User name</label>
+                <input class="input" asp-for="UserName" required minlength="5" maxlength="25" pattern="[^\s&#64;]+" title="No spaces and no &#64;" autocomplete="off" autocapitalize="none" spellcheck="false">
+                <span class="hint">5 to 25 characters, no spaces. The email works for signing in as well.</span>
+                <span asp-validation-for="UserName"></span>
+            </div>
+            <div class="field">
+                <label for="Password">Password</label>
+                <div class="input-wrap">
+                    <input class="input" type="password" name="Password" id="Password" required minlength="6" autocomplete="new-password">
+                    <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+                </div>
+                <span class="hint">6 or more characters with a small letter, a capital letter, a digit and one of @@ $ ! % * ? &amp;</span>
+                <span asp-validation-for="Password"></span>
+            </div>
+            <div class="field">
+                <label for="ConfirmPassword">Password again</label>
+                <div class="input-wrap">
+                    <input class="input" type="password" name="ConfirmPassword" id="ConfirmPassword" required data-match="#Password" autocomplete="new-password">
+                    <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
+                </div>
+                <span asp-validation-for="ConfirmPassword"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-head"><h2>What they may do</h2></div>
+    <div class="card-body">
+        <div class="form-grid">
+            @{ ViewData["Roles"] = Model.Roles; ViewData["Role"] = Model.Role; ViewData["Locked"] = false; }
+            <partial name="_RoleChoice" />
+            <span asp-validation-for="Role"></span>
+        </div>
+    </div>
+
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create user</button>
+        <a class="btn" asp-action="UserList">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('userForm');
+            var house = form.BrokerageId;
+            var branch = form.BranchId;
+            var noBranch = document.getElementById('BranchHint');
+
+            // the branch list depends on the chosen house (a house admin has one house: nothing to load)
+            if (house && house.tagName === 'SELECT') {
+                house.addEventListener('change', function () {
+                    branch.innerHTML = '<option value="">' + (house.value ? 'Loading branches...' : 'Choose the house first') + '</option>';
+                    noBranch.hidden = true;
+                    if (!house.value) { return; }
+                    fetch('@Url.Action("GetBranches", "RegisterLogin")?brokerageId=' + encodeURIComponent(house.value), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (response) { return response.json(); })
+                        .then(function (branches) {
+                            branch.innerHTML = '<option value="">' + (branches.length ? 'Choose the branch' : 'No branch yet') + '</option>';
+                            noBranch.hidden = branches.length > 0;
+                            branches.forEach(function (item) {
+                                var entry = document.createElement('option');
+                                entry.value = item.branchId;
+                                entry.textContent = item.branchName;
+                                branch.appendChild(entry);
+                            });
+                        })
+                        .catch(function () {
+                            branch.innerHTML = '<option value="">Could not load the branches. Choose the house again.</option>';
+                        });
+                });
+            }
+        })();
+    </script>
+}

@@ -1,7 +1,8 @@
 @model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
 @{
     ViewData["Title"] = "Closed";
-    ViewData["ListSub"] = (Ui.Role(ViewContext).IsMaker ? "Your tickets that have been closed." : "Tickets that have been closed.");
+    var role = Ui.Role(ViewContext);
+    ViewData["ListSub"] = role.IsMaker ? "Your tickets that have been closed." : role.IsHouseAdmin ? "Tickets of your house that have been closed." : "Tickets that have been closed.";
     ViewData["ListAction"] = "ClosedTicketList";
     ViewData["EmptyText"] = "No closed tickets yet";
 }

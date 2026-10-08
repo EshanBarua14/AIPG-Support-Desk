@@ -1,43 +1,189 @@
-@* Frame of the pages before sign-in: brand panel on the left, the form on the right. *@
+@*
+    Frame of the pages before sign-in (sign in, register, forgot / reset password, activate).
+    Left: a short picture story of what the system is for - someone's software stops working and they raise a ticket,
+    a support engineer fixes it, the person is happy again. Right: the form of the page.
+
+    The picture is one inline SVG; everything that moves is animated in wwwroot/css/signin.css on one 18 second
+    timeline. Without animation (the "reduce motion" setting, or the pause button) it shows the happy ending,
+    and the three steps under it tell the same story in words. Nothing is loaded from outside.
+*@
 @{
     var title = ViewData["Title"] as string;
+    const string brand = "Xpert CSMS";
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@(string.IsNullOrEmpty(title) ? "XFL CSMS" : title + " - XFL CSMS")</title>
+    <title>@(string.IsNullOrEmpty(title) ? brand : title + " - " + brand)</title>
     <meta name="app-base" content="@Url.Content("~/")">
     <meta name="icon-sprite" content="@Url.Content("~/img/icons.svg")?v=@IconTagHelper.SpriteVersion">
     <partial name="_Theme" />
     <link rel="icon" href="~/favicon.ico">
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/signin.css" asp-append-version="true">
 </head>
 <body>
-    <div class="auth">
-        <aside class="auth-brand">
-            <div class="globe" aria-hidden="true"></div>
-            <a class="mark" asp-controller="RegisterLogin" asp-action="Login">
-                <img src="~/img/XFLlogo.png" alt="" width="44" height="44">
-                <span><b>XFL CSMS</b><span>Customer Support Management System</span></span>
-            </a>
-            <h1>Support for the brokerage houses running on XFL.</h1>
-            <p>Raise a ticket, follow who is working on it, and see it through to closed.</p>
-            <div class="xfl">Xpert Fintech Limited</div>
+    <div class="auth si">
+        <aside class="si-side" data-story>
+            <div class="si-side-in">
+                <a class="si-mark" asp-controller="RegisterLogin" asp-action="Login">
+                    <span class="si-logo"><img src="~/img/xpert-logo.png" asp-append-version="true" alt="" width="44" height="44"></span>
+                    <span class="si-name"><b>@brand</b><span>Customer Support Management System</span></span>
+                </a>
+
+                <h1>Support for the brokerage houses running on Xpert.</h1>
+
+                <div class="si-stage">
+                    <svg class="story" viewBox="6 2 508 288" aria-hidden="true" focusable="false">
+                        <ellipse class="s-floor" cx="260" cy="279" rx="252" ry="9" />
+                        <path class="s-route" d="M192 58 Q260 6 328 58" />
+
+                        @* ---- the person whose software stops working ---- *@
+                        <g class="a u-win">
+                            <rect x="28" y="14" width="160" height="90" rx="8" fill="#fff" />
+                            <path d="M100 103l8 10 8-10z" fill="#fff" />
+                            <path d="M28 30v-8a8 8 0 0 1 8-8h144a8 8 0 0 1 8 8v8z" fill="#E6EDF6" />
+                            <circle cx="38" cy="22" r="2.2" fill="#B9C6D6" /><circle cx="45" cy="22" r="2.2" fill="#B9C6D6" /><circle cx="52" cy="22" r="2.2" fill="#B9C6D6" />
+                            <text class="s-t s-t-bar" x="108" y="25">Order entry</text>
+                            <rect x="38" y="38" width="58" height="6" rx="3" fill="#C3CEDB" /><rect x="102" y="38" width="30" height="6" rx="3" fill="#DCE3EC" /><rect x="150" y="38" width="28" height="6" rx="3" fill="#BFEBD8" />
+                            <rect x="38" y="50" width="46" height="6" rx="3" fill="#C3CEDB" /><rect x="102" y="50" width="38" height="6" rx="3" fill="#DCE3EC" /><rect x="150" y="50" width="28" height="6" rx="3" fill="#F8CFCF" />
+                            <rect x="38" y="62" width="64" height="6" rx="3" fill="#C3CEDB" /><rect x="108" y="62" width="24" height="6" rx="3" fill="#DCE3EC" /><rect x="150" y="62" width="28" height="6" rx="3" fill="#BFEBD8" />
+                            <rect x="38" y="80" width="44" height="15" rx="4" fill="#1D5FC4" /><text class="s-t s-t-btn" x="60" y="90.5" fill="#fff">Buy</text>
+                            <rect x="88.5" y="80.5" width="43" height="14" rx="4" fill="none" stroke="#C3CEDB" /><text class="s-t s-t-btn" x="110" y="90.5" fill="#43546A">Sell</text>
+                            <g class="a u-err">
+                                <path d="M28 30h160v66a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8z" fill="#FDECEC" />
+                                <path d="M108 45l14 24H94z" fill="#DC3F3F" stroke="#DC3F3F" stroke-width="5" stroke-linejoin="round" />
+                                <rect x="106.5" y="51" width="3" height="10" rx="1.5" fill="#fff" /><circle cx="108" cy="65.5" r="1.8" fill="#fff" />
+                                <text class="s-t s-t-msg" x="108" y="92" fill="#9C2222">Not responding</text>
+                            </g>
+                            <g class="a u-ok">
+                                <path d="M28 30h160v66a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8z" fill="#E0F6EC" />
+                                <circle cx="108" cy="58" r="15" fill="#17A673" />
+                                <path d="M100.5 58.5l5 5 9.5-10.5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+                                <text class="s-t s-t-msg" x="108" y="92" fill="#0E6C4A">Working again</text>
+                            </g>
+                        </g>
+
+                        <g class="a u-fig">
+                            <g class="a u-armL"><line x1="72" y1="202" x2="48" y2="154" stroke="#F2B544" stroke-width="13" stroke-linecap="round" /><circle cx="48" cy="153" r="7.5" fill="#D69A76" /></g>
+                            <g class="a u-armR"><line x1="144" y1="202" x2="168" y2="154" stroke="#F2B544" stroke-width="13" stroke-linecap="round" /><circle cx="168" cy="153" r="7.5" fill="#D69A76" /></g>
+                            <g class="a u-head"><path d="M82 150a26 26 0 0 1 52 0v36a6 6 0 0 1-6 6H88a6 6 0 0 1-6-6z" fill="#1A1630" /></g>
+                            <path d="M68 228v-22a22 22 0 0 1 22-22h36a22 22 0 0 1 22 22v22z" fill="#F2B544" />
+                            <g class="a u-head">
+                                <rect x="101" y="168" width="14" height="22" rx="6" fill="#BC8261" />
+                                <circle cx="108" cy="152" r="24" fill="#D69A76" />
+                                <path d="M84 151a24 24 0 0 1 48 0q-7-13-21-13q-9 10-27 13z" fill="#1A1630" />
+                                <g class="a u-eyes-open"><circle cx="99" cy="155" r="2.6" fill="#1A1630" /><circle cx="117" cy="155" r="2.6" fill="#1A1630" /></g>
+                                <g class="a u-eyes-joy" fill="none" stroke="#1A1630" stroke-width="2.3" stroke-linecap="round"><path d="M95 156.5q4-5 8 0" /><path d="M113 156.5q4-5 8 0" /></g>
+                                <path class="a u-browL" d="M94 147.5l9-1.5" fill="none" stroke="#1A1630" stroke-width="2.2" stroke-linecap="round" />
+                                <path class="a u-browR" d="M113 146l9 1.5" fill="none" stroke="#1A1630" stroke-width="2.2" stroke-linecap="round" />
+                                <path class="a u-m-neutral" d="M102 166.5h12" fill="none" stroke="#1A1630" stroke-width="2.3" stroke-linecap="round" />
+                                <path class="a u-m-worry" d="M101 169.5q7-7 14 0" fill="none" stroke="#1A1630" stroke-width="2.3" stroke-linecap="round" />
+                                <path class="a u-m-happy" d="M98.5 162.5h19a9.5 8.5 0 0 1-19 0z" fill="#fff" stroke="#1A1630" stroke-width="1.8" stroke-linejoin="round" />
+                                <path class="a u-sweat" d="M139 133q5.5 8 0 11q-5.5-3 0-11z" fill="#9EDBFF" />
+                            </g>
+                        </g>
+                        <g class="a u-bang"><circle cx="150" cy="122" r="11" fill="#DC3F3F" /><rect x="148.4" y="115" width="3.2" height="9" rx="1.6" fill="#fff" /><circle cx="150" cy="128" r="1.9" fill="#fff" /></g>
+                        <rect x="24" y="228" width="168" height="50" rx="4" fill="#0A1E44" /><rect x="18" y="223" width="180" height="8" rx="4" fill="#1B4285" />
+                        <rect x="82" y="192" width="52" height="34" rx="4" fill="#DCE4EF" /><circle cx="108" cy="209" r="4" fill="#B4C1D2" /><rect x="74" y="224" width="68" height="4" rx="2" fill="#B4C1D2" />
+                        <g class="s-sparks">
+                            <path class="a sp-a" d="M28 121l2.9 8.1 8.1 2.9-8.1 2.9-2.9 8.1-2.9-8.1-8.1-2.9 8.1-2.9z" fill="#FFD479" />
+                            <path class="a sp-b" d="M190 118.5l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5z" fill="#fff" />
+                            <path class="a sp-b" d="M20 174l2.1 5.9 5.9 2.1-5.9 2.1-2.1 5.9-2.1-5.9-5.9-2.1 5.9-2.1z" fill="#7FE0B5" />
+                            <circle class="a sp-a" cx="201" cy="172" r="4" fill="#9EDBFF" />
+                            <circle class="a sp-b" cx="68" cy="122" r="3.4" fill="#7FE0B5" />
+                            <circle class="a sp-a" cx="150" cy="124" r="3.4" fill="#FFD479" />
+                        </g>
+
+                        @* ---- the support engineer ---- *@
+                        <g class="a e-win">
+                            <rect x="332" y="14" width="160" height="90" rx="8" fill="#fff" />
+                            <path d="M404 103l8 10 8-10z" fill="#fff" />
+                            <path d="M332 30v-8a8 8 0 0 1 8-8h144a8 8 0 0 1 8 8v8z" fill="#E6EDF6" />
+                            <circle cx="342" cy="22" r="2.2" fill="#B9C6D6" /><circle cx="349" cy="22" r="2.2" fill="#B9C6D6" /><circle cx="356" cy="22" r="2.2" fill="#B9C6D6" />
+                            <text class="s-t s-t-bar" x="412" y="25">Support desk</text>
+                            <g class="a e-idle">
+                                <path d="M398 56h28l5 12v9a3 3 0 0 1-3 3h-32a3 3 0 0 1-3-3v-9z M393 68h10q2 5 9 5t9-5h10" fill="none" stroke="#B9C6D6" stroke-width="2" stroke-linejoin="round" />
+                                <text class="s-t s-t-idle" x="412" y="94">No open tickets</text>
+                            </g>
+                            <g class="a e-work">
+                                <text class="s-t s-t-id" x="342" y="44.5">BCL 0000042</text>
+                                <text class="s-t s-t-title" x="342" y="57.5">Order screen freezes</text>
+                                <g class="a c-assigned"><rect x="438" y="35.5" width="46" height="13" rx="6.5" fill="#EEEAFD" /><text class="s-t s-t-chip" x="461" y="44.7" fill="#4B32A8">Assigned</text></g>
+                                <g class="a c-progress"><rect x="432" y="35.5" width="52" height="13" rx="6.5" fill="#FFF2DC" /><text class="s-t s-t-chip" x="458" y="44.7" fill="#8A5300">In progress</text></g>
+                                <g class="a c-done"><rect x="450" y="35.5" width="34" height="13" rx="6.5" fill="#E0F6EC" /><text class="s-t s-t-chip" x="467" y="44.7" fill="#0E6C4A">Done</text></g>
+                                <rect class="a cl1" x="342" y="66" width="96" height="5" rx="2.5" fill="#B9D2F5" />
+                                <rect class="a cl2" x="342" y="75" width="128" height="5" rx="2.5" fill="#C3CEDB" />
+                                <rect class="a cl3" x="342" y="84" width="74" height="5" rx="2.5" fill="#C3CEDB" />
+                                <rect x="342" y="94" width="140" height="4" rx="2" fill="#E3E9F1" />
+                                <rect class="a pg" x="342" y="94" width="140" height="4" rx="2" fill="#1D5FC4" />
+                                <rect class="a pg-ok" x="342" y="94" width="140" height="4" rx="2" fill="#17A673" />
+                            </g>
+                            <g class="a b-new"><circle cx="489" cy="17" r="9.5" fill="#DC3F3F" stroke="#134089" stroke-width="2" /><text class="s-t s-t-badge" x="489" y="20.8" fill="#fff">1</text></g>
+                            <g class="a b-ok"><circle cx="489" cy="17" r="9.5" fill="#17A673" stroke="#134089" stroke-width="2" /><path d="M484.5 17.2l3.2 3.2 5.8-6.4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></g>
+                        </g>
+
+                        <g class="a e-armR">
+                            <line x1="448" y1="202" x2="472" y2="156" stroke="#37BDEB" stroke-width="13" stroke-linecap="round" />
+                            <rect x="468.5" y="138" width="7" height="13" rx="3.5" fill="#A5694A" /><rect x="464.5" y="146.5" width="15" height="13" rx="5.5" fill="#A5694A" />
+                        </g>
+                        <path d="M372 228v-22a22 22 0 0 1 22-22h36a22 22 0 0 1 22 22v22z" fill="#37BDEB" />
+                        <g class="a e-head">
+                            <rect x="405" y="168" width="14" height="22" rx="6" fill="#8E563B" />
+                            <circle cx="412" cy="152" r="24" fill="#A5694A" />
+                            <path d="M388 151a24 24 0 0 1 48 0v1q-3-12-24-12t-24 12z" fill="#1A1630" />
+                            <path d="M386 153a26 26 0 0 1 52 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" />
+                            <rect x="381" y="146" width="9" height="18" rx="4.5" fill="#fff" /><rect x="434" y="146" width="9" height="18" rx="4.5" fill="#fff" />
+                            <path d="M385.5 163q1 12 13 12.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" /><circle cx="400" cy="175.5" r="3.2" fill="#fff" />
+                            <circle cx="403" cy="155" r="2.6" fill="#1A1630" /><circle cx="421" cy="155" r="2.6" fill="#1A1630" />
+                            <g class="a e-brow" fill="none" stroke="#1A1630" stroke-width="2.2" stroke-linecap="round"><path d="M398 147h9" /><path d="M417 147h9" /></g>
+                            <path class="a e-m-neutral" d="M406 166.5h12" fill="none" stroke="#1A1630" stroke-width="2.3" stroke-linecap="round" />
+                            <path class="a e-m-happy" d="M404 164q8 8 16 0" fill="none" stroke="#1A1630" stroke-width="2.3" stroke-linecap="round" />
+                        </g>
+                        <rect x="328" y="228" width="168" height="50" rx="4" fill="#0A1E44" /><rect x="322" y="223" width="180" height="8" rx="4" fill="#1B4285" />
+                        <rect x="386" y="192" width="52" height="34" rx="4" fill="#DCE4EF" /><circle cx="412" cy="209" r="4" fill="#B4C1D2" /><rect x="378" y="224" width="68" height="4" rx="2" fill="#B4C1D2" />
+
+                        @* ---- what travels between them: the ticket one way, the fix back ---- *@
+                        <g class="a tk-x"><g class="a tk-y"><g class="a tk-s">
+                            <rect x="-25" y="-13" width="50" height="32" rx="6" fill="#041028" opacity=".3" />
+                            <rect x="-25" y="-16" width="50" height="32" rx="6" fill="#fff" />
+                            <circle cx="-16" cy="-7" r="3.2" fill="#DC3F3F" /><rect x="-9" y="-9.5" width="26" height="5" rx="2.5" fill="#43546A" />
+                            <rect x="-19" y="1" width="38" height="4" rx="2" fill="#C3CEDB" /><rect x="-19" y="8" width="24" height="4" rx="2" fill="#C3CEDB" />
+                        </g></g></g>
+                        <g class="a fx-x"><g class="a fx-y"><g class="a fx-s">
+                            <rect x="-28" y="-10" width="56" height="24" rx="12" fill="#041028" opacity=".3" />
+                            <rect x="-28" y="-12" width="56" height="24" rx="12" fill="#17A673" />
+                            <path d="M-18.5 .2l3.6 3.6 6.4-7.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+                            <text class="s-t s-t-fix" x="7" y="3.7" fill="#fff">Fixed</text>
+                        </g></g></g>
+                    </svg>
+                    <button type="button" class="si-pause" data-story-toggle aria-label="Pause the animation" title="Pause the animation">
+                        <svg class="si-ic-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1" /><rect x="9.5" y="3" width="3" height="10" rx="1" /></svg>
+                        <svg class="si-ic-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.8-4.8a.6.6 0 0 0 0-1l-7.8-4.8a.6.6 0 0 0-.9.5z" /></svg>
+                    </button>
+                </div>
+
+                <ol class="si-steps">
+                    <li class="si-step si-step-1"><span class="si-bar"><i></i></span><b>Something breaks</b><span class="si-step-d">Raise a ticket and say what went wrong.</span></li>
+                    <li class="si-step si-step-2"><span class="si-bar"><i></i></span><b>An engineer takes it</b><span class="si-step-d">You see who is working on it.</span></li>
+                    <li class="si-step si-step-3"><span class="si-bar"><i></i></span><b>Fixed</b><span class="si-step-d">You hear the moment it is done.</span></li>
+                </ol>
+
+                <div class="si-foot">Xpert Fintech Limited</div>
+            </div>
         </aside>
 
-        <main class="auth-main">
+        <main class="auth-main si-main">
             <div class="auth-card @ViewData["CardClass"]">
-                <a class="auth-mark-s" asp-controller="RegisterLogin" asp-action="Login">
-                    <img src="~/img/XFLlogo.png" alt="" width="38" height="38"><b>XFL CSMS</b>
-                </a>
                 @RenderBody()
             </div>
         </main>
     </div>
 
     <script src="~/js/app.js" asp-append-version="true"></script>
+    <script src="~/js/signin.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

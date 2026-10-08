@@ -1,0 +1,292 @@
+/* ==========================================================================
+   Xpert CSMS - the pages before sign-in (Views/Shared/_AuthLayout.cshtml)
+   Loaded after app.css and uses its tokens (--font, --surface, ...).
+     1 frame   2 brand panel   3 the three steps   4 the picture   5 the story (animation)   6 small screens
+   The picture's own colours are fixed: the panel is dark blue in the light and in the dark theme.
+   ========================================================================== */
+
+/* ---------- 1. frame ---------- */
+.si { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); min-height: 100vh; min-height: 100dvh; background: var(--surface); }
+.si-main { min-width: 0; }
+
+/* ---------- 2. brand panel ---------- */
+.si-side { position: relative; min-width: 0; overflow: hidden; color: #fff; background: linear-gradient(165deg, #0B2350 0%, #134089 58%, #0F64AD 100%); }
+/* stays in view while a long form (register) scrolls */
+.si-side-in {
+    position: sticky; top: 0; box-sizing: border-box; height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column; gap: clamp(12px, 2.4vh, 24px);
+    padding: clamp(22px, 4.4vh, 44px) clamp(26px, 3.4vw, 52px);
+}
+.si-mark { display: inline-flex; align-items: center; gap: 12px; align-self: flex-start; color: #fff; }
+.si-mark:hover { text-decoration: none; }
+.si-logo { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; overflow: hidden; background: #fff; }
+.si-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.si-name b { display: block; font: 600 20px/1.1 var(--font-cond); letter-spacing: .01em; }
+.si-name span { font-size: 13px; opacity: .8; }
+.si-side h1 { margin: 0; max-width: 24ch; font: 600 clamp(22px, 2.3vw, 32px)/1.12 var(--font-cond); text-wrap: balance; }
+.si-foot { font-size: 12.5px; opacity: .72; }
+
+/* ---------- 3. the three steps ---------- */
+.si-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 1.6vw, 22px); counter-reset: si-step; }
+.si-step { counter-increment: si-step; display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; line-height: 1.38; }
+.si-step b { font: 600 15px/1.25 var(--font); }
+.si-step b::before { content: counter(si-step); margin-right: .55em; color: #8FD3FF; }
+.si-step-d { opacity: .84; }
+/* each step's bar fills while its part of the story plays */
+.si-bar { display: block; height: 3px; margin-bottom: 7px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .24); }
+.si-bar i { display: block; height: 100%; border-radius: 2px; background: #fff; transform-origin: 0 50%; }
+
+/* ---------- 4. the picture ---------- */
+.si-stage { position: relative; flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.story { display: block; width: 100%; height: 100%; max-height: 560px; overflow: visible; }
+.s-floor { fill: #04112B; opacity: .34; }
+.s-route { fill: none; stroke: #fff; stroke-opacity: .38; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: .1 6; }
+.s-t { font-family: var(--font); text-anchor: middle; }
+.s-t-bar { font-size: 8.5px; font-weight: 600; fill: #43546A; }
+.s-t-btn { font-size: 8.5px; font-weight: 600; }
+.s-t-msg { font-size: 10px; font-weight: 600; }
+.s-t-idle { font-size: 9.5px; fill: #607187; }
+.s-t-id { font-size: 8px; font-weight: 500; fill: #607187; text-anchor: start; }
+.s-t-title { font-size: 9.5px; font-weight: 600; fill: #0F1D2E; text-anchor: start; }
+.s-t-chip { font-size: 7.5px; font-weight: 600; }
+.s-t-badge { font-size: 10.5px; font-weight: 600; }
+.s-t-fix { font-size: 10.5px; font-weight: 600; }
+
+/* The picture as it stands without animation is the happy ending; these are the parts that belong to earlier moments. */
+.u-err, .u-eyes-open, .u-m-neutral, .u-m-worry, .u-bang, .u-sweat,
+.e-idle, .c-assigned, .c-progress, .b-new, .e-m-neutral, .tk-s, .fx-s { opacity: 0; }
+.tk-x { transform: translate(192px, 58px); }
+.fx-x { transform: translate(328px, 58px); }
+
+/* where each part turns or grows from (lengths are in the picture's own units) */
+.u-win, .e-win, .u-bang, .b-new, .b-ok, .sp-a, .sp-b, .tk-s, .fx-s, .u-browL, .u-browR { transform-box: fill-box; transform-origin: 50% 50%; }
+.cl1, .cl2, .cl3, .pg { transform-box: fill-box; transform-origin: 0 50%; }
+.u-armL { transform-origin: 72px 202px; }
+.u-armR { transform-origin: 144px 202px; }
+.e-armR { transform-origin: 448px 202px; }
+.u-head { transform-origin: 108px 188px; }
+.e-head { transform-origin: 412px 188px; }
+
+.si-pause {
+    position: absolute; right: 0; bottom: 0; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 1px solid rgba(255, 255, 255, .38); border-radius: 50%; background: rgba(6, 22, 54, .45); color: #fff; cursor: pointer;
+}
+.si-pause:hover { background: rgba(6, 22, 54, .75); border-color: rgba(255, 255, 255, .7); }
+.si-pause:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.si-pause svg { fill: currentColor; }
+.si-pause .si-ic-play, .si-side.is-paused .si-pause .si-ic-pause { display: none; }
+.si-side.is-paused .si-pause .si-ic-play { display: block; }
+
+/* ---------- 5. the story ----------
+   One loop of 18 seconds; every part runs on the same clock, so 1% is 0.18 s everywhere:
+      0 -  4   the happy ending of the last round fades back to an ordinary working day
+     10 - 34   the order screen stops responding; the ticket is raised and travels to the support desk
+     34 - 74   the engineer is assigned, works on it, marks it done; the fix travels back
+     74 - 100  the screen works again and the person is happy
+   The loop ends where the still picture stands, so pausing or "reduce motion" never shows a broken state. */
+.si-side { --si-loop: 18s; }
+.story .a, .si-step, .si-bar i { animation-duration: var(--si-loop); animation-timing-function: linear; animation-iteration-count: infinite; }
+.si-side.is-paused .a, .si-side.is-paused .si-step, .si-side.is-paused .si-bar i { animation-play-state: paused; }
+
+.u-err { animation-name: si-u-err; }           .u-ok { animation-name: si-u-ok; }
+.u-win { animation-name: si-u-win; }           .u-fig { animation-name: si-u-fig; }
+.u-head { animation-name: si-u-head; }         .u-armL { animation-name: si-u-armL; }
+.u-armR { animation-name: si-u-armR; }         .u-eyes-open { animation-name: si-u-calm; }
+.u-eyes-joy { animation-name: si-u-joy; }      .u-browL { animation-name: si-u-browL; }
+.u-browR { animation-name: si-u-browR; }       .u-m-neutral { animation-name: si-u-neutral; }
+.u-m-worry { animation-name: si-u-worry; }     .u-m-happy { animation-name: si-u-joy; }
+.u-sweat { animation-name: si-u-sweat; }       .u-bang { animation-name: si-u-bang; }
+.sp-a { animation-name: si-sp-a; }             .sp-b { animation-name: si-sp-b; }
+.e-win { animation-name: si-e-win; }           .e-idle { animation-name: si-e-idle; }
+.e-work { animation-name: si-e-work; }         .c-assigned { animation-name: si-c-assigned; }
+.c-progress { animation-name: si-c-progress; } .c-done { animation-name: si-c-done; }
+.cl1 { animation-name: si-cl1; }               .cl2 { animation-name: si-cl2; }
+.cl3 { animation-name: si-cl3; }               .pg { animation-name: si-pg; }
+.pg-ok { animation-name: si-c-done; }          .b-new { animation-name: si-b-new; }
+.b-ok { animation-name: si-b-ok; }             .e-armR { animation-name: si-e-armR; }
+.e-head { animation-name: si-e-head; }         .e-brow { animation-name: si-e-brow; }
+.e-m-neutral { animation-name: si-e-neutral; } .e-m-happy { animation-name: si-e-happy; }
+.tk-x { animation-name: si-tk-x; }             .tk-y { animation-name: si-tk-y; }
+.tk-s { animation-name: si-tk-s; }             .fx-x { animation-name: si-fx-x; }
+.fx-y { animation-name: si-fx-y; }             .fx-s { animation-name: si-fx-s; }
+.si-step-1 { animation-name: si-st1; }         .si-step-2 { animation-name: si-st2; }
+.si-step-3 { animation-name: si-st3; }
+.si-step-1 .si-bar i { animation-name: si-bar1; }
+.si-step-2 .si-bar i { animation-name: si-bar2; }
+.si-step-3 .si-bar i { animation-name: si-bar3; }
+
+/* -- the person's screen -- */
+@keyframes si-u-err { 0%, 10% { opacity: 0; } 11.5%, 73% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes si-u-ok { 0% { opacity: 1; } 4%, 73% { opacity: 0; } 75%, 100% { opacity: 1; } }
+@keyframes si-u-win {
+    0%, 10% { transform: translateX(0) scale(1); }
+    10.6% { transform: translateX(-4px) scale(1); } 11.2% { transform: translateX(4px) scale(1); }
+    11.8% { transform: translateX(-3px) scale(1); } 12.4% { transform: translateX(3px) scale(1); }
+    13%, 73% { transform: translateX(0) scale(1); }
+    74.5% { transform: translateX(0) scale(1.05); }
+    76%, 100% { transform: translateX(0) scale(1); }
+}
+/* -- the person -- */
+@keyframes si-u-fig {
+    0%, 74% { transform: translateY(0); animation-timing-function: ease-out; }
+    76% { transform: translateY(-6px); animation-timing-function: ease-in; }
+    78% { transform: translateY(0); animation-timing-function: ease-out; }
+    80% { transform: translateY(-3px); animation-timing-function: ease-in; }
+    82%, 100% { transform: translateY(0); }
+}
+@keyframes si-u-head {
+    0%, 11% { transform: translateY(0) rotate(0deg); animation-timing-function: ease-out; }
+    13.5%, 35% { transform: translateY(3px) rotate(-4deg); animation-timing-function: ease-in-out; }
+    38%, 100% { transform: translateY(0) rotate(0deg); }
+}
+@keyframes si-u-armL {
+    0% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    4%, 74% { transform: rotate(-149deg); animation-timing-function: cubic-bezier(.3, .9, .4, 1); }
+    77% { transform: rotate(9deg); animation-timing-function: ease-in-out; }
+    79% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    84% { transform: rotate(-13deg); animation-timing-function: ease-in-out; }
+    89% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    94% { transform: rotate(-13deg); animation-timing-function: ease-in-out; }
+    100% { transform: rotate(0deg); }
+}
+@keyframes si-u-armR {
+    0% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    4%, 74% { transform: rotate(149deg); animation-timing-function: cubic-bezier(.3, .9, .4, 1); }
+    77% { transform: rotate(-9deg); animation-timing-function: ease-in-out; }
+    79% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    84% { transform: rotate(13deg); animation-timing-function: ease-in-out; }
+    89% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    94% { transform: rotate(13deg); animation-timing-function: ease-in-out; }
+    100% { transform: rotate(0deg); }
+}
+/* the three faces: calm (working, and again while waiting for the fix), worried, glad */
+@keyframes si-u-calm { 0%, 3% { opacity: 0; } 4%, 73.5% { opacity: 1; } 74.5%, 100% { opacity: 0; } }
+@keyframes si-u-joy { 0%, 3% { opacity: 1; } 4%, 73.5% { opacity: 0; } 74.5%, 100% { opacity: 1; } }
+@keyframes si-u-neutral { 0%, 3% { opacity: 0; } 4%, 10.5% { opacity: 1; } 11%, 36% { opacity: 0; } 37%, 73.5% { opacity: 1; } 74.5%, 100% { opacity: 0; } }
+@keyframes si-u-worry { 0%, 10.5% { opacity: 0; } 11%, 36% { opacity: 1; } 37%, 100% { opacity: 0; } }
+@keyframes si-u-browL {
+    0% { transform: translateY(-2.5px) rotate(0deg); } 4%, 10.5% { transform: translateY(0) rotate(0deg); }
+    11.5%, 36% { transform: translateY(-1px) rotate(-17deg); } 38%, 74% { transform: translateY(0) rotate(0deg); }
+    75.5%, 100% { transform: translateY(-2.5px) rotate(0deg); }
+}
+@keyframes si-u-browR {
+    0% { transform: translateY(-2.5px) rotate(0deg); } 4%, 10.5% { transform: translateY(0) rotate(0deg); }
+    11.5%, 36% { transform: translateY(-1px) rotate(17deg); } 38%, 74% { transform: translateY(0) rotate(0deg); }
+    75.5%, 100% { transform: translateY(-2.5px) rotate(0deg); }
+}
+@keyframes si-u-sweat {
+    0%, 13% { opacity: 0; transform: translateY(-3px); } 15% { opacity: 1; transform: translateY(0); }
+    20% { opacity: 1; transform: translateY(5px); } 22% { opacity: 0; transform: translateY(8px); }
+    23% { opacity: 0; transform: translateY(-3px); } 25% { opacity: 1; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(5px); } 32%, 100% { opacity: 0; transform: translateY(8px); }
+}
+@keyframes si-u-bang {
+    0%, 11% { opacity: 0; transform: scale(0); } 12.5% { opacity: 1; transform: scale(1.22); }
+    13.5%, 30% { opacity: 1; transform: scale(1); } 32%, 100% { opacity: 0; transform: scale(0); }
+}
+@keyframes si-sp-a {
+    0% { opacity: 1; transform: scale(1); } 3%, 75.5% { opacity: 0; transform: scale(0); }
+    77.5% { opacity: 1; transform: scale(1.35); } 79.5% { opacity: 1; transform: scale(1); }
+    87% { opacity: 1; transform: scale(.7); } 94%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes si-sp-b {
+    0% { opacity: 1; transform: scale(1); } 3%, 77% { opacity: 0; transform: scale(0); }
+    79% { opacity: 1; transform: scale(1.35); } 81% { opacity: 1; transform: scale(1); }
+    91% { opacity: 1; transform: scale(.7); } 97%, 100% { opacity: 1; transform: scale(1); }
+}
+/* -- the ticket to the support desk, the fix back -- */
+@keyframes si-tk-x { 0%, 22% { transform: translate(192px, 58px); } 32%, 100% { transform: translate(328px, 58px); } }
+@keyframes si-tk-y {
+    0%, 22% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, .5, 1); }
+    27% { transform: translateY(-26px); animation-timing-function: cubic-bezier(.5, 0, 1, 1); }
+    32%, 100% { transform: translateY(0); }
+}
+@keyframes si-tk-s {
+    0%, 19.5% { opacity: 0; transform: scale(.2); } 21.5% { opacity: 1; transform: scale(1.12); }
+    22.5%, 31.5% { opacity: 1; transform: scale(1); } 33.5%, 100% { opacity: 0; transform: scale(.25); }
+}
+@keyframes si-fx-x { 0%, 64% { transform: translate(328px, 58px); } 72%, 100% { transform: translate(192px, 58px); } }
+@keyframes si-fx-y {
+    0%, 64% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, .5, 1); }
+    68% { transform: translateY(-26px); animation-timing-function: cubic-bezier(.5, 0, 1, 1); }
+    72%, 100% { transform: translateY(0); }
+}
+@keyframes si-fx-s {
+    0%, 61.5% { opacity: 0; transform: scale(.2); } 63.5% { opacity: 1; transform: scale(1.12); }
+    64.5%, 71.5% { opacity: 1; transform: scale(1); } 73.5%, 100% { opacity: 0; transform: scale(.25); }
+}
+/* -- the support desk -- */
+@keyframes si-e-win { 0%, 33% { transform: scale(1); } 34.5% { transform: scale(1.05); } 36%, 100% { transform: scale(1); } }
+@keyframes si-e-idle { 0%, 2.2% { opacity: 0; } 4%, 33% { opacity: 1; } 34%, 100% { opacity: 0; } }
+@keyframes si-e-work { 0% { opacity: 1; } 2%, 34% { opacity: 0; } 35.2%, 100% { opacity: 1; } }
+@keyframes si-c-assigned { 0%, 33% { opacity: 0; } 34%, 40% { opacity: 1; } 41%, 100% { opacity: 0; } }
+@keyframes si-c-progress { 0%, 40% { opacity: 0; } 41%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+@keyframes si-c-done { 0%, 2% { opacity: 1; } 2.1%, 60% { opacity: 0; } 61%, 100% { opacity: 1; } }
+@keyframes si-cl1 { 0%, 2% { transform: scaleX(1); } 2.1%, 40% { transform: scaleX(0); } 46%, 100% { transform: scaleX(1); } }
+@keyframes si-cl2 { 0%, 2% { transform: scaleX(1); } 2.1%, 46% { transform: scaleX(0); } 52%, 100% { transform: scaleX(1); } }
+@keyframes si-cl3 { 0%, 2% { transform: scaleX(1); } 2.1%, 52% { transform: scaleX(0); } 58%, 100% { transform: scaleX(1); } }
+@keyframes si-pg { 0%, 2% { transform: scaleX(1); } 2.1%, 40% { transform: scaleX(0); } 60%, 100% { transform: scaleX(1); } }
+@keyframes si-b-new { 0%, 34% { transform: scale(0); } 35.5% { transform: scale(1.25); } 36.5%, 60% { transform: scale(1); } 61%, 100% { transform: scale(0); } }
+@keyframes si-b-ok { 0% { transform: scale(1); } 2%, 60% { transform: scale(0); } 62% { transform: scale(1.25); } 63%, 100% { transform: scale(1); } }
+/* -- the engineer: looks up when the ticket lands, nods along while working, thumb up when it is done -- */
+@keyframes si-e-head {
+    0%, 33.5% { transform: translateY(0) rotate(0deg); } 35% { transform: translateY(-2.5px) rotate(0deg); }
+    37%, 40% { transform: translateY(0) rotate(0deg); }
+    43% { transform: translateY(1px) rotate(-3deg); } 46% { transform: translateY(1px) rotate(3deg); }
+    49% { transform: translateY(1px) rotate(-3deg); } 52% { transform: translateY(1px) rotate(3deg); }
+    55% { transform: translateY(1px) rotate(-3deg); } 58%, 100% { transform: translateY(0) rotate(0deg); }
+}
+@keyframes si-e-brow {
+    0% { transform: translateY(-2px); } 4%, 33.5% { transform: translateY(0); } 35%, 38% { transform: translateY(-3px); }
+    40%, 60% { transform: translateY(1.2px); } 61.5%, 100% { transform: translateY(-2px); }
+}
+@keyframes si-e-neutral { 0%, 3% { opacity: 0; } 4%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+@keyframes si-e-happy { 0%, 3% { opacity: 1; } 4%, 60% { opacity: 0; } 61%, 100% { opacity: 1; } }
+@keyframes si-e-armR {
+    0% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+    4%, 60.5% { transform: rotate(149deg); animation-timing-function: cubic-bezier(.3, .9, .4, 1); }
+    63.5% { transform: rotate(-9deg); animation-timing-function: ease-in-out; }
+    65.5%, 100% { transform: rotate(0deg); }
+}
+/* -- the steps under the picture -- */
+@keyframes si-st1 { 0%, 9% { opacity: .66; } 10%, 34% { opacity: 1; } 36%, 100% { opacity: .66; } }
+@keyframes si-st2 { 0%, 33% { opacity: .66; } 34%, 74% { opacity: 1; } 76%, 100% { opacity: .66; } }
+@keyframes si-st3 { 0% { opacity: 1; } 4%, 73% { opacity: .66; } 74%, 100% { opacity: 1; } }
+@keyframes si-bar1 {
+    0% { opacity: 1; transform: scaleX(1); } 3% { opacity: 0; transform: scaleX(1); } 3.5% { opacity: 0; transform: scaleX(0); }
+    4%, 10% { opacity: 1; transform: scaleX(0); } 34%, 100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes si-bar2 {
+    0% { opacity: 1; transform: scaleX(1); } 3% { opacity: 0; transform: scaleX(1); } 3.5% { opacity: 0; transform: scaleX(0); }
+    4%, 34% { opacity: 1; transform: scaleX(0); } 74%, 100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes si-bar3 {
+    0% { opacity: 1; transform: scaleX(1); } 3% { opacity: 0; transform: scaleX(1); } 3.5% { opacity: 0; transform: scaleX(0); }
+    4%, 74% { opacity: 1; transform: scaleX(0); } 97%, 100% { opacity: 1; transform: scaleX(1); }
+}
+
+/* "Reduce motion": no movement, the still picture and the three steps tell it. */
+@media (prefers-reduced-motion: reduce) {
+    .story .a, .si-step, .si-bar i { animation: none !important; }
+    .si-pause { display: none; }
+}
+
+/* ---------- 6. small screens ---------- */
+/* the panel becomes a band above the form: name, picture, the three step titles */
+@media (max-width: 900px) {
+    .si { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+    .si-side-in { position: static; height: auto; gap: 10px; padding: 16px 20px 14px; }
+    .si-side h1, .si-foot, .si-step-d, .si-name span { display: none; }
+    .si-logo { width: 36px; height: 36px; border-radius: 9px; }
+    .si-name b { font-size: 18px; }
+    .si-stage { flex: none; height: min(50vw, 250px); }
+    .si-steps { gap: 10px; }
+    .si-step b { font-size: 13px; }
+    .si-bar { margin-bottom: 5px; }
+    .si-pause { top: -46px; bottom: auto; }   /* beside the name, clear of the picture */
+}
+/* a low, wide window (a laptop with the browser zoomed in): give the picture the room */
+@media (min-width: 901px) and (max-height: 620px) {
+    .si-step-d, .si-foot { display: none; }
+}
+@media print { .si-side { display: none; } .si { grid-template-columns: minmax(0, 1fr); } }

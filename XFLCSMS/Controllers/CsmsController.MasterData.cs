@@ -16,6 +16,7 @@ using XFLCSMS.Services;
 namespace XFLCSMS.Controllers
 {
     // Master data: brokerage houses, all branches, support types, categories, sub-categories, affected sections.
+    // (The products and what the support lists share: CsmsController.Products.cs.)
     // For every role that holds Permission.MasterData (by default the platform admin). The pages are in Views/Shared.
     public abstract partial class CsmsController
     {
@@ -403,38 +404,33 @@ namespace XFLCSMS.Controllers
         }
 
 
+        // ---- support types ---------------------------------------------------------------------------
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> SupportTypeList()
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportType = await Db.SupportTypes.ToListAsync();
-                return View(supportType);
+                return View(await Db.SupportTypes.Include(item => item.Product).OrderBy(item => item.SupportTypeId).ToListAsync());
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> ViewSupportType(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var brocarage = await Db.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == id);
-
-                if (brocarage == null)
+                var item = await Db.SupportTypes.Include(row => row.Product).FirstOrDefaultAsync(row => row.SupportTypeId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(brocarage);
+                return View(item);
             }
             catch (Exception ex)
             {
@@ -442,15 +438,15 @@ namespace XFLCSMS.Controllers
             }
         }
 
+        /// <param name="productId">The product the new entry is for (the link on the page of a product passes it).</param>
+        /// <param name="back">"product": return to the page of the product afterwards instead of the list.</param>
         [RequirePermission(Permission.MasterData)]
-        public IActionResult CreateSupportType()
+        public async Task<IActionResult> CreateSupportType(int? productId = null, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                return View();
+                await LoadProductChoicesAsync(back);
+                return View(new SupportType { ProductId = await ExistingProductAsync(productId) });
             }
             catch (Exception ex)
             {
@@ -461,19 +457,28 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateSupportType([Bind("SupportTypeId,SType")] SupportType supportType)
+        public async Task<IActionResult> CreateSupportType([Bind("SupportTypeId,SType,ProductId")] SupportType supportType, string? back = null)
         {
             try
             {
                 supportType.SupportTypeId = 0; // identity column: the database assigns the id
+                supportType.SType = CleanName(supportType.SType);
+                Revalidate(supportType, "SType"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportType.ProductId);
+                if (ModelState.IsValid && await Db.SupportTypes.AnyAsync(row => row.SType == supportType.SType && row.ProductId == supportType.ProductId))
+                {
+                    ModelState.AddModelError(nameof(SupportType.SType), TakenMessage("support type", supportType.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View(supportType);
                 }
 
                 await Db.AddAsync(supportType);
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportTypeList");
+                return BackToSupportList("SupportTypeList", supportType.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -481,50 +486,64 @@ namespace XFLCSMS.Controllers
             }
         }
 
-
         [RequirePermission(Permission.MasterData)]
-        public async Task<IActionResult> EditSupportType(int id)
+        public async Task<IActionResult> EditSupportType(int id, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var brocarage = await Db.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == id);
-
-                if (brocarage == null)
+                var item = await Db.SupportTypes.FirstOrDefaultAsync(row => row.SupportTypeId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(brocarage);
+                await LoadProductChoicesAsync(back);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
-
         }
+
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
-        public async Task<IActionResult> UpdateSupportType(SupportType brokeragesss)
+        public async Task<IActionResult> UpdateSupportType([Bind("SupportTypeId,SType,ProductId")] SupportType supportType, string? back = null)
         {
             try
             {
-                var existing = await Db.SupportTypes.FirstOrDefaultAsync(item => item.SupportTypeId == brokeragesss.SupportTypeId);
+                var existing = await Db.SupportTypes.FirstOrDefaultAsync(row => row.SupportTypeId == supportType.SupportTypeId);
                 if (existing == null)
                 {
                     return NotFound();
                 }
 
-                if (!ModelState.IsValid)
+                supportType.SType = CleanName(supportType.SType);
+                Revalidate(supportType, "SType"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportType.ProductId);
+                // tickets of one product must not end up with an entry of another: an entry in use can be opened to all
+                // products, but it moves to a product only when every ticket that uses it is of that product
+                if (supportType.ProductId != null && supportType.ProductId != existing.ProductId
+                    && await Db.Issues.AnyAsync(issue => issue.SupportTypeId == existing.SupportTypeId && (issue.ProductId == null || issue.ProductId != supportType.ProductId)))
                 {
-                    return View("EditSupportType", brokeragesss);
+                    ModelState.AddModelError("ProductId", "Tickets of other products use this entry, so it cannot move to this product. It can be offered for all products.");
                 }
 
-                existing.SType = brokeragesss.SType;
+                if (ModelState.IsValid && await Db.SupportTypes.AnyAsync(row => row.SType == supportType.SType && row.ProductId == supportType.ProductId && row.SupportTypeId != existing.SupportTypeId))
+                {
+                    ModelState.AddModelError(nameof(SupportType.SType), TakenMessage("support type", supportType.ProductId));
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    await LoadProductChoicesAsync(back);
+                    return View("EditSupportType", supportType);
+                }
+
+                existing.SType = supportType.SType;
+                existing.ProductId = supportType.ProductId;
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportTypeList");
+                return BackToSupportList("SupportTypeList", existing.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -560,39 +579,33 @@ namespace XFLCSMS.Controllers
             }
         }
 
+        // ---- support categories ---------------------------------------------------------------------------
 
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> SupportCatagoryList()
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportCatagory = await Db.SupportCatagories.ToListAsync();
-                return View(supportCatagory);
+                return View(await Db.SupportCatagories.Include(item => item.Product).OrderBy(item => item.SupportCatagoryId).ToListAsync());
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> ViewSupportCatagory(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportCatagory = await Db.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == id);
-
-                if (supportCatagory == null)
+                var item = await Db.SupportCatagories.Include(row => row.Product).FirstOrDefaultAsync(row => row.SupportCatagoryId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(supportCatagory);
+                return View(item);
             }
             catch (Exception ex)
             {
@@ -600,15 +613,15 @@ namespace XFLCSMS.Controllers
             }
         }
 
+        /// <param name="productId">The product the new entry is for (the link on the page of a product passes it).</param>
+        /// <param name="back">"product": return to the page of the product afterwards instead of the list.</param>
         [RequirePermission(Permission.MasterData)]
-        public IActionResult CreateSupportCatagory()
+        public async Task<IActionResult> CreateSupportCatagory(int? productId = null, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                return View();
+                await LoadProductChoicesAsync(back);
+                return View(new SupportCatagory { ProductId = await ExistingProductAsync(productId) });
             }
             catch (Exception ex)
             {
@@ -619,19 +632,28 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateSupportCatagory([Bind("SupportCatagoryId,SCatagory")] SupportCatagory supportCatagory)
+        public async Task<IActionResult> CreateSupportCatagory([Bind("SupportCatagoryId,SCatagory,ProductId")] SupportCatagory supportCatagory, string? back = null)
         {
             try
             {
                 supportCatagory.SupportCatagoryId = 0; // identity column: the database assigns the id
+                supportCatagory.SCatagory = CleanName(supportCatagory.SCatagory);
+                Revalidate(supportCatagory, "SCatagory"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportCatagory.ProductId);
+                if (ModelState.IsValid && await Db.SupportCatagories.AnyAsync(row => row.SCatagory == supportCatagory.SCatagory && row.ProductId == supportCatagory.ProductId))
+                {
+                    ModelState.AddModelError(nameof(SupportCatagory.SCatagory), TakenMessage("support category", supportCatagory.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View(supportCatagory);
                 }
 
                 await Db.AddAsync(supportCatagory);
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportCatagoryList");
+                return BackToSupportList("SupportCatagoryList", supportCatagory.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -640,48 +662,63 @@ namespace XFLCSMS.Controllers
         }
 
         [RequirePermission(Permission.MasterData)]
-        public async Task<IActionResult> EditSupportCatagory(int id)
+        public async Task<IActionResult> EditSupportCatagory(int id, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportCatagory = await Db.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == id);
-
-                if (supportCatagory == null)
+                var item = await Db.SupportCatagories.FirstOrDefaultAsync(row => row.SupportCatagoryId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(supportCatagory);
+                await LoadProductChoicesAsync(back);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
-
         }
+
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
-        public async Task<IActionResult> UpdateSupportCatagory(SupportCatagory supportCatagory)
+        public async Task<IActionResult> UpdateSupportCatagory([Bind("SupportCatagoryId,SCatagory,ProductId")] SupportCatagory supportCatagory, string? back = null)
         {
             try
             {
-                var existing = await Db.SupportCatagories.FirstOrDefaultAsync(item => item.SupportCatagoryId == supportCatagory.SupportCatagoryId);
+                var existing = await Db.SupportCatagories.FirstOrDefaultAsync(row => row.SupportCatagoryId == supportCatagory.SupportCatagoryId);
                 if (existing == null)
                 {
                     return NotFound();
                 }
 
+                supportCatagory.SCatagory = CleanName(supportCatagory.SCatagory);
+                Revalidate(supportCatagory, "SCatagory"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportCatagory.ProductId);
+                // tickets of one product must not end up with an entry of another: an entry in use can be opened to all
+                // products, but it moves to a product only when every ticket that uses it is of that product
+                if (supportCatagory.ProductId != null && supportCatagory.ProductId != existing.ProductId
+                    && await Db.Issues.AnyAsync(issue => issue.SupportCatagoryId == existing.SupportCatagoryId && (issue.ProductId == null || issue.ProductId != supportCatagory.ProductId)))
+                {
+                    ModelState.AddModelError("ProductId", "Tickets of other products use this entry, so it cannot move to this product. It can be offered for all products.");
+                }
+
+                if (ModelState.IsValid && await Db.SupportCatagories.AnyAsync(row => row.SCatagory == supportCatagory.SCatagory && row.ProductId == supportCatagory.ProductId && row.SupportCatagoryId != existing.SupportCatagoryId))
+                {
+                    ModelState.AddModelError(nameof(SupportCatagory.SCatagory), TakenMessage("support category", supportCatagory.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View("EditSupportCatagory", supportCatagory);
                 }
 
                 existing.SCatagory = supportCatagory.SCatagory;
+                existing.ProductId = supportCatagory.ProductId;
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportCatagoryList");
+                return BackToSupportList("SupportCatagoryList", existing.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -717,53 +754,49 @@ namespace XFLCSMS.Controllers
             }
         }
 
+        // ---- support sub-categories ---------------------------------------------------------------------------
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> SupportSubCatagoryList()
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportSubCatagory = await Db.SupportSubCatagories.ToListAsync();
-                return View(supportSubCatagory);
+                return View(await Db.SupportSubCatagories.Include(item => item.Product).OrderBy(item => item.SupportSubCatagoryId).ToListAsync());
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> ViewSupportSubCatagory(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportSubCatagory = await Db.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == id);
-
-                if (supportSubCatagory == null)
+                var item = await Db.SupportSubCatagories.Include(row => row.Product).FirstOrDefaultAsync(row => row.SupportSubCatagoryId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(supportSubCatagory);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
+        /// <param name="productId">The product the new entry is for (the link on the page of a product passes it).</param>
+        /// <param name="back">"product": return to the page of the product afterwards instead of the list.</param>
         [RequirePermission(Permission.MasterData)]
-        public IActionResult CreateSupportSubCatagory()
+        public async Task<IActionResult> CreateSupportSubCatagory(int? productId = null, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                return View();
+                await LoadProductChoicesAsync(back);
+                return View(new SupportSubCatagory { ProductId = await ExistingProductAsync(productId) });
             }
             catch (Exception ex)
             {
@@ -774,19 +807,28 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateSupportSubCatagory([Bind("SupportSubCatagoryId,SubCatagory")] SupportSubCatagory supportSubCatagory)
+        public async Task<IActionResult> CreateSupportSubCatagory([Bind("SupportSubCatagoryId,SubCatagory,ProductId")] SupportSubCatagory supportSubCatagory, string? back = null)
         {
             try
             {
                 supportSubCatagory.SupportSubCatagoryId = 0; // identity column: the database assigns the id
+                supportSubCatagory.SubCatagory = CleanName(supportSubCatagory.SubCatagory);
+                Revalidate(supportSubCatagory, "SubCatagory"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportSubCatagory.ProductId);
+                if (ModelState.IsValid && await Db.SupportSubCatagories.AnyAsync(row => row.SubCatagory == supportSubCatagory.SubCatagory && row.ProductId == supportSubCatagory.ProductId))
+                {
+                    ModelState.AddModelError(nameof(SupportSubCatagory.SubCatagory), TakenMessage("support sub-category", supportSubCatagory.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View(supportSubCatagory);
                 }
 
                 await Db.AddAsync(supportSubCatagory);
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportSubCatagoryList");
+                return BackToSupportList("SupportSubCatagoryList", supportSubCatagory.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -795,48 +837,63 @@ namespace XFLCSMS.Controllers
         }
 
         [RequirePermission(Permission.MasterData)]
-        public async Task<IActionResult> EditSupportSubCatagory(int id)
+        public async Task<IActionResult> EditSupportSubCatagory(int id, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var supportSubCatagory = await Db.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == id);
-
-                if (supportSubCatagory == null)
+                var item = await Db.SupportSubCatagories.FirstOrDefaultAsync(row => row.SupportSubCatagoryId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(supportSubCatagory);
+                await LoadProductChoicesAsync(back);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
-
         }
+
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
-        public async Task<IActionResult> UpdateSupportSubCatagory(SupportSubCatagory supportSubCatagory)
+        public async Task<IActionResult> UpdateSupportSubCatagory([Bind("SupportSubCatagoryId,SubCatagory,ProductId")] SupportSubCatagory supportSubCatagory, string? back = null)
         {
             try
             {
-                var existing = await Db.SupportSubCatagories.FirstOrDefaultAsync(item => item.SupportSubCatagoryId == supportSubCatagory.SupportSubCatagoryId);
+                var existing = await Db.SupportSubCatagories.FirstOrDefaultAsync(row => row.SupportSubCatagoryId == supportSubCatagory.SupportSubCatagoryId);
                 if (existing == null)
                 {
                     return NotFound();
                 }
 
+                supportSubCatagory.SubCatagory = CleanName(supportSubCatagory.SubCatagory);
+                Revalidate(supportSubCatagory, "SubCatagory"); // the rules are checked on the tidy name
+                await CheckProductAsync(supportSubCatagory.ProductId);
+                // tickets of one product must not end up with an entry of another: an entry in use can be opened to all
+                // products, but it moves to a product only when every ticket that uses it is of that product
+                if (supportSubCatagory.ProductId != null && supportSubCatagory.ProductId != existing.ProductId
+                    && await Db.Issues.AnyAsync(issue => issue.SupportSubCatagoryId == existing.SupportSubCatagoryId && (issue.ProductId == null || issue.ProductId != supportSubCatagory.ProductId)))
+                {
+                    ModelState.AddModelError("ProductId", "Tickets of other products use this entry, so it cannot move to this product. It can be offered for all products.");
+                }
+
+                if (ModelState.IsValid && await Db.SupportSubCatagories.AnyAsync(row => row.SubCatagory == supportSubCatagory.SubCatagory && row.ProductId == supportSubCatagory.ProductId && row.SupportSubCatagoryId != existing.SupportSubCatagoryId))
+                {
+                    ModelState.AddModelError(nameof(SupportSubCatagory.SubCatagory), TakenMessage("support sub-category", supportSubCatagory.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View("EditSupportSubCatagory", supportSubCatagory);
                 }
 
                 existing.SubCatagory = supportSubCatagory.SubCatagory;
+                existing.ProductId = supportSubCatagory.ProductId;
                 await Db.SaveChangesAsync();
-                return RedirectToAction("SupportSubCatagoryList");
+                return BackToSupportList("SupportSubCatagoryList", existing.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -872,55 +929,49 @@ namespace XFLCSMS.Controllers
             }
         }
 
-
+        // ---- affected sections ---------------------------------------------------------------------------
 
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> AffectedSectionList()
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var affectedSectios = await Db.AffectedSectionss.ToListAsync();
-                return View(affectedSectios);
+                return View(await Db.AffectedSectionss.Include(item => item.Product).OrderBy(item => item.AffectedSectionId).ToListAsync());
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
         [RequirePermission(Permission.MasterData)]
         public async Task<IActionResult> ViewAffectedSection(int id)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var affectedsection = await Db.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == id);
-
-                if (affectedsection == null)
+                var item = await Db.AffectedSectionss.Include(row => row.Product).FirstOrDefaultAsync(row => row.AffectedSectionId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(affectedsection);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
         }
+
+        /// <param name="productId">The product the new entry is for (the link on the page of a product passes it).</param>
+        /// <param name="back">"product": return to the page of the product afterwards instead of the list.</param>
         [RequirePermission(Permission.MasterData)]
-        public IActionResult CreateAffectedSection()
+        public async Task<IActionResult> CreateAffectedSection(int? productId = null, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                return View();
+                await LoadProductChoicesAsync(back);
+                return View(new AffectedSection { ProductId = await ExistingProductAsync(productId) });
             }
             catch (Exception ex)
             {
@@ -931,19 +982,28 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateAffectedSection([Bind("AffectedSectionId,ASection")] AffectedSection affectedSection)
+        public async Task<IActionResult> CreateAffectedSection([Bind("AffectedSectionId,ASection,ProductId")] AffectedSection affectedSection, string? back = null)
         {
             try
             {
                 affectedSection.AffectedSectionId = 0; // identity column: the database assigns the id
+                affectedSection.ASection = CleanName(affectedSection.ASection);
+                Revalidate(affectedSection, "ASection"); // the rules are checked on the tidy name
+                await CheckProductAsync(affectedSection.ProductId);
+                if (ModelState.IsValid && await Db.AffectedSectionss.AnyAsync(row => row.ASection == affectedSection.ASection && row.ProductId == affectedSection.ProductId))
+                {
+                    ModelState.AddModelError(nameof(AffectedSection.ASection), TakenMessage("affected section", affectedSection.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View(affectedSection);
                 }
 
                 await Db.AddAsync(affectedSection);
                 await Db.SaveChangesAsync();
-                return RedirectToAction("AffectedSectionList");
+                return BackToSupportList("AffectedSectionList", affectedSection.ProductId, back);
             }
             catch (Exception ex)
             {
@@ -952,48 +1012,63 @@ namespace XFLCSMS.Controllers
         }
 
         [RequirePermission(Permission.MasterData)]
-        public async Task<IActionResult> EditAffectedSection(int id)
+        public async Task<IActionResult> EditAffectedSection(int id, string? back = null)
         {
             try
             {
-                var jsonStringFromSession = HttpContext.Session.GetString(SessionKey);
-                User LogSesson = JsonConvert.DeserializeObject<User>(jsonStringFromSession);
-                ViewBag.Profile = LogSesson;
-                var affectedSection = await Db.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == id);
-
-                if (affectedSection == null)
+                var item = await Db.AffectedSectionss.FirstOrDefaultAsync(row => row.AffectedSectionId == id);
+                if (item == null)
                 {
-                    return NotFound(); // Or handle the case where the user is not found
+                    return NotFound();
                 }
 
-                return View(affectedSection);
+                await LoadProductChoicesAsync(back);
+                return View(item);
             }
             catch (Exception ex)
             {
                 return HandleError(ex);
             }
-
         }
+
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
-        public async Task<IActionResult> UpdateAffectedSection(AffectedSection affectedSection)
+        public async Task<IActionResult> UpdateAffectedSection([Bind("AffectedSectionId,ASection,ProductId")] AffectedSection affectedSection, string? back = null)
         {
             try
             {
-                var existing = await Db.AffectedSectionss.FirstOrDefaultAsync(item => item.AffectedSectionId == affectedSection.AffectedSectionId);
+                var existing = await Db.AffectedSectionss.FirstOrDefaultAsync(row => row.AffectedSectionId == affectedSection.AffectedSectionId);
                 if (existing == null)
                 {
                     return NotFound();
                 }
 
+                affectedSection.ASection = CleanName(affectedSection.ASection);
+                Revalidate(affectedSection, "ASection"); // the rules are checked on the tidy name
+                await CheckProductAsync(affectedSection.ProductId);
+                // tickets of one product must not end up with an entry of another: an entry in use can be opened to all
+                // products, but it moves to a product only when every ticket that uses it is of that product
+                if (affectedSection.ProductId != null && affectedSection.ProductId != existing.ProductId
+                    && await Db.Issues.AnyAsync(issue => issue.AffectedSectionId == existing.AffectedSectionId && (issue.ProductId == null || issue.ProductId != affectedSection.ProductId)))
+                {
+                    ModelState.AddModelError("ProductId", "Tickets of other products use this entry, so it cannot move to this product. It can be offered for all products.");
+                }
+
+                if (ModelState.IsValid && await Db.AffectedSectionss.AnyAsync(row => row.ASection == affectedSection.ASection && row.ProductId == affectedSection.ProductId && row.AffectedSectionId != existing.AffectedSectionId))
+                {
+                    ModelState.AddModelError(nameof(AffectedSection.ASection), TakenMessage("affected section", affectedSection.ProductId));
+                }
+
                 if (!ModelState.IsValid)
                 {
+                    await LoadProductChoicesAsync(back);
                     return View("EditAffectedSection", affectedSection);
                 }
 
                 existing.ASection = affectedSection.ASection;
+                existing.ProductId = affectedSection.ProductId;
                 await Db.SaveChangesAsync();
-                return RedirectToAction("AffectedSectionList");
+                return BackToSupportList("AffectedSectionList", existing.ProductId, back);
             }
             catch (Exception ex)
             {

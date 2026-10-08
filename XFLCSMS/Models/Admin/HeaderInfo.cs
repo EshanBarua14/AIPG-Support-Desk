@@ -17,5 +17,8 @@
         /// <summary>The status the report was limited to, if any.</summary>
         public string? StatusName { get; set; }
 
+        /// <summary>The product the report was limited to, if any.</summary>
+        public string? ProductName { get; set; }
+
     }
 }

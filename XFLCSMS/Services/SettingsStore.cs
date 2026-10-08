@@ -14,6 +14,8 @@ namespace XFLCSMS.Services
         // names of the settings
         public const string RbacGrants = "rbac.grants";
         public const string DemoData = "demo.ids";
+        /// <summary>Set once the starting products were added (or found to be there): they are not added again.</summary>
+        public const string ProductsSeeded = "products.seeded";
 
         private static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(60);
         private const string SecretPrefix = "enc:";

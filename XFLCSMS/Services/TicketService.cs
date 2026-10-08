@@ -26,13 +26,15 @@ namespace XFLCSMS.Services
         private readonly IWebHostEnvironment _environment;
         private readonly AuditService _audit;
         private readonly NotificationService _notify;
+        private readonly UploadLimits _uploads;
 
-        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit, NotificationService notify)
+        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit, NotificationService notify, UploadLimits uploads)
         {
             _context = context;
             _environment = environment;
             _audit = audit;
             _notify = notify;
+            _uploads = uploads;
         }
 
         public string UploadFolder =>
@@ -136,7 +138,10 @@ namespace XFLCSMS.Services
             return id.HasValue && exists(id.Value) ? id : null;
         }
 
-        /// <summary>Stores uploaded files for a ticket. Returns the names of files that were refused.</summary>
+        /// <summary>
+        /// Stores uploaded files for a ticket. Returns the files that were refused, each with the reason in brackets:
+        /// "setup.exe (file type not allowed)", "scan.pdf (larger than 10 MB)", "report.pdf (not a PDF file)".
+        /// </summary>
         public async Task<List<string>> SaveAttachmentsAsync(int issueId, IEnumerable<IFormFile>? files)
         {
             var rejected = new List<string>();
@@ -148,6 +153,7 @@ namespace XFLCSMS.Services
             Directory.CreateDirectory(UploadFolder);
             var added = false;
             var names = new List<string>();
+            var taken = 0;
 
             foreach (var file in files)
             {
@@ -162,9 +168,36 @@ namespace XFLCSMS.Services
 
                 if (string.IsNullOrWhiteSpace(originalName) || !AllowedExtensions.Contains(extension))
                 {
-                    rejected.Add(string.IsNullOrWhiteSpace(originalName) ? "(unnamed file)" : originalName);
+                    rejected.Add((string.IsNullOrWhiteSpace(originalName) ? "(unnamed file)" : originalName) + " (file type not allowed)");
                     continue;
                 }
+
+                if (file.Length > _uploads.MaxFileBytes)
+                {
+                    rejected.Add(originalName + " (larger than " + _uploads.MaxFileMb + " MB)");
+                    continue;
+                }
+
+                if (taken >= _uploads.MaxFilesPerSave)
+                {
+                    rejected.Add(originalName + " (more than " + _uploads.MaxFilesPerSave + " files at once)");
+                    continue;
+                }
+
+                // the name says what the file claims to be; the first bytes say what it is
+                string? contentProblem;
+                await using (var content = file.OpenReadStream())
+                {
+                    contentProblem = await UploadContent.ProblemAsync(content, extension);
+                }
+
+                if (contentProblem != null)
+                {
+                    rejected.Add(originalName + " (" + contentProblem + ")");
+                    continue;
+                }
+
+                taken++;
 
                 // Unique name on disk so two tickets with "screenshot.png" no longer overwrite each other.
                 var storedName = Guid.NewGuid().ToString("N") + extension;

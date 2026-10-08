@@ -1,0 +1,24 @@
+@*
+    The "Product" box on the forms of the four support lists. The model is the product chosen now (empty: the entry
+    is for every product); the choices come from ViewBag.Products (CsmsController.LoadProductChoicesAsync).
+*@
+@model int?
+@{
+    var products = ViewBag.Products as List<XFLCSMS.Models.Support.Product> ?? new List<XFLCSMS.Models.Support.Product>();
+}
+<div class="field">
+    <label for="ProductId">Product</label>
+    <select class="select" name="ProductId" id="ProductId">
+        <option value="">All products</option>
+        @foreach (var product in products)
+        {
+            <option value="@product.ProductId" selected="@(product.ProductId == Model)">@product.Name@(product.IsActive ? "" : " (inactive)")</option>
+        }
+    </select>
+    <span class="hint">The ticket form offers this entry when that product is chosen. All products: it is offered whatever the product.</span>
+    @Html.ValidationMessage("ProductId")
+</div>
+@if ((string?)ViewBag.Back == "product")
+{
+    <input type="hidden" name="back" value="product">
+}

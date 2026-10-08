@@ -1,0 +1,23 @@
+@model XFLCSMS.Models.Support.Product
+@{
+    ViewData["Title"] = "Edit product";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="ViewProduct" asp-route-id="@Model.ProductId"><icon name="arrow-left" /> Back to the product</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Edit product</h1>
+    </div>
+</header>
+
+<form class="card" asp-action="UpdateProduct" method="post">
+    <div class="card-body stack">
+        <input type="hidden" asp-for="ProductId">
+        <partial name="_ProductFields" model="Model" />
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
+        <a class="btn" asp-action="ViewProduct" asp-route-id="@Model.ProductId">Cancel</a>
+    </div>
+</form>

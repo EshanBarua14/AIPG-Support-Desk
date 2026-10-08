@@ -44,6 +44,19 @@
                     </select>
                 </div>
             }
+            @if (Model.Products.Count > 0)
+            {
+                <div class="field">
+                    <label for="productId">Product</label>
+                    <select class="select" id="productId" name="productId">
+                        <option value="">All products</option>
+                        @foreach (var product in Model.Products)
+                        {
+                            <option value="@product.ProductId">@product.Name@(product.IsActive ? "" : " (inactive)")</option>
+                        }
+                    </select>
+                </div>
+            }
             <div class="field">
                 <label for="Priority">Priority</label>
                 <select class="select" id="Priority" name="@(prefix).Priority">

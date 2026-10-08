@@ -3,7 +3,7 @@
     ViewData["Title"] = "Edit support type";
     ViewData["PageClass"] = "narrow";
 }
-<a class="back" asp-action="SupportTypeList"><icon name="arrow-left" /> Support types</a>
+<partial name="_SupportListBack" model='(Model?.ProductId, "SupportTypeList", "Support types", false)' />
 
 <header class="page-head">
     <div>
@@ -18,12 +18,13 @@
         <div class="field">
             <label asp-for="SType">Name</label>
             <input class="input" asp-for="SType" placeholder="For example: Technical" autocomplete="off" required>
-            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span class="hint">@XFLCSMS.Models.Support.SupportListRules.Hint</span>
             <span asp-validation-for="SType"></span>
         </div>
+        <partial name="_ProductChoice" model="Model?.ProductId" />
     </div>
     <div class="card-foot">
         <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
-        <a class="btn" asp-action="SupportTypeList">Cancel</a>
+        <partial name="_SupportListBack" model='(Model?.ProductId, "SupportTypeList", "Cancel", true)' />
     </div>
 </form>

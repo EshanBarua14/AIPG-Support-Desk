@@ -162,7 +162,8 @@ namespace XFLCSMS.Data
                     UCatagory = true,
                     UType = true,
                     UStatus = true,
-                    Terms = true
+                    Terms = true,
+                    MustChangePassword = true // this password stands in a settings file: good for the first sign-in only
                 });
                 db.SaveChanges();
 

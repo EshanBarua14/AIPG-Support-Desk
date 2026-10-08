@@ -298,11 +298,11 @@ namespace XFLCSMS.Services
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
 
-            // support lists: reuse what exists under the same name
+            // support lists: reuse what exists under the same name (entries for every product: they fit any ticket)
             var types = new List<SupportType>();
             foreach (var name in SupportTypes)
             {
-                var row = await _db.SupportTypes.FirstOrDefaultAsync(x => x.SType == name);
+                var row = await _db.SupportTypes.FirstOrDefaultAsync(x => x.SType == name && x.ProductId == null);
                 if (row == null) { row = new SupportType { SType = name }; _db.SupportTypes.Add(row); await _db.SaveChangesAsync(); ledger.SupportTypes.Add(row.SupportTypeId); }
                 types.Add(row);
             }
@@ -310,7 +310,7 @@ namespace XFLCSMS.Services
             var categories = new List<SupportCatagory>();
             foreach (var name in Categories)
             {
-                var row = await _db.SupportCatagories.FirstOrDefaultAsync(x => x.SCatagory == name);
+                var row = await _db.SupportCatagories.FirstOrDefaultAsync(x => x.SCatagory == name && x.ProductId == null);
                 if (row == null) { row = new SupportCatagory { SCatagory = name }; _db.SupportCatagories.Add(row); await _db.SaveChangesAsync(); ledger.Categories.Add(row.SupportCatagoryId); }
                 categories.Add(row);
             }
@@ -318,7 +318,7 @@ namespace XFLCSMS.Services
             var subCategories = new List<SupportSubCatagory>();
             foreach (var name in SubCategories)
             {
-                var row = await _db.SupportSubCatagories.FirstOrDefaultAsync(x => x.SubCatagory == name);
+                var row = await _db.SupportSubCatagories.FirstOrDefaultAsync(x => x.SubCatagory == name && x.ProductId == null);
                 if (row == null) { row = new SupportSubCatagory { SubCatagory = name }; _db.SupportSubCatagories.Add(row); await _db.SaveChangesAsync(); ledger.SubCategories.Add(row.SupportSubCatagoryId); }
                 subCategories.Add(row);
             }
@@ -326,10 +326,13 @@ namespace XFLCSMS.Services
             var sections = new List<AffectedSection>();
             foreach (var name in Sections)
             {
-                var row = await _db.AffectedSectionss.FirstOrDefaultAsync(x => x.ASection == name);
+                var row = await _db.AffectedSectionss.FirstOrDefaultAsync(x => x.ASection == name && x.ProductId == null);
                 if (row == null) { row = new AffectedSection { ASection = name }; _db.AffectedSectionss.Add(row); await _db.SaveChangesAsync(); ledger.Sections.Add(row.AffectedSectionId); }
                 sections.Add(row);
             }
+
+            // the products of the installation are not demo data; the demo tickets are spread over the active ones
+            var productIds = await _db.Products.Where(product => product.IsActive).OrderBy(product => product.ProductId).Select(product => product.ProductId).ToListAsync();
 
             // XFL staff (they belong to the house of the administrator who loads the data)
             var number = 1;
@@ -418,6 +421,7 @@ namespace XFLCSMS.Services
                     TNumber = house.BrokerageHouseAcronym + "_" + serial[house.BrokerageHouseAcronym].ToString("D7"),
                     Priority = priority, ITitle = problem.Title + (t >= Problems.Length ? " (" + (t / Problems.Length + 1) + ")" : string.Empty),
                     Details = "<p>" + problem.Details + "</p>",
+                    ProductId = productIds.Count == 0 ? null : productIds[problem.Category % productIds.Count],
                     SupportTypeId = types[problem.Type].SupportTypeId, SupportCatagoryId = categories[problem.Category].SupportCatagoryId,
                     SupportSubCatagoryId = subCategories[problem.Category].SupportSubCatagoryId, AffectedSectionId = sections[problem.Section].AffectedSectionId,
                     IStatus = status, AssignBy = null, ApproveBy = null, UpdatedBy = null

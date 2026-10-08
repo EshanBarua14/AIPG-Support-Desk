@@ -10,10 +10,14 @@ namespace XFLCSMS.Models.Support
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int SupportTypeId { get; set; }
         [Required]
-        [StringLength(100, MinimumLength = 4, ErrorMessage = "The name must be 4 to 100 characters long.")]
-        [RegularExpression(@"^[a-zA-Z.]+$", ErrorMessage = "Only letters allowed.")]
+        [StringLength(100, MinimumLength = SupportListRules.MinimumLength, ErrorMessage = SupportListRules.LengthMessage)]
+        [RegularExpression(SupportListRules.NamePattern, ErrorMessage = SupportListRules.NameMessage)]
         [Display(Name = "Support Type")]
         public string SType { get; set; }=string.Empty;
+        /// <summary>The product this entry belongs to; empty: it is offered for every product.</summary>
+        [Display(Name = "Product")]
+        public int? ProductId { get; set; }
+        public Product? Product { get; set; }
         public ICollection<IssueTable> issue { get; set; }
 
     }

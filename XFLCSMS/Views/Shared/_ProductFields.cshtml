@@ -1,0 +1,24 @@
+@* The fields of a product, shared by "New product" and "Edit product". *@
+@model XFLCSMS.Models.Support.Product
+<div asp-validation-summary="ModelOnly"></div>
+<div class="field">
+    <label asp-for="Name">Name</label>
+    <input class="input" asp-for="Name" placeholder="For example: Xpert Trading OMS" autocomplete="off" required maxlength="100">
+    <span class="hint">@XFLCSMS.Models.Support.SupportListRules.Hint</span>
+    <span asp-validation-for="Name"></span>
+</div>
+<div class="field">
+    <label asp-for="Code">Short name</label>
+    <input class="input" asp-for="Code" placeholder="For example: OMS" autocomplete="off" maxlength="20">
+    <span class="hint">Optional. Shown in the ticket lists and the report, where the full name does not fit.</span>
+    <span asp-validation-for="Code"></span>
+</div>
+<div class="field">
+    <label asp-for="Description">Description</label>
+    <textarea class="textarea" asp-for="Description" rows="3" maxlength="500" placeholder="What the product is, in one or two sentences"></textarea>
+    <span asp-validation-for="Description"></span>
+</div>
+<label class="check">
+    <input type="checkbox" name="IsActive" value="true" checked="@Model.IsActive">
+    <span><b>Active</b><span class="hint">Offered on the ticket form. Switch off for a product that is no longer supported: its tickets and lists stay.</span></span>
+</label>

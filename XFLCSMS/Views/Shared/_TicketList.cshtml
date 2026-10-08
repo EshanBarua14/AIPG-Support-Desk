@@ -14,6 +14,7 @@
     var rows = Model.ToList();
     var me = ViewBag.Profile as XFLCSMS.Models.Register.User;
     var raisers = ViewBag.Raisers as Dictionary<int, string>;   // set for lists that show tickets of several people
+    var productLabels = ViewBag.ProductLabels as Dictionary<int, string>;   // short name of the product of a ticket
     var canAssign = role.Can(Permission.TicketAssign);
     var canTake = role.Can(Permission.TicketTake);
     var workAny = role.Can(Permission.TicketWorkAny);
@@ -22,7 +23,7 @@
     string? statusFilter = ViewBag.StatusFilter;
     int statusTotal = ViewBag.StatusTotal ?? 0;
     ViewData["ShownCount"] = rows.Count;
-    ViewData["SearchHint"] = "Search number, title, priority, status or engineer";
+    ViewData["SearchHint"] = "Search number, title, product, priority, status or engineer";
 
     var tabs = new List<(string Text, string Action, int Count)> { (role.TicketListName, role.TicketList, 0) };
     if (role.IsEngineer) { tabs.Add(("Assigned to me", "AssignedTicketList", mine)); }
@@ -117,7 +118,7 @@
                                 <td class="tick p-@Ui.PriorityKey(item.Priority)">@Ui.Sym(item.TNumber)</td>
                                 <td class="c-title">
                                     <a class="t-title" asp-action="TicketView" asp-route-id="@item.IssueId">@(string.IsNullOrWhiteSpace(item.ITitle) ? "(no title)" : item.ITitle)</a>
-                                    <span class="t-meta">Raised @Ui.Stamp(item.TDate)@(raisers != null && raisers.TryGetValue(item.UserId, out var raiser) ? " by " + raiser : "")</span>
+                                    <span class="t-meta">@if (item.ProductId != null && productLabels != null && productLabels.TryGetValue(item.ProductId.Value, out var productLabel)) {<b class="t-product">@productLabel</b>}Raised @Ui.Stamp(item.TDate)@(raisers != null && raisers.TryGetValue(item.UserId, out var raiser) ? " by " + raiser : "")</span>
                                 </td>
                                 <td class="c-who">
                                     @if (!string.IsNullOrEmpty(item.AssignBy))

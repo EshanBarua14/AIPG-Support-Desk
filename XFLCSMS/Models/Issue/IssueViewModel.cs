@@ -10,6 +10,8 @@ namespace XFLCSMS.Models.Issue
     public class IssueViewModel
     {
 
+        /// <summary>The products a ticket can be raised for (the active ones).</summary>
+        public List<Product> Products { get; set; } = new();
         public List<SupportType> SupportTypes { get; set; }
         public List<SupportCatagory> SupportCatagories { get; set;}
         public List<SupportSubCatagory> SupportSubCatagories { get;set;}

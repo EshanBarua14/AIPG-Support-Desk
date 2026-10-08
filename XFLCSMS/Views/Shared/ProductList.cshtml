@@ -1,0 +1,85 @@
+@*
+    The products of XFL. Each has its own support types and categories (and, if wanted, sub-categories and affected
+    sections): the ticket form offers them when the product is chosen.
+*@
+@model List<XFLCSMS.Models.Admin.ProductRow>
+@{
+    ViewData["Title"] = "Products";
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Products</h1>
+        <p class="page-sub">What brokerage houses get support for. Open a product to set its support types and categories.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="CreateProduct"><icon name="plus" /> New product</a>
+    </div>
+</header>
+
+<div class="card flush">
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <icon name="package" />
+            <b>No products yet</b>
+            <span>Without products the ticket form offers the support lists as they are, for everybody.</span>
+            <div><a class="btn btn-primary" asp-action="CreateProduct"><icon name="plus" /> New product</a></div>
+        </div>
+    }
+    else
+    {
+        <div class="toolbar">
+            <div class="input-wrap">
+                <icon name="search" />
+                <input class="input" type="search" data-filter="#issuesTable" data-count="#shownCount" placeholder="Filter products" aria-label="Filter products" autocomplete="off">
+            </div>
+            <span class="spacer"></span>
+            <span class="muted small num"><span id="shownCount">@Model.Count</span> of <span data-total>@Model.Count</span></span>
+        </div>
+        <div class="table-wrap">
+            <table class="table" id="issuesTable">
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Short name</th>
+                        <th scope="col" class="t-num">Support types</th>
+                        <th scope="col" class="t-num">Categories</th>
+                        <th scope="col" class="t-num">Tickets</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model)
+                    {
+                        var product = row.Product;
+                        <tr id="row-@product.ProductId">
+                            <td class="c-title">
+                                <a class="t-title" asp-action="ViewProduct" asp-route-id="@product.ProductId">@product.Name</a>
+                                @if (!string.IsNullOrEmpty(product.Description))
+                                {
+                                    <span class="t-meta">@product.Description</span>
+                                }
+                            </td>
+                            <td>@product.Code</td>
+                            <td class="t-num num">@row.Types</td>
+                            <td class="t-num num">@row.Categories</td>
+                            <td class="t-num num">@row.Tickets</td>
+                            <td>@(product.IsActive ? Ui.Pill("st-active", "Active") : Ui.Pill("st-disabled", "Inactive"))</td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="ViewProduct" asp-route-id="@product.ProductId" title="Open" aria-label="Open @product.Name"><icon name="eye" /></a>
+                                <a class="btn btn-icon btn-sm" asp-action="EditProduct" asp-route-id="@product.ProductId" title="Edit" aria-label="Edit @product.Name"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @product.Name"
+                                        data-delete data-url="@Url.Action("DeleteProduct", new { id = product.ProductId })"
+                                        data-confirm="Delete @product.Name?" data-confirm-text="Its support types, categories, sub-categories and sections are deleted with it. A product that tickets were raised for cannot be deleted: make it inactive instead." data-issue-id="@product.ProductId">
+                                    <icon name="trash-2" />
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    <tr data-empty hidden><td colspan="7" class="muted">Nothing matches the filter.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

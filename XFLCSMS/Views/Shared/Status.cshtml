@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@(notFound ? "Not found" : refused ? "Not allowed" : "Request refused") - XFL CSMS</title>
+    <title>@(notFound ? "Not found" : refused ? "Not allowed" : "Request refused") - Xpert CSMS</title>
     <partial name="_Theme" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
 </head>
@@ -34,10 +34,11 @@
                 }
             </p>
             <div class="row" style="justify-content: center">
-                <a class="btn" href="javascript:history.back()"><icon name="arrow-left" /> Go back</a>
+                <button type="button" class="btn" data-go-back><icon name="arrow-left" /> Go back</button>
                 <a class="btn btn-primary" href="~/">Start page</a>
             </div>
         </div>
     </main>
+    <script>document.querySelector('[data-go-back]').addEventListener('click', function () { history.back(); });</script>
 </body>
 </html>

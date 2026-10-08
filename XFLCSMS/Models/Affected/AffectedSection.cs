@@ -15,6 +15,11 @@ namespace XFLCSMS.Models.Affected
         [Display(Name = "Affected Section")]
         public string ASection { get; set; } = string.Empty;
 
+        /// <summary>The product this section belongs to; empty: it is offered for every product.</summary>
+        [Display(Name = "Product")]
+        public int? ProductId { get; set; }
+        public XFLCSMS.Models.Support.Product? Product { get; set; }
+
         public ICollection<IssueTable> issue { get; set; }
     }
 }

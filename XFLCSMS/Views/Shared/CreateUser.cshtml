@@ -109,10 +109,10 @@
             <div class="field">
                 <label for="Password">Password</label>
                 <div class="input-wrap">
-                    <input class="input" type="password" name="Password" id="Password" required minlength="6" autocomplete="new-password">
+                    <input class="input" type="password" name="Password" id="Password" required minlength="@XFLCSMS.Services.PasswordPolicy.MinimumLength" maxlength="@XFLCSMS.Services.PasswordPolicy.MaximumLength" autocomplete="new-password">
                     <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
                 </div>
-                <span class="hint">6 or more characters with a small letter, a capital letter, a digit and one of @@ $ ! % * ? &amp;</span>
+                <span class="hint">@XFLCSMS.Services.PasswordPolicy.Hint The user has to change it at the first sign-in.</span>
                 <span asp-validation-for="Password"></span>
             </div>
             <div class="field">

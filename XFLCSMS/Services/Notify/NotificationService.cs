@@ -106,7 +106,7 @@ namespace XFLCSMS.Services.Notify
                     _db.NotificationDeliveries.Add(new NotificationDelivery
                     {
                         UserId = user.Id, Kind = kind, Channel = NotificationDelivery.Email, Recipient = Cut(user.Email.Trim(), 200)!,
-                        Subject = Cut("XFL CSMS: " + title, 200), Body = MailBody(user, title, body, linkAction, linkId), CreatedAt = now
+                        Subject = Cut("Xpert CSMS: " + title, 200), Body = MailBody(user, title, body, linkAction, linkId), CreatedAt = now
                     });
                     _queued = true;
                 }
@@ -233,7 +233,7 @@ namespace XFLCSMS.Services.Notify
         public void AccountActivated(User account, User? actor)
         {
             Tell(NotificationEvents.AccountActivated, new int?[] { account.Id },
-                "Your account is active", "You can sign in to XFL CSMS now with the user name " + account.UserName + ".",
+                "Your account is active", "You can sign in to Xpert CSMS now with the user name " + account.UserName + ".",
                 null, null, actor?.Id);
         }
 
@@ -241,7 +241,7 @@ namespace XFLCSMS.Services.Notify
         {
             Tell(NotificationEvents.AccountCreated, new int?[] { account.Id },
                 "An account was created for you",
-                "Your user name for XFL CSMS is " + account.UserName + ". You get the password from " + (actor?.FullName ?? "your administrator") + "; change it after the first sign-in.",
+                "Your user name for Xpert CSMS is " + account.UserName + ". You get the password from " + (actor?.FullName ?? "your administrator") + "; at the first sign-in you choose your own.",
                 null, null, actor?.Id);
         }
 
@@ -249,7 +249,7 @@ namespace XFLCSMS.Services.Notify
         {
             Tell(NotificationEvents.AccountPassword, new int?[] { account.Id },
                 "Your password was changed by an administrator",
-                (actor?.FullName ?? "An administrator") + " set a new password for " + account.UserName + ". If you did not ask for this, contact XFL.",
+                (actor?.FullName ?? "An administrator") + " set a new password for " + account.UserName + ". When you sign in with it you choose your own. If you did not ask for this, contact XFL.",
                 null, null, actor?.Id);
         }
 
@@ -270,7 +270,7 @@ namespace XFLCSMS.Services.Notify
                 : site + "/" + Rbac.Controller(Rbac.RoleOf(reader)) + "/" + linkAction + (linkId == null ? string.Empty : "/" + linkId.Value.ToString(CultureInfo.InvariantCulture));
 
             var html = "<div style=\"font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f2937;max-width:560px\">"
-                + "<p style=\"margin:0 0 4px;color:#6b7280;font-size:12px\">XFL CSMS</p>"
+                + "<p style=\"margin:0 0 4px;color:#6b7280;font-size:12px\">Xpert CSMS</p>"
                 + "<p style=\"margin:0 0 8px;font-size:17px;font-weight:600\">" + WebUtility.HtmlEncode(title) + "</p>";
             if (!string.IsNullOrEmpty(body))
             {
@@ -280,16 +280,16 @@ namespace XFLCSMS.Services.Notify
             if (link != null)
             {
                 html += "<p style=\"margin:0 0 20px\"><a href=\"" + WebUtility.HtmlEncode(link) + "\" style=\"display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:6px\">"
-                    + (linkAction == null ? "Sign in" : "Open in XFL CSMS") + "</a></p>";
+                    + (linkAction == null ? "Sign in" : "Open in Xpert CSMS") + "</a></p>";
             }
 
             return html + "<p style=\"margin:0;color:#6b7280;font-size:12px\">Hello " + WebUtility.HtmlEncode(reader.FullName)
-                + ", you get this message because of the notification settings of XFL CSMS. You can switch e-mail off for yourself under the bell &gt; Preferences.</p></div>";
+                + ", you get this message because of the notification settings of Xpert CSMS. You can switch e-mail off for yourself under the bell &gt; Preferences.</p></div>";
         }
 
         public static string SmsBody(string title, string? body)
         {
-            var text = "XFL CSMS: " + title + (string.IsNullOrEmpty(body) ? string.Empty : ". " + body);
+            var text = "Xpert CSMS: " + title + (string.IsNullOrEmpty(body) ? string.Empty : ". " + body);
             return text.Length <= 300 ? text : text.Substring(0, 299) + "…";
         }
 

@@ -1,0 +1,28 @@
+@*
+    Where a form of a support list goes back to: the page of the product when the form was opened from there
+    (ViewBag.Back, set by CsmsController.LoadProductChoicesAsync), else the list. Used for the link above the form
+    and for the Cancel button.
+*@
+@model (int? ProductId, string ListAction, string Text, bool Button)
+@{
+    var toProduct = (string?)ViewBag.Back == "product" && Model.ProductId != null;
+}
+@if (Model.Button)
+{
+    if (toProduct)
+    {
+        <a class="btn" asp-action="ViewProduct" asp-route-id="@Model.ProductId">Cancel</a>
+    }
+    else
+    {
+        <a class="btn" asp-action="@Model.ListAction">Cancel</a>
+    }
+}
+else if (toProduct)
+{
+    <a class="back" asp-action="ViewProduct" asp-route-id="@Model.ProductId"><icon name="arrow-left" /> Back to the product</a>
+}
+else
+{
+    <a class="back" asp-action="@Model.ListAction"><icon name="arrow-left" /> @Model.Text</a>
+}

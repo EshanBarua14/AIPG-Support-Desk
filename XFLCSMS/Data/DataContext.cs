@@ -25,6 +25,7 @@ namespace XFLCSMS.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Branchh> Branchhs {  get; set; }
         public DbSet<Brokerage> Brokerages { get; set; }
+        public DbSet<Product> Products => Set<Product>();
         public DbSet<SupportType> SupportTypes { get; set; }
         public DbSet<SupportCatagory> SupportCatagories { get; set; }
         public DbSet<SupportSubCatagory> SupportSubCatagories { get; set; }
@@ -113,6 +114,15 @@ namespace XFLCSMS.Data
 
             // "Assigned to me" is looked up by the engineer's user id.
             modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.AssignedToId);
+
+            // Products of XFL. A support list entry and a ticket may point at one product; a product that is still
+            // pointed at cannot be deleted (the page says so, and the database would refuse as well).
+            modelBuilder.Entity<Product>().HasIndex(product => product.Name).IsUnique();
+            modelBuilder.Entity<SupportType>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<SupportCatagory>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<SupportSubCatagory>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<AffectedSection>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<IssueTable>().HasOne(issue => issue.Product).WithMany().HasForeignKey(issue => issue.ProductId).OnDelete(DeleteBehavior.Restrict);
         }
 
 

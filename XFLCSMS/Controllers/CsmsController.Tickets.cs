@@ -353,7 +353,7 @@ namespace XFLCSMS.Controllers
                 var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
                 if (rejected.Count > 0)
                 {
-                    problems.Add("these files were not attached (file type not allowed): " + string.Join(", ", rejected));
+                    problems.Add("these files were not attached: " + string.Join(", ", rejected));
                 }
 
                 if (problems.Count > 0)

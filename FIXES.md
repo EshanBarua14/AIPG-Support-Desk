@@ -1,6 +1,26 @@
-# XFL CSMS - fixes
+# Xpert CSMS - fixes
 
 What was wrong and what was changed. File names are relative to `XFLCSMS/`.
+
+## Version 3.2 - security
+
+| Problem | Fix |
+|---|---|
+| Passwords were stored as one HMAC-SHA512: anybody with a copy of the database could try millions of passwords a second. | `Services/PasswordHasher.cs`: PBKDF2-HMAC-SHA512, 210,000 rounds, 16 byte salt; the hash carries its format and round count. Old passwords still verify and are saved again in the new form at the owner's next sign-in. |
+| No limit on wrong passwords, activation tokens or reset tokens. The activation token had 16.7 million values. | `Services/AttemptGuard.cs`, `Controllers/RegisterLoginController.cs`: an account is locked for 15 minutes after 5 wrong tries (`Users.FailedAttempts`, `LockedUntil`), an address is refused after 30 failures in 10 minutes (HTTP 429), names without an account are counted and answered the same way. The token has 8 characters from 31 (850 thousand million values). Unlock under Users > Edit. |
+| A password could be 4 characters (change password) or 6 (registration), and only `@$!%*?&` were allowed as symbols. | `Services/PasswordPolicy.cs`, one rule for every form: 10 or more characters, a letter and a digit, any symbols, not the user name or e-mail, not a common password. |
+| The first administrator's password is in a settings file in the repository and stayed valid. Passwords typed in by an administrator stayed valid too. | `Users.MustChangePassword`: set for the first administrator, for accounts an administrator creates and passwords an administrator sets, and at sign-in with the password from the settings file. Until an own password is chosen every page leads to Change password (`CsmsController.OnActionExecuting`). |
+| "Forgot your password?" said "User not found": a list of registered names for anybody who asks. | Same answer and same page for every name; a second request within two minutes sends no second mail. |
+| No protection headers. Any site could show the pages in a frame; a script that slipped into a page would run. | `Infrastructure/SecurityHeaders.cs`: content security policy (scripts only from the site or with the response's nonce, added to every script tag by `Infrastructure/ScriptNonceTagHelper.cs`), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy. The two `javascript:` links on the error pages became buttons. |
+| Session and anti-forgery cookies relied on defaults. | `Program.cs`: SameSite Lax / Strict set explicitly; `Session:CookieSecure` = `always` for sites that are only reached over https. |
+| Uploads had no size limit and were judged by the file name alone. | `Services/UploadLimits.cs`, `TicketService.SaveAttachmentsAsync`: 10 MB per file, 10 files at once, the first bytes must match the type. Each refused file is named with its reason. The form checks size and number before uploading. |
+| Registration could be flooded by a script. | Ten registrations per address and hour. |
+| The menu logo was a broken picture (the file had been deleted) and the pages still said "XFL CSMS". | `wwwroot/img/xpert-logo.png` (centred), name "Xpert CSMS" on pages, in e-mails and SMS. |
+| `add_admin.sql` and the uploaded files were tracked by git. | `.gitignore`; the commands to stop tracking them are in `read me.txt`, section 8. |
+
+New migration: `SignInProtection` (three columns on `Users`). It is applied at start-up.
+
+Not changed, still open: second factor at sign-in, single sign-on, move to .NET 10, MailKit update (see WORKFLOWS.md, section 9).
 
 ## 1. Could not build / start on another machine
 

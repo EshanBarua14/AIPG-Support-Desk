@@ -27,6 +27,7 @@ namespace XFLCSMS.Models.Issue
         public int? ClosedBy { get; set; }
         public string? ClosedbyName { get; set; }
 
+        public string? Product { get; set; }
         public string? SupportType { get; set; }
         public string? SupportCatagory { get; set; }
         public string? SupportSubCatagory { get; set; }

@@ -38,6 +38,7 @@
                     <tr>
                         <th scope="col" class="t-id">ID</th>
                     <th scope="col">Name</th>
+                    <th scope="col">Product</th>
                         <th scope="col" class="t-actions"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -47,6 +48,7 @@
                         <tr id="row-@item.SupportTypeId">
                             <td class="t-id">@item.SupportTypeId</td>
                         <td class="c-title"><span class="t-title">@item.SType</span></td>
+                        <td><partial name="_ProductName" model="item.Product" /></td>
                             <td class="t-actions">
                                 <a class="btn btn-icon btn-sm" asp-action="ViewSupportType" asp-route-id="@item.SupportTypeId" title="View" aria-label="View @item.SType"><icon name="eye" /></a>
                                 <a class="btn btn-icon btn-sm" asp-action="EditSupportType" asp-route-id="@item.SupportTypeId" title="Edit" aria-label="Edit @item.SType"><icon name="pencil" /></a>
@@ -58,7 +60,7 @@
                             </td>
                         </tr>
                     }
-                    <tr data-empty hidden><td colspan="3" class="muted">Nothing matches the filter.</td></tr>
+                    <tr data-empty hidden><td colspan="4" class="muted">Nothing matches the filter.</td></tr>
                 </tbody>
             </table>
         </div>

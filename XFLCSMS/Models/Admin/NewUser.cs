@@ -47,8 +47,7 @@ namespace XFLCSMS.Models.Admin
         public string UserName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Enter a password.")]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters.")]
-        [RegularExpression(SetPassword.Rule, ErrorMessage = SetPassword.RuleMessage)]
+        [XFLCSMS.Services.StrongPassword(NameProperties = new[] { nameof(UserName), nameof(Email) })]
         public string Password { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Enter the password again.")]
@@ -107,6 +106,13 @@ namespace XFLCSMS.Models.Admin
         public string UserName { get; set; } = string.Empty;
         public DateTime? VerifiedAt { get; set; }
         public bool IsSelf { get; set; }
+        /// <summary>Locked after too many wrong passwords, until this time (null or in the past: not locked).</summary>
+        public DateTime? LockedUntil { get; set; }
+        /// <summary>Wrong passwords in a row so far.</summary>
+        public int FailedAttempts { get; set; }
+        /// <summary>The owner has to choose an own password at the next sign-in.</summary>
+        public bool MustChangePassword { get; set; }
+        public bool IsLocked => LockedUntil != null && LockedUntil > DateTime.Now;
         /// <summary>Tickets raised by this user: the house of such an account cannot be changed.</summary>
         public int TicketCount { get; set; }
         public bool CanChangeHouse { get; set; }
@@ -118,14 +124,10 @@ namespace XFLCSMS.Models.Admin
     /// <summary>An administrator gives a user a new password (the user has lost it and the reset e-mail does not arrive).</summary>
     public class SetPassword
     {
-        public const string Rule = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{4,}$";
-        public const string RuleMessage = "Password needs a small letter, a capital letter, a digit and one of @ $ ! % * ? & (no other characters).";
-
         public int Id { get; set; }
 
         [Required(ErrorMessage = "Enter a password.")]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters.")]
-        [RegularExpression(Rule, ErrorMessage = RuleMessage)]
+        [XFLCSMS.Services.StrongPassword]
         public string NewPassword { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Enter the password again.")]

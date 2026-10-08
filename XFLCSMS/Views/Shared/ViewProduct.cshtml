@@ -1,0 +1,158 @@
+@*
+    One product with what belongs to it: support types, categories, sub-categories and affected sections.
+    Entries are added, renamed and deleted here; the forms come back to this page (back=product).
+*@
+@model XFLCSMS.Models.Admin.ProductDetails
+@{
+    var product = Model.Product;
+    ViewData["Title"] = product.Name;
+}
+<a class="back" asp-action="ProductList"><icon name="arrow-left" /> Products</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@product.Name</h1>
+        <p class="page-sub">
+            @(product.IsActive ? Ui.Pill("st-active", "Active") : Ui.Pill("st-disabled", "Inactive"))
+            @if (!string.IsNullOrEmpty(product.Code))
+            {
+                <span class="muted">Short name @product.Code</span>
+            }
+            <span class="muted num">@(Model.Tickets == 1 ? "1 ticket" : Model.Tickets + " tickets")</span>
+        </p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" asp-action="EditProduct" asp-route-id="@product.ProductId"><icon name="pencil" /> Edit</a>
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(product.Description))
+{
+    <p class="lead-text">@product.Description</p>
+}
+@if (!product.IsActive)
+{
+    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>This product is inactive: it and its entries are not offered on the ticket form.</span></div>
+}
+
+<div class="product-lists">
+    <section class="card flush" id="types">
+        <div class="card-head">
+            <div><h2>Support types</h2><span class="sub">What kind of help is needed</span></div>
+            <a class="btn btn-sm" asp-action="CreateSupportType" asp-route-productId="@product.ProductId" asp-route-back="product"><icon name="plus" /> Add</a>
+        </div>
+        @if (Model.Types.Count == 0)
+        {
+            <div class="empty small"><span>No support type of its own yet.@(Model.SharedTypes == 1 ? " The ticket form offers the one that is for all products." : Model.SharedTypes > 1 ? " The ticket form offers the " + Model.SharedTypes + " that are for all products." : "")</span></div>
+        }
+        else
+        {
+            <table class="table compact">
+                <tbody>
+                    @foreach (var item in Model.Types)
+                    {
+                        <tr>
+                            <td class="c-title"><span class="t-title">@item.SType</span></td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="EditSupportType" asp-route-id="@item.SupportTypeId" asp-route-back="product" title="Edit" aria-label="Edit @item.SType"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.SType"
+                                        data-delete data-url="@Url.Action("DeleteSupportType", new { id = item.SupportTypeId })"
+                                        data-confirm="Delete @item.SType?" data-confirm-text="A type that tickets use cannot be deleted."><icon name="trash-2" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <section class="card flush" id="categories">
+        <div class="card-head">
+            <div><h2>Support categories</h2><span class="sub">The area of the product</span></div>
+            <a class="btn btn-sm" asp-action="CreateSupportCatagory" asp-route-productId="@product.ProductId" asp-route-back="product"><icon name="plus" /> Add</a>
+        </div>
+        @if (Model.Categories.Count == 0)
+        {
+            <div class="empty small"><span>No category of its own yet.@(Model.SharedCategories == 1 ? " The ticket form offers the one that is for all products." : Model.SharedCategories > 1 ? " The ticket form offers the " + Model.SharedCategories + " that are for all products." : "")</span></div>
+        }
+        else
+        {
+            <table class="table compact">
+                <tbody>
+                    @foreach (var item in Model.Categories)
+                    {
+                        <tr>
+                            <td class="c-title"><span class="t-title">@item.SCatagory</span></td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="EditSupportCatagory" asp-route-id="@item.SupportCatagoryId" asp-route-back="product" title="Edit" aria-label="Edit @item.SCatagory"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.SCatagory"
+                                        data-delete data-url="@Url.Action("DeleteSupportCatagory", new { id = item.SupportCatagoryId })"
+                                        data-confirm="Delete @item.SCatagory?" data-confirm-text="A category that tickets use cannot be deleted."><icon name="trash-2" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <section class="card flush" id="subcategories">
+        <div class="card-head">
+            <div><h2>Sub-categories</h2><span class="sub">Optional: a finer choice</span></div>
+            <a class="btn btn-sm" asp-action="CreateSupportSubCatagory" asp-route-productId="@product.ProductId" asp-route-back="product"><icon name="plus" /> Add</a>
+        </div>
+        @if (Model.SubCategories.Count == 0)
+        {
+            <div class="empty small"><span>None of its own.</span></div>
+        }
+        else
+        {
+            <table class="table compact">
+                <tbody>
+                    @foreach (var item in Model.SubCategories)
+                    {
+                        <tr>
+                            <td class="c-title"><span class="t-title">@item.SubCatagory</span></td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="EditSupportSubCatagory" asp-route-id="@item.SupportSubCatagoryId" asp-route-back="product" title="Edit" aria-label="Edit @item.SubCatagory"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.SubCatagory"
+                                        data-delete data-url="@Url.Action("DeleteSupportSubCatagory", new { id = item.SupportSubCatagoryId })"
+                                        data-confirm="Delete @item.SubCatagory?" data-confirm-text="A sub-category that tickets use cannot be deleted."><icon name="trash-2" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <section class="card flush" id="sections">
+        <div class="card-head">
+            <div><h2>Affected sections</h2><span class="sub">Optional: the part of the house that is affected</span></div>
+            <a class="btn btn-sm" asp-action="CreateAffectedSection" asp-route-productId="@product.ProductId" asp-route-back="product"><icon name="plus" /> Add</a>
+        </div>
+        @if (Model.Sections.Count == 0)
+        {
+            <div class="empty small"><span>None of its own.</span></div>
+        }
+        else
+        {
+            <table class="table compact">
+                <tbody>
+                    @foreach (var item in Model.Sections)
+                    {
+                        <tr>
+                            <td class="c-title"><span class="t-title">@item.ASection</span></td>
+                            <td class="t-actions">
+                                <a class="btn btn-icon btn-sm" asp-action="EditAffectedSection" asp-route-id="@item.AffectedSectionId" asp-route-back="product" title="Edit" aria-label="Edit @item.ASection"><icon name="pencil" /></a>
+                                <button type="button" class="btn btn-icon btn-sm danger" title="Delete" aria-label="Delete @item.ASection"
+                                        data-delete data-url="@Url.Action("DeleteAffectedSection", new { id = item.AffectedSectionId })"
+                                        data-confirm="Delete @item.ASection?" data-confirm-text="A section that tickets use cannot be deleted."><icon name="trash-2" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+</div>

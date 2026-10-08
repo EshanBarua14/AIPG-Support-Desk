@@ -44,6 +44,9 @@ namespace XFLCSMS.Models.Admin
 
         /// <summary>Open tickets waiting for an engineer, oldest first.</summary>
         public List<IssueTable> Waiting { get; set; } = new();
+
+        /// <summary>The numbers behind the charts, for the period the page opens with (CsmsController.BuildChartsAsync).</summary>
+        public TicketCharts Charts { get; set; } = new();
     }
 
     public class HouseLoad

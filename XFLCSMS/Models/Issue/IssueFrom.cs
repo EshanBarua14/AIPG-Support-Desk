@@ -14,6 +14,7 @@ namespace XFLCSMS.Models.Issue
         [Required(ErrorMessage ="Title I required")]
         public string ITitle { get; set; } = string.Empty;
 
+        public int? ProductId { get; set; }
         public int? SupportTypeId { get; set; }
         public int? SupportCatagoryId { get; set; }
         public int? SupportSubCatagoryID { get; set; }

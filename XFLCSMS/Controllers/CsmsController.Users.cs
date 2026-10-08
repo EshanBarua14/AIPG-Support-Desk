@@ -185,6 +185,7 @@ namespace XFLCSMS.Controllers
                     PasswordHash = passwordHash,
                     PasswordSalt = passwordSalt,
                     VerifiedAt = DateTime.Now, // created by an administrator: nothing left to confirm
+                    MustChangePassword = true, // the administrator knows this password: the owner chooses an own one at the first sign-in
                     Department = columns.Position,
                     UType = columns.IsXflStaff,
                     UCatagory = columns.IsAdmin,
@@ -277,6 +278,9 @@ namespace XFLCSMS.Controllers
         {
             form.UserName = user.UserName;
             form.VerifiedAt = user.VerifiedAt;
+            form.LockedUntil = user.LockedUntil;
+            form.FailedAttempts = user.FailedAttempts;
+            form.MustChangePassword = user.MustChangePassword;
             form.IsSelf = user.Id == CurrentUser!.Id;
             form.TicketCount = await Db.Issues.CountAsync(i => i.UserId == user.Id);
             // Tickets carry the house they were raised for, so an account that has raised tickets stays with its house.
@@ -483,11 +487,46 @@ namespace XFLCSMS.Controllers
                 user.PasswordSalt = passwordSalt;
                 user.PasswordResetToken = null;
                 user.ResetTokenExpires = null;
+                // the administrator knows this password, so the owner has to replace it at the next sign-in;
+                // a lock from wrong attempts ends with the new password
+                user.MustChangePassword = true;
+                user.FailedAttempts = 0;
+                user.LockedUntil = null;
                 Audit(AuditActions.UserPasswordSet, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Set a new password for the account", Rbac.HouseOf(user));
                 HttpContext.RequestServices.GetRequiredService<XFLCSMS.Services.Notify.NotificationService>().AccountPasswordSet(user, CurrentUser);
                 await Db.SaveChangesAsync();
 
-                TempData["SuccessMessage"] = $"New password saved for {user.FullName}. Ask them to change it after signing in.";
+                TempData["SuccessMessage"] = $"New password saved for {user.FullName}. They have to choose their own password when they sign in with it.";
+                return RedirectToAction("EditUser", new { id = user.Id });
+            }
+            catch (Exception ex)
+            {
+                return HandleError(ex);
+            }
+        }
+
+        /// <summary>End the lock an account got from too many wrong passwords, without waiting for it to run out.</summary>
+        [HttpPost]
+        [RequirePermission(A, H)]
+        public async Task<IActionResult> UnlockUser(int id)
+        {
+            try
+            {
+                var user = await ManagedUsers.FirstOrDefaultAsync(u => u.Id == id);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+
+                if (user.LockedUntil != null || user.FailedAttempts > 0)
+                {
+                    user.LockedUntil = null;
+                    user.FailedAttempts = 0;
+                    Audit(AuditActions.UserUnlock, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Ended the lock after wrong sign-in attempts", Rbac.HouseOf(user));
+                    await Db.SaveChangesAsync();
+                }
+
+                TempData["SuccessMessage"] = $"{user.FullName} can sign in again.";
                 return RedirectToAction("EditUser", new { id = user.Id });
             }
             catch (Exception ex)

@@ -4,6 +4,7 @@ global using XFLCSMS.Data;
 global using XFLCSMS.Services.EmailService;
 using XFLCSMS.EmailService;
 using Microsoft.AspNetCore.DataProtection;
+using XFLCSMS.Infrastructure;
 using XFLCSMS.Services;
 using XFLCSMS.Services.Notify;
 
@@ -24,6 +25,13 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new XFLCSMS.Infrastructure.AntiforgeryFailureFilter());
 });
 
+// "Session": { "CookieSecure": "auto" | "always" }. "auto" marks the cookies as https-only whenever the site is
+// opened over https and still lets an office use it over plain http; "always" refuses to send them over http at all
+// (right for a site that is only ever reached over https).
+var cookieSecurity = string.Equals(builder.Configuration["Session:CookieSecure"], "always", StringComparison.OrdinalIgnoreCase)
+    ? CookieSecurePolicy.Always
+    : CookieSecurePolicy.SameAsRequest;
+
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(option =>
 {
@@ -31,7 +39,34 @@ builder.Services.AddSession(option =>
     option.IdleTimeout = TimeSpan.FromMinutes(Math.Clamp(builder.Configuration.GetValue("Session:IdleMinutes", 10), 1, 720));
     option.Cookie.HttpOnly = true;
     option.Cookie.IsEssential = true;
+    // Lax: the cookie comes along when somebody opens a ticket from the link in an e-mail, but not with requests
+    // another site makes in the background.
+    option.Cookie.SameSite = SameSiteMode.Lax;
+    option.Cookie.SecurePolicy = cookieSecurity;
 });
+
+// the anti-forgery cookie follows the same rule as the session cookie
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = cookieSecurity;
+});
+
+// Guessing passwords and tokens: Services/AttemptGuard.cs, used by RegisterLoginController
+builder.Services.AddSingleton<AttemptGuard>();
+builder.Services.AddSingleton<SignInLimits>();
+
+// Uploads: one save (a ticket form with its files) may be as large as all its files together are allowed to be.
+// The limit per file and the check of the content are in TicketService.SaveAttachmentsAsync.
+var uploadLimits = new UploadLimits(builder.Configuration);
+builder.Services.AddSingleton(uploadLimits);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = uploadLimits.MaxRequestBytes;
+});
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = uploadLimits.MaxRequestBytes);
+builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = uploadLimits.MaxRequestBytes);
 
 // The keys that protect cookies and the secrets stored from the settings pages (mail password, SMS key) are kept
 // in App_Data/keys, next to the application: they survive a restart and do not depend on the Windows profile of
@@ -92,6 +127,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// what a page of this site may do in the browser: Infrastructure/SecurityHeaders.cs
+app.UseSecurityHeaders(app.Configuration);
 
 // Ticket attachments live in wwwroot/Uplods. They are handed out by the DownloadAttachment actions
 // (which check the session), so the folder itself must not be browsable by URL without signing in.

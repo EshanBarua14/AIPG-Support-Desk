@@ -1,6 +1,11 @@
 @*
     Dashboard of every role. A house user sees the own tickets, a house admin those of the house; XFL staff
-    see all tickets plus the load per brokerage house. The numbers come from CsmsController.BuildDashboardAsync.
+    see all tickets plus the load per brokerage house. The numbers come from CsmsController.BuildDashboardAsync;
+    the charts are drawn by wwwroot/js/charts.js from Model.Charts (another period: CsmsController.DashboardData).
+
+    The page is made of widgets (data-panel). Each person can hide them, move them and make them wide or narrow
+    with "Customize"; that and the chosen period are remembered in the browser. A new widget needs a block below
+    with its own data-panel name, nothing else.
 *@
 @model XFLCSMS.Models.Admin.Dashboard
 @{
@@ -13,10 +18,12 @@
     {
         ("Today", Model.TodayTotalTicket ?? 0, Model.TodayTotalClosed ?? 0, Model.TodayTotalQueue ?? 0),
         ("Last 7 days", Model.WeeklyTotalTicket ?? 0, Model.WeeklyTotalClosed ?? 0, Model.WeeklyTotalQueue ?? 0),
-        ("Last month", Model.MonthlyTotalTicket ?? 0, Model.MonthlyTotalClosed ?? 0, Model.MonthlyTotalQueue ?? 0),
+        ("Last 30 days", Model.MonthlyTotalTicket ?? 0, Model.MonthlyTotalClosed ?? 0, Model.MonthlyTotalQueue ?? 0),
         ("Last 12 months", Model.YearlyTotalTicket ?? 0, Model.YearlyTotalClosed ?? 0, Model.YearlyTotalQueue ?? 0)
     };
     var busiest = Model.Houses.Count == 0 ? 0 : Model.Houses.Max(house => house.Total);
+    var me = ViewBag.Profile as XFLCSMS.Models.Register.User;
+    var charts = Model.Charts;
 }
 <header class="page-head">
     <div>
@@ -33,185 +40,292 @@
     </div>
 </header>
 
-<div class="board">
-    <section class="card queue" aria-label="Ticket queue">
-        <div class="queue-top">
-            <div class="queue-lead">
-                <div class="fig num">@open.ToString("N0")</div>
-                <p>@(open == 1 ? "ticket is open" : "tickets are open")</p>
-            </div>
-            <div class="queue-side">
-                <div class="kpi">
-                    <a class="fig num" asp-action="UnassignedTicketList">@Model.Unassigned.ToString("N0")</a>
-                    <span>@(role.IsStaff ? "unassigned" : "waiting for an engineer")</span>
-                </div>
-                @if (role.IsEngineer)
-                {
-                    <div class="kpi">
-                        <a class="fig num" asp-action="AssignedTicketList">@Model.AssignedToMe.ToString("N0")</a>
-                        <span>assigned to me</span>
-                    </div>
-                }
-                <div class="kpi">
-                    <span class="fig num">@Model.HighPriorityOpen.ToString("N0")</span>
-                    <span>high priority, open</span>
-                </div>
-                <div class="kpi">
-                    <a class="fig num" asp-action="ClosedTicketList">@closed.ToString("N0")</a>
-                    <span>closed</span>
-                </div>
-                <div class="kpi">
-                    <a class="fig num" asp-action="@role.TicketList">@total.ToString("N0")</a>
-                    <span>raised in total</span>
-                </div>
-            </div>
+<div data-dashboard data-charts data-user="@(me?.Id)" data-role="@role.Controller" data-source="@Url.Action("DashboardData")">
+    <script type="application/json" data-chart-data>@Html.Raw(TicketStats.ToJson(charts))</script>
+
+    @* one row above everything it scopes: the period of the charts, and the arranging of the page *@
+    <div class="dash-bar">
+        <div class="seg" role="radiogroup" aria-label="Period of the charts">
+            @foreach (var days in TicketStats.Periods)
+            {
+                <label><input type="radio" name="dashPeriod" value="@days" data-period checked="@(days == charts.Days)"><span>@(days == 365 ? "12 months" : days + " days")</span></label>
+            }
         </div>
+        <span class="muted small hide-s">The charts cover this period. The queue is as of now.</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-quiet btn-sm" data-dash-reset hidden>Reset the layout</button>
+        <button type="button" class="btn btn-sm" data-dash-edit aria-pressed="false" title="Hide, move or widen the parts of this page"><icon name="sliders-horizontal" /> <span>Customize</span></button>
+    </div>
+    <div class="dash-hidden" data-dash-hidden hidden></div>
 
-        @if (total > 0)
-        {
-            @* where the tickets stand: one segment per status, in the order of a ticket's life *@
-            <div class="depth" role="img" aria-label="Tickets per status: @string.Join(", ", TicketStatus.All.Select(status => Model.ByStatus.GetValueOrDefault(status.Key) + " " + status.Name.ToLowerInvariant()))">
-                @foreach (var status in TicketStatus.All)
-                {
-                    var count = Model.ByStatus.GetValueOrDefault(status.Key);
-                    if (count > 0) { <i class="q-@status.Css" style="flex: @count" title="@status.Name: @count"></i> }
-                }
-            </div>
-            <div class="legend status-legend">
-                @foreach (var status in TicketStatus.All)
-                {
-                    var count = Model.ByStatus.GetValueOrDefault(status.Key);
-                    var listAction = status.Key == TicketStatus.Unassigned ? "UnassignedTicketList" : status.Key == TicketStatus.Closed ? "ClosedTicketList" : role.TicketList;
-                    var filter = listAction == role.TicketList ? status.Key : null;
-                    <a asp-action="@listAction" asp-route-status="@filter" title="@status.About"><i class="q-@status.Css"></i>@status.Name <b>@count.ToString("N0")</b></a>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="muted" style="margin-top: 16px">
-                @(role.SeesOwn ? "You have not raised a ticket yet." : role.SeesHouse ? "Nobody of your house has raised a ticket yet." : "No tickets have been raised yet.")
-                @if (role.CanCreateTicket) { <a asp-action="IssueRaiseFrom">Create the first one</a> }
-                @if (role.Can(Permission.SystemSettings)) { <span>To see the system with content, <a asp-action="DemoData">load the demo data</a>.</span> }
-            </p>
-        }
-    </section>
-
-    <div class="grid-2">
-        <section class="card flush">
-            <div class="card-head">
-                <h2>Raised and closed</h2>
-                <span class="sub">Tickets raised in each period, and how many of those are closed</span>
-            </div>
-            <div class="table-wrap">
-                <table class="table periods">
-                    <thead>
-                        <tr>
-                            <th scope="col">Period</th>
-                            <th scope="col" class="t-right">Raised</th>
-                            <th scope="col" class="t-right">Closed</th>
-                            <th scope="col" class="t-right">Still open</th>
-                            <th scope="col" class="rate">Share closed</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var period in periods)
+    <div class="dash-grid" data-panels>
+        <div class="widget" data-panel="queue" data-title="Queue" data-size="full">
+            <section class="card queue" aria-label="Ticket queue">
+                <div class="queue-top">
+                    <div class="queue-lead">
+                        <div class="fig" data-count-to="@open">@open.ToString("N0")</div>
+                        <p>@(open == 1 ? "ticket is open" : "tickets are open")</p>
+                    </div>
+                    <div class="queue-side">
+                        <div class="kpi">
+                            <a class="fig num" asp-action="UnassignedTicketList">@Model.Unassigned.ToString("N0")</a>
+                            <span>@(role.IsStaff ? "unassigned" : "waiting for an engineer")</span>
+                        </div>
+                        @if (role.IsEngineer)
                         {
-                            var share = Ui.Percent(period.Closed, period.Raised);
-                            <tr>
-                                <th scope="row" style="font-weight: 500">@period.Name</th>
-                                <td class="t-right num">@period.Raised.ToString("N0")</td>
-                                <td class="t-right num">@period.Closed.ToString("N0")</td>
-                                <td class="t-right num">@period.StillOpen.ToString("N0")</td>
-                                <td class="rate">
-                                    @if (period.Raised > 0)
-                                    {
-                                        <div class="meter" title="@period.Closed of @period.Raised closed">
-                                            <div class="meter-track"><i style="width: @share%"></i></div>
-                                            <b>@share%</b>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="muted">No tickets</span>
-                                    }
-                                </td>
-                            </tr>
+                            <div class="kpi">
+                                <a class="fig num" asp-action="AssignedTicketList">@Model.AssignedToMe.ToString("N0")</a>
+                                <span>assigned to me</span>
+                            </div>
                         }
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        @if (role.IsStaff)
-        {
-            <section class="card flush">
-                <div class="card-head">
-                    <h2>Waiting for an engineer</h2>
-                    <span class="sub">Oldest first</span>
-                    <a class="btn btn-sm right" asp-action="UnassignedTicketList">All unassigned</a>
+                        <div class="kpi">
+                            <span class="fig num">@Model.HighPriorityOpen.ToString("N0")</span>
+                            <span>high priority, open</span>
+                        </div>
+                        <div class="kpi">
+                            <a class="fig num" asp-action="ClosedTicketList">@closed.ToString("N0")</a>
+                            <span>closed</span>
+                        </div>
+                        <div class="kpi">
+                            <a class="fig num" asp-action="@role.TicketList">@total.ToString("N0")</a>
+                            <span>raised in total</span>
+                        </div>
+                    </div>
                 </div>
-                @if (Model.Waiting.Count == 0)
+
+                @if (total > 0)
                 {
-                    <div class="empty"><icon name="circle-check-big" /><b>Every open ticket has an engineer</b></div>
+                    @* where the tickets stand: one segment per status, in the order of a ticket's life *@
+                    <div class="depth" role="img" aria-label="Tickets per status: @string.Join(", ", TicketStatus.All.Select(status => Model.ByStatus.GetValueOrDefault(status.Key) + " " + status.Name.ToLowerInvariant()))">
+                        @foreach (var status in TicketStatus.All)
+                        {
+                            var count = Model.ByStatus.GetValueOrDefault(status.Key);
+                            if (count > 0) { <i class="q-@status.Css" style="flex: @count" title="@status.Name: @count"></i> }
+                        }
+                    </div>
+                    <div class="legend status-legend">
+                        @foreach (var status in TicketStatus.All)
+                        {
+                            var count = Model.ByStatus.GetValueOrDefault(status.Key);
+                            var listAction = status.Key == TicketStatus.Unassigned ? "UnassignedTicketList" : status.Key == TicketStatus.Closed ? "ClosedTicketList" : role.TicketList;
+                            var filter = listAction == role.TicketList ? status.Key : null;
+                            <a asp-action="@listAction" asp-route-status="@filter" title="@status.About"><i class="q-@status.Css"></i>@status.Name <b>@count.ToString("N0")</b></a>
+                        }
+                    </div>
                 }
                 else
                 {
-                    <ul class="mini-list">
-                        @foreach (var ticket in Model.Waiting)
-                        {
-                            <li>
-                                @Ui.Sym(ticket.TNumber)
-                                <a class="t-title" asp-action="TicketView" asp-route-id="@ticket.IssueId" asp-fragment="assignment" title="@(role.Can(Permission.TicketAssign) ? "Assign" : "Open") ticket @ticket.TNumber">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a>
-                                @Ui.PriorityPill(ticket.Priority)
-                                <span class="t-meta hide-s">@Ui.Date(ticket.TDate)</span>
-                            </li>
-                        }
-                    </ul>
+                    <p class="muted" style="margin-top: 16px">
+                        @(role.SeesOwn ? "You have not raised a ticket yet." : role.SeesHouse ? "Nobody of your house has raised a ticket yet." : "No tickets have been raised yet.")
+                        @if (role.CanCreateTicket) { <a asp-action="IssueRaiseFrom">Create the first one</a> }
+                        @if (role.Can(Permission.SystemSettings)) { <span>To see the system with content, <a asp-action="DemoData">load the demo data</a>.</span> }
+                    </p>
                 }
             </section>
-        }
-        else
-        {
-            <partial name="_LatestTickets" model="Model.Recent" />
-        }
-    </div>
+        </div>
 
-    @if (role.IsStaff)
-    {
-        <div class="grid-2">
+        <div class="widget" data-panel="trend" data-title="Raised and closed" data-size="full">
             <section class="card">
                 <div class="card-head">
-                    <h2>By brokerage house</h2>
-                    <span class="sub">Busiest first</span>
+                    <h2>Raised and closed</h2>
+                    <span class="sub" data-period-name>@charts.PeriodName</span>
+                    <button type="button" class="btn btn-sm right" data-chart-view aria-pressed="false" title="Show the numbers as a table"><icon name="file-spreadsheet" /> <span>Table</span></button>
                 </div>
                 <div class="card-body">
-                    @if (Model.Houses.Count == 0)
+                    <div class="tiles">
+                        <div class="tile">
+                            <span class="tile-label">Raised</span>
+                            <b class="tile-value" data-stat="raised">@charts.Raised.ToString("N0")</b>
+                            <span class="tile-delta" data-delta="raised"></span>
+                        </div>
+                        <div class="tile">
+                            <span class="tile-label">Closed</span>
+                            <b class="tile-value" data-stat="closed">@charts.Closed.ToString("N0")</b>
+                            <span class="tile-delta" data-delta="closed"></span>
+                        </div>
+                        <div class="tile">
+                            <span class="tile-label">Half of them were closed within</span>
+                            <b class="tile-value" data-stat="medianHours"></b>
+                            <span class="tile-delta" data-delta="medianHours"></span>
+                        </div>
+                        <div class="tile">
+                            <span class="tile-label">Raised in this period, still open</span>
+                            <b class="tile-value" data-stat="stillOpen">@charts.StillOpen.ToString("N0")</b>
+                        </div>
+                    </div>
+                    <div class="chart" data-chart="trend" data-key="trend"></div>
+                </div>
+            </section>
+        </div>
+
+        <div class="widget" data-panel="products" data-title="By product" data-size="half">
+            <section class="card">
+                <div class="card-head">
+                    <h2>By product</h2>
+                    <span class="sub">Raised, <span data-period-name>@charts.PeriodName</span></span>
+                    <button type="button" class="btn btn-sm right" data-chart-view aria-pressed="false" title="Show the numbers as a table"><icon name="file-spreadsheet" /> <span>Table</span></button>
+                </div>
+                <div class="card-body">
+                    <div class="chart" data-chart="split" data-key="products" data-name="Product" data-empty="No ticket of this period names a product."></div>
+                </div>
+            </section>
+        </div>
+
+        <div class="widget" data-panel="priorities" data-title="By priority" data-size="half">
+            <section class="card">
+                <div class="card-head">
+                    <h2>By priority</h2>
+                    <span class="sub">Raised, <span data-period-name>@charts.PeriodName</span></span>
+                    <button type="button" class="btn btn-sm right" data-chart-view aria-pressed="false" title="Show the numbers as a table"><icon name="file-spreadsheet" /> <span>Table</span></button>
+                </div>
+                <div class="card-body">
+                    <div class="chart" data-chart="split" data-key="priorities" data-name="Priority"></div>
+                </div>
+            </section>
+        </div>
+
+        <div class="widget" data-panel="closetimes" data-title="Time to close" data-size="half">
+            <section class="card">
+                <div class="card-head">
+                    <h2>Time to close</h2>
+                    <span class="sub">Closed, <span data-period-name>@charts.PeriodName</span></span>
+                    <button type="button" class="btn btn-sm right" data-chart-view aria-pressed="false" title="Show the numbers as a table"><icon name="file-spreadsheet" /> <span>Table</span></button>
+                </div>
+                <div class="card-body">
+                    <div class="chart" data-chart="columns" data-key="closeTimes" data-name="From raised to closed" data-empty="No ticket was closed in this period."></div>
+                </div>
+            </section>
+        </div>
+
+        @if (role.Can(Permission.Workload))
+        {
+            <div class="widget" data-panel="engineers" data-title="Open tickets per engineer" data-size="half">
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Open tickets per engineer</h2>
+                        <span class="sub">Now</span>
+                        <a class="btn btn-sm right" asp-action="Workload">Workload</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart" data-chart="columns" data-across="true" data-key="engineers" data-name="Engineer" data-unit="open ticket|open tickets" data-empty="No open ticket is assigned to an engineer."></div>
+                    </div>
+                </section>
+            </div>
+        }
+
+        <div class="widget" data-panel="periods" data-title="Periods at a glance" data-size="half">
+            <section class="card flush">
+                <div class="card-head">
+                    <h2>Periods at a glance</h2>
+                    <span class="sub">Tickets raised in each period, and how many of those are closed</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="table periods">
+                        <thead>
+                            <tr>
+                                <th scope="col">Period</th>
+                                <th scope="col" class="t-right">Raised</th>
+                                <th scope="col" class="t-right">Closed</th>
+                                <th scope="col" class="t-right">Still open</th>
+                                <th scope="col" class="rate">Share closed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var period in periods)
+                            {
+                                var share = Ui.Percent(period.Closed, period.Raised);
+                                <tr>
+                                    <th scope="row" style="font-weight: 500">@period.Name</th>
+                                    <td class="t-right num">@period.Raised.ToString("N0")</td>
+                                    <td class="t-right num">@period.Closed.ToString("N0")</td>
+                                    <td class="t-right num">@period.StillOpen.ToString("N0")</td>
+                                    <td class="rate">
+                                        @if (period.Raised > 0)
+                                        {
+                                            <div class="meter" title="@period.Closed of @period.Raised closed">
+                                                <div class="meter-track"><i style="width: @share%"></i></div>
+                                                <b>@share%</b>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">No tickets</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        @if (role.IsStaff)
+        {
+            <div class="widget" data-panel="waiting" data-title="Waiting for an engineer" data-size="half">
+                <section class="card flush">
+                    <div class="card-head">
+                        <h2>Waiting for an engineer</h2>
+                        <span class="sub">Oldest first</span>
+                        <a class="btn btn-sm right" asp-action="UnassignedTicketList">All unassigned</a>
+                    </div>
+                    @if (Model.Waiting.Count == 0)
                     {
-                        <p class="muted">No tickets yet.</p>
+                        <div class="empty"><icon name="circle-check-big" /><b>Every open ticket has an engineer</b></div>
                     }
                     else
                     {
-                        <div class="legend" style="margin: 0 0 14px">
-                            <span><i class="s-open"></i>Not closed</span>
-                            <span><i class="s-closed"></i>Closed</span>
-                        </div>
-                        <div class="hbars">
-                            @foreach (var house in Model.Houses)
+                        <ul class="mini-list">
+                            @foreach (var ticket in Model.Waiting)
                             {
-                                <span class="name" title="@house.Name">@house.Name</span>
-                                <span class="bar" style="width: @(Math.Max(2, Ui.Percent(house.Total, busiest)))%" title="@house.Name: @house.Open open, @house.Closed closed">
-                                    @if (house.Open > 0) { <i class="s-open" style="flex: @house.Open"></i> }
-                                    @if (house.Closed > 0) { <i class="s-closed" style="flex: @house.Closed"></i> }
-                                </span>
-                                <span class="val">@house.Open open of @house.Total</span>
+                                <li>
+                                    @Ui.Sym(ticket.TNumber)
+                                    <a class="t-title" asp-action="TicketView" asp-route-id="@ticket.IssueId" asp-fragment="assignment" title="@(role.Can(Permission.TicketAssign) ? "Assign" : "Open") ticket @ticket.TNumber">@(string.IsNullOrWhiteSpace(ticket.ITitle) ? "(no title)" : ticket.ITitle)</a>
+                                    @Ui.PriorityPill(ticket.Priority)
+                                    <span class="t-meta hide-s">@Ui.Date(ticket.TDate)</span>
+                                </li>
                             }
-                        </div>
+                        </ul>
                     }
-                </div>
-            </section>
+                </section>
+            </div>
 
+            <div class="widget" data-panel="houses" data-title="By brokerage house" data-size="half">
+                <section class="card">
+                    <div class="card-head">
+                        <h2>By brokerage house</h2>
+                        <span class="sub">Busiest first</span>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.Houses.Count == 0)
+                        {
+                            <p class="muted">No tickets yet.</p>
+                        }
+                        else
+                        {
+                            <div class="legend" style="margin: 0 0 14px">
+                                <span><i class="s-open"></i>Not closed</span>
+                                <span><i class="s-closed"></i>Closed</span>
+                            </div>
+                            <div class="hbars">
+                                @foreach (var house in Model.Houses)
+                                {
+                                    <span class="name" title="@house.Name">@house.Name</span>
+                                    <span class="bar" style="width: @(Math.Max(2, Ui.Percent(house.Total, busiest)))%" title="@house.Name: @house.Open open, @house.Closed closed">
+                                        @if (house.Open > 0) { <i class="s-open" style="flex: @house.Open"></i> }
+                                        @if (house.Closed > 0) { <i class="s-closed" style="flex: @house.Closed"></i> }
+                                    </span>
+                                    <span class="val">@house.Open open of @house.Total</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </section>
+            </div>
+        }
+
+        <div class="widget" data-panel="latest" data-title="Latest tickets" data-size="half">
             <partial name="_LatestTickets" model="Model.Recent" />
         </div>
-    }
+    </div>
 </div>

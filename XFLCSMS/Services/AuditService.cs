@@ -9,6 +9,7 @@ namespace XFLCSMS.Services
     {
         public const string SignIn = "auth.signin";
         public const string SignInFailed = "auth.signin_failed";
+        public const string SignInLocked = "auth.locked";
         public const string SignOut = "auth.signout";
         public const string Register = "auth.register";
         public const string Verify = "auth.verify";
@@ -20,6 +21,7 @@ namespace XFLCSMS.Services
         public const string UserUpdate = "user.update";
         public const string UserActivate = "user.activate";
         public const string UserPasswordSet = "user.password_set";
+        public const string UserUnlock = "user.unlock";
         public const string UserDelete = "user.delete";
 
         public const string TicketCreate = "ticket.create";
@@ -59,6 +61,7 @@ namespace XFLCSMS.Services
             {
                 case SignIn: return "Signed in";
                 case SignInFailed: return "Sign-in failed";
+                case SignInLocked: return "Account locked";
                 case SignOut: return "Signed out";
                 case Register: return "Registered";
                 case Verify: return "Account verified";
@@ -69,6 +72,7 @@ namespace XFLCSMS.Services
                 case UserUpdate: return "Account changed";
                 case UserActivate: return "Account activated";
                 case UserPasswordSet: return "Password set";
+                case UserUnlock: return "Account unlocked";
                 case UserDelete: return "Account deleted";
                 case TicketCreate: return "Ticket raised";
                 case TicketEdit: return "Ticket edited";

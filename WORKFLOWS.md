@@ -1,6 +1,6 @@
-# XFL CSMS - who does what
+# Xpert CSMS - who does what
 
-Customer Support Management System of Xpert Fintech Ltd. (version 3.0). Staff of brokerage houses raise
+Customer Support Management System of Xpert Fintech Ltd. (version 3.2). Staff of brokerage houses raise
 support tickets; the XFL support team assigns them, works on them and closes them. Everybody is told what
 happens to their tickets: on the page while they work, by e-mail, and by SMS.
 
@@ -68,7 +68,7 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 1 - the person registers**
 1. **Register** (`/RegisterLogin/Register`): name, e-mail, phone, brokerage house, branch, employee ID, user name, password.
-2. A **token** (6 characters) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
+2. A **token** (8 letters and digits) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
 3. No e-mail? The account waits as **Not verified**. The platform admin and the admin of that house see it: a
    notice under the bell, and the number of waiting accounts in the menu. They press **Activate** under **Users**
    - after the person has confirmed that the registration is theirs (anybody can register under any name).
@@ -76,11 +76,22 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 2 - an administrator creates the account**
 **Users > New user**: same details plus the role. The account is active at once; the administrator passes the
-user name and password on (the owner gets an e-mail with the user name, never with the password).
+user name and password on (the owner gets an e-mail with the user name, never with the password). At the first
+sign-in the owner has to choose an own password before anything else.
 A platform admin creates any account; a house admin creates house users and house admins of the own house.
 
-Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). If that mail
-does not arrive, an administrator sets a new password under **Users > Edit**.
+Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). The page
+answers the same for every name, so it does not tell who is registered. If the mail does not arrive, an
+administrator sets a new password under **Users > Edit**; the owner then has to replace it at the next sign-in.
+
+**Passwords.** A new password has 10 or more characters with at least one letter and one digit, does not contain
+the user name or the e-mail address and is not a common one. Passwords that existed before version 3.2 stay valid.
+
+**Wrong attempts.** Five wrong passwords or activation tokens in a row lock the account for 15 minutes; during
+that time the right password is refused too. The lock ends by itself, with **Users > Edit > Unlock now**, with a
+new password from an administrator, or with a reset by e-mail. A name that has no account gets exactly the same
+answers. Thirty failed attempts from one network address in ten minutes make the site refuse that address for a
+while. The numbers are settings ("SignIn" in appsettings.json).
 
 A sign-in ends after 10 minutes in which the person did nothing (an open page that only listens for notifications
 does not count as doing something). It also ends at the next click when an administrator disables the account,
@@ -198,7 +209,7 @@ the lists of all users, editing included, and the report over them.
   sub-categories, affected sections. An entry that is in use cannot be deleted.
 
 **System**
-- **Audit trail**: who did what and when: sign-ins (also failed ones), accounts, tickets, master data, settings.
+- **Audit trail**: who did what and when: sign-ins (also failed ones, and accounts locked by them), accounts, tickets, master data, settings.
   Filter by date, kind, house, text; export to CSV. Lines are only ever added.
 - **System health**: database, e-mail, notifications (open pages listening, queue, failed messages, SMS), file
   storage, security settings, the support queue, facts about the installation, the latest warnings and errors.
@@ -256,13 +267,21 @@ in every status with their history, to-dos, and notices under the bell.
 
 **Security and operations**
 
+Built in since version 3.2: passwords stored with PBKDF2 (210,000 rounds; older ones are converted at the owner's next
+sign-in), the limits on wrong attempts above, a content security policy and the other browser protection headers on
+every page, upload limits with a check of the file content, and "choose your own password first" for passwords an
+administrator or the settings file supplied. **System > System health** shows the state of each.
+
+Still to do by hand or later:
+
 | Item | Action |
 |---|---|
 | The Gmail app password is in `appsettings.json` and in the git history | revoke it; enter the new one under Notification settings (stored encrypted in the database) and remove it from the file |
-| No limit on sign-in or activation attempts, no lock-out | add an attempt limit before the site is reachable from the internet |
+| Sign-in is user name and password only | add a second factor (code by e-mail or authenticator app) before institutions ask for it |
+| Limits per network address are kept in memory | fine for one instance; they start again after a restart |
 | The folder `App_Data/keys` holds the keys for sign-in cookies and stored secrets | the account the site runs under must be able to write there; keep it out of version control and out of "delete extra files" deployments. After a move to another server, enter the mail password and SMS key again |
 | Start SQL Server before the application | database updates are applied at start-up only; if the database was not reachable then, restart the application |
-| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to a supported .NET and update MailKit |
+| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to .NET 10 (.NET 8 support ends in November 2026) and update MailKit |
 | Uploaded files are in the repository (`wwwroot/Uplods`) | remove them from git, keep the folder |
 | `Controllers/UserController.cs` is dead code (its API class is never registered) | delete it |
 | No automated tests in the repository | the checks so far were run from outside |

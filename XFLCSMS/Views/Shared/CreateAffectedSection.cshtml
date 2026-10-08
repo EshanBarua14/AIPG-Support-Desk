@@ -3,7 +3,7 @@
     ViewData["Title"] = "New affected section";
     ViewData["PageClass"] = "narrow";
 }
-<a class="back" asp-action="AffectedSectionList"><icon name="arrow-left" /> Affected sections</a>
+<partial name="_SupportListBack" model='(Model?.ProductId, "AffectedSectionList", "Affected sections", false)' />
 
 <header class="page-head">
     <div>
@@ -19,9 +19,10 @@
             <input class="input" asp-for="ASection" placeholder="For example: Settlement" autocomplete="off" required>
             <span asp-validation-for="ASection"></span>
         </div>
+        <partial name="_ProductChoice" model="Model?.ProductId" />
     </div>
     <div class="card-foot">
         <button type="submit" class="btn btn-primary"><icon name="save" /> Create affected section</button>
-        <a class="btn" asp-action="AffectedSectionList">Cancel</a>
+        <partial name="_SupportListBack" model='(Model?.ProductId, "AffectedSectionList", "Cancel", true)' />
     </div>
 </form>

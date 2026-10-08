@@ -13,7 +13,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@(string.IsNullOrEmpty(title) ? "XFL CSMS" : title + " - XFL CSMS")</title>
+    <title>@(string.IsNullOrEmpty(title) ? "Xpert CSMS" : title + " - Xpert CSMS")</title>
     <meta name="app-base" content="@Url.Content("~/")">
     <meta name="icon-sprite" content="@Url.Content("~/img/icons.svg")?v=@IconTagHelper.SpriteVersion">
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken">
@@ -114,7 +114,7 @@
             <footer class="foot">
                 <span>&copy; @DateTime.Now.Year <a href="https://xpertfintech.com" target="_blank" rel="noopener">Xpert Fintech Limited</a></span>
                 <span class="spacer"></span>
-                <span>XFL CSMS @Ui.Version</span>
+                <span>Xpert CSMS @Ui.Version</span>
             </footer>
         </div>
     </div>

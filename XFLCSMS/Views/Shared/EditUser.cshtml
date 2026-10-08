@@ -125,6 +125,28 @@
             }
         </span>
     </div>
+    @if (Model.IsLocked)
+    {
+        <div class="card-body" style="border-bottom: 1px solid var(--line)">
+            <div class="alert alert-warning" role="status" style="margin: 0 0 12px"><icon name="lock" /><span>Locked until @Model.LockedUntil!.Value.ToString("HH:mm") after too many wrong passwords. Nobody can sign in to this account until then, not even with the right password.</span></div>
+            <p class="muted" style="margin: 0 0 12px">Unlock it when the owner has told you the wrong attempts were theirs. If they were not, somebody is guessing the password: leave the lock, and look at the audit trail.</p>
+            <form asp-action="UnlockUser" asp-route-id="@Model.Id" method="post">
+                <button type="submit" class="btn"><icon name="key-round" /> Unlock now</button>
+            </form>
+        </div>
+    }
+    else if (Model.FailedAttempts > 0)
+    {
+        <div class="card-body" style="border-bottom: 1px solid var(--line)">
+            <p class="muted" style="margin: 0">@Model.FailedAttempts wrong password@(Model.FailedAttempts == 1 ? "" : "s") in a row since the last sign-in.</p>
+        </div>
+    }
+    @if (Model.MustChangePassword && !Model.IsSelf)
+    {
+        <div class="card-body" style="border-bottom: 1px solid var(--line)">
+            <p class="muted" style="margin: 0">The password of this account was set by an administrator. The owner has to choose a new one when signing in.</p>
+        </div>
+    }
     @if (Model.VerifiedAt == null)
     {
         <div class="card-body">
@@ -145,15 +167,15 @@
     <form asp-action="SetUserPassword" method="post" autocomplete="off">
         <input type="hidden" name="Id" value="@Model.Id">
         <div class="card-body" style="@(Model.VerifiedAt == null ? "border-top: 1px solid var(--line)" : "")">
-            <p class="muted" style="margin: 0 0 12px">Lost password and the reset email does not arrive? Set a new one here and tell the user. Whoever is signed in with this account is signed out.</p>
+            <p class="muted" style="margin: 0 0 12px">Lost password and the reset email does not arrive? Set a new one here and tell the user. Whoever is signed in with this account is signed out, a lock ends, and the user has to choose an own password at the next sign-in.</p>
             <div class="form-grid">
                 <div class="field">
                     <label for="NewPassword">New password</label>
                     <div class="input-wrap">
-                        <input class="input" type="password" name="NewPassword" id="NewPassword" required minlength="6" autocomplete="new-password">
+                        <input class="input" type="password" name="NewPassword" id="NewPassword" required minlength="@XFLCSMS.Services.PasswordPolicy.MinimumLength" maxlength="@XFLCSMS.Services.PasswordPolicy.MaximumLength" autocomplete="new-password">
                         <button type="button" class="btn btn-icon btn-sm peek" data-peek aria-label="Show password"><icon name="eye" /></button>
                     </div>
-                    <span class="hint">6 or more characters with a small letter, a capital letter, a digit and one of @@ $ ! % * ? &amp;</span>
+                    <span class="hint">@XFLCSMS.Services.PasswordPolicy.Hint</span>
                 </div>
                 <div class="field">
                     <label for="ConfirmPassword">New password again</label>

@@ -15,7 +15,7 @@ namespace XFLCSMS.Infrastructure
     public class IconTagHelper : TagHelper
     {
         // Change the number when icons.svg changes, so browsers fetch the new file.
-        public const string SpriteVersion = "2";
+        public const string SpriteVersion = "3";
 
         private readonly IUrlHelperFactory _urlHelperFactory;
 

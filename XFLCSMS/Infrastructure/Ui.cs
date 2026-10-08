@@ -16,7 +16,7 @@ namespace XFLCSMS.Infrastructure
     public static class Ui
     {
         /// <summary>Shown in the footer and on the system health page.</summary>
-        public const string Version = "3.0";
+        public const string Version = "3.2";
 
         /// <summary>The role a page belongs to. Each role has its own controller, so the controller name decides.</summary>
         public sealed class RoleInfo

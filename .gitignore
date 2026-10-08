@@ -363,3 +363,8 @@ MigrationBackup/
 FodyWeavers.xsd
 # Keys that protect cookies and stored secrets (mail password, SMS key). Never commit them.
 App_Data/
+
+# Xpert CSMS: never in the repository
+add_admin.sql
+# files people attached to tickets (the folder itself is created by the application)
+XFLCSMS/wwwroot/Uplods/*

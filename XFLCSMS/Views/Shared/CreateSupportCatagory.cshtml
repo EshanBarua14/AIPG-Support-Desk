@@ -3,7 +3,7 @@
     ViewData["Title"] = "New support category";
     ViewData["PageClass"] = "narrow";
 }
-<a class="back" asp-action="SupportCatagoryList"><icon name="arrow-left" /> Support categories</a>
+<partial name="_SupportListBack" model='(Model?.ProductId, "SupportCatagoryList", "Support categories", false)' />
 
 <header class="page-head">
     <div>
@@ -17,12 +17,13 @@
         <div class="field">
             <label asp-for="SCatagory">Name</label>
             <input class="input" asp-for="SCatagory" placeholder="For example: Software" autocomplete="off" required>
-            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span class="hint">@XFLCSMS.Models.Support.SupportListRules.Hint</span>
             <span asp-validation-for="SCatagory"></span>
         </div>
+        <partial name="_ProductChoice" model="Model?.ProductId" />
     </div>
     <div class="card-foot">
         <button type="submit" class="btn btn-primary"><icon name="save" /> Create support category</button>
-        <a class="btn" asp-action="SupportCatagoryList">Cancel</a>
+        <partial name="_SupportListBack" model='(Model?.ProductId, "SupportCatagoryList", "Cancel", true)' />
     </div>
 </form>

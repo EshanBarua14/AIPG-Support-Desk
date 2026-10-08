@@ -86,7 +86,7 @@ namespace XFLCSMS.Controllers
             // with every click, so a disabled user who kept working was never signed out.)
             var stored = Db.Users
                 .Where(u => u.Id == user.Id)
-                .Select(u => new { u.UStatus, u.UCatagory, u.UType, u.Department, u.PasswordHash, u.BrokerageHouseName })
+                .Select(u => new { u.UStatus, u.UCatagory, u.UType, u.Department, u.PasswordHash, u.BrokerageHouseName, u.MustChangePassword })
                 .FirstOrDefault();
             if (stored == null
                 || !stored.UStatus
@@ -105,6 +105,24 @@ namespace XFLCSMS.Controllers
                 context.Result = SessionAuthorizeAttribute.Challenge(Request);
                 return;
             }
+
+            // A password somebody else chose (the first administrator's from the settings file, one an administrator
+            // typed in) is only good for one thing: choosing an own one. Until then every other page leads there.
+            var actionName = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?.ActionName;
+            if (stored.MustChangePassword
+                && actionName != nameof(ChangePassword) && actionName != nameof(Logout) && actionName != nameof(NotificationStream))
+            {
+                if (SessionAuthorizeAttribute.IsAjax(Request))
+                {
+                    context.Result = StatusCode(StatusCodes.Status403Forbidden, "Choose a new password first.");
+                    return;
+                }
+
+                context.Result = RedirectToAction(nameof(ChangePassword));
+                return;
+            }
+
+            ViewBag.MustChangePassword = stored.MustChangePassword;
 
             // An action that needs a permission this role does not hold is refused here, before it runs.
             var needed = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?
@@ -548,9 +566,11 @@ namespace XFLCSMS.Controllers
                     return View(password);
                 }
 
-                if (string.IsNullOrEmpty(password.NewPassword) || ModelState[nameof(Password.NewPassword)]?.Errors.Count > 0)
+                // the same rules as everywhere a password is set (Services/PasswordPolicy.cs)
+                var problem = PasswordPolicy.Problem(password.NewPassword, user.UserName, user.Email);
+                if (problem != null)
                 {
-                    ViewBag.message = "Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character";
+                    ViewBag.message = problem;
                     return View(password);
                 }
 
@@ -560,9 +580,16 @@ namespace XFLCSMS.Controllers
                     return View(password);
                 }
 
+                if (PasswordHasher.Verify(password.NewPassword, user.PasswordHash, user.PasswordSalt))
+                {
+                    ViewBag.message = "The new password is the same as the current one. Choose a different password.";
+                    return View(password);
+                }
+
                 PasswordHasher.Create(password.NewPassword, out byte[] passwordHash, out byte[] passwordSalt);
                 user.PasswordHash = passwordHash;
                 user.PasswordSalt = passwordSalt;
+                user.MustChangePassword = false;
                 Audit(AuditActions.PasswordChange, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Changed their own password", Rbac.HouseOf(user));
                 await Db.SaveChangesAsync();
 

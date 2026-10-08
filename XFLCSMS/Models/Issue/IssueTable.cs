@@ -42,6 +42,10 @@ namespace XFLCSMS.Models.Issue
 
         public string? UpdatedBy { get; set; }= string.Empty;
 
+        /// <summary>The XFL product the ticket is about; empty when the person who raised it was not sure.</summary>
+        public int? ProductId { get; set; }
+        public Product? Product { get; set; }
+
         [ForeignKey("supportTypes")]
         public int? SupportTypeId { get; set; }
         public SupportType? supportTypes { get; set; }

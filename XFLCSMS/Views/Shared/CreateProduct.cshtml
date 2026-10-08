@@ -1,0 +1,23 @@
+@model XFLCSMS.Models.Support.Product
+@{
+    ViewData["Title"] = "New product";
+    ViewData["PageClass"] = "narrow";
+}
+<a class="back" asp-action="ProductList"><icon name="arrow-left" /> Products</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">New product</h1>
+        <p class="page-sub">After creating it you add its support types and categories.</p>
+    </div>
+</header>
+
+<form class="card" asp-action="CreateProduct" method="post">
+    <div class="card-body stack">
+        <partial name="_ProductFields" model="Model" />
+    </div>
+    <div class="card-foot">
+        <button type="submit" class="btn btn-primary"><icon name="save" /> Create product</button>
+        <a class="btn" asp-action="ProductList">Cancel</a>
+    </div>
+</form>

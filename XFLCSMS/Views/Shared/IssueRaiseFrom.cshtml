@@ -50,13 +50,27 @@
                 <div class="card-head"><h2>What it is about</h2><span class="sub">Optional. Helps the ticket reach the right engineer.</span></div>
                 <div class="card-body">
                     <div class="form-grid">
+                        @if (Model.Products.Count > 0)
+                        {
+                            <div class="field wide">
+                                <label for="ProductId">Product</label>
+                                <select class="select" asp-for="issueFrom.ProductId" id="ProductId" data-product-choice>
+                                    <option value="">Not sure</option>
+                                    @foreach (var item in Model.Products)
+                                    {
+                                        <option value="@item.ProductId">@item.Name</option>
+                                    }
+                                </select>
+                                <span class="hint">The lists below then show what belongs to this product.</span>
+                            </div>
+                        }
                         <div class="field">
                             <label for="SupportTypeId">Support type</label>
                             <select class="select" asp-for="issueFrom.SupportTypeId" id="SupportTypeId">
                                 <option value="">Not sure</option>
                                 @foreach (var item in Model.SupportTypes)
                                 {
-                                    <option value="@item.SupportTypeId">@item.SType</option>
+                                    <option value="@item.SupportTypeId" data-product="@item.ProductId">@item.SType</option>
                                 }
                             </select>
                         </div>
@@ -66,7 +80,7 @@
                                 <option value="">Not sure</option>
                                 @foreach (var item in Model.SupportCatagories)
                                 {
-                                    <option value="@item.SupportCatagoryId">@item.SCatagory</option>
+                                    <option value="@item.SupportCatagoryId" data-product="@item.ProductId">@item.SCatagory</option>
                                 }
                             </select>
                         </div>
@@ -76,7 +90,7 @@
                                 <option value="">Not sure</option>
                                 @foreach (var item in Model.SupportSubCatagories)
                                 {
-                                    <option value="@item.SupportSubCatagoryId">@item.SubCatagory</option>
+                                    <option value="@item.SupportSubCatagoryId" data-product="@item.ProductId">@item.SubCatagory</option>
                                 }
                             </select>
                         </div>
@@ -86,7 +100,7 @@
                                 <option value="">Not sure</option>
                                 @foreach (var item in Model.AffectedSections)
                                 {
-                                    <option value="@item.AffectedSectionId">@item.ASection</option>
+                                    <option value="@item.AffectedSectionId" data-product="@item.ProductId">@item.ASection</option>
                                 }
                             </select>
                         </div>

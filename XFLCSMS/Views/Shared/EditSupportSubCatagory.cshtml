@@ -3,7 +3,7 @@
     ViewData["Title"] = "Edit support sub-category";
     ViewData["PageClass"] = "narrow";
 }
-<a class="back" asp-action="SupportSubCatagoryList"><icon name="arrow-left" /> Support sub-categories</a>
+<partial name="_SupportListBack" model='(Model?.ProductId, "SupportSubCatagoryList", "Support sub-categories", false)' />
 
 <header class="page-head">
     <div>
@@ -18,12 +18,13 @@
         <div class="field">
             <label asp-for="SubCatagory">Name</label>
             <input class="input" asp-for="SubCatagory" placeholder="For example: Login" autocomplete="off" required>
-            <span class="hint">4 to 100 letters, no spaces.</span>
+            <span class="hint">@XFLCSMS.Models.Support.SupportListRules.Hint</span>
             <span asp-validation-for="SubCatagory"></span>
         </div>
+        <partial name="_ProductChoice" model="Model?.ProductId" />
     </div>
     <div class="card-foot">
         <button type="submit" class="btn btn-primary"><icon name="save" /> Save changes</button>
-        <a class="btn" asp-action="SupportSubCatagoryList">Cancel</a>
+        <partial name="_SupportListBack" model='(Model?.ProductId, "SupportSubCatagoryList", "Cancel", true)' />
     </div>
 </form>

@@ -81,6 +81,11 @@
                             {
                                 @Ui.Pill("st-pending", "Not verified")
                             }
+                            else if (item.LockedUntil != null && item.LockedUntil > DateTime.Now)
+                            {
+                                @* too many wrong passwords: unlock under Edit, or it ends by itself *@
+                                @Ui.Pill("st-pending", "Locked until " + item.LockedUntil.Value.ToString("HH:mm"))
+                            }
                             else
                             {
                                 @Ui.Pill("st-active", "Active")

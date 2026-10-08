@@ -1,0 +1,14 @@
+@* Name of the product a support list entry belongs to, as a link to the product; "All products" when it has none. *@
+@model XFLCSMS.Models.Support.Product
+@if (Model == null)
+{
+    <span class="muted">All products</span>
+}
+else
+{
+    <a asp-action="ViewProduct" asp-route-id="@Model.ProductId">@Model.Name</a>
+    @if (!Model.IsActive)
+    {
+        @Ui.Pill("st-disabled", "Inactive")
+    }
+}

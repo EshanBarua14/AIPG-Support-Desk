@@ -57,25 +57,6 @@ namespace XFLCSMS.Models.Issue
         /// <summary>The ticket is assigned to the signed-in engineer.</summary>
         public bool IsMine { get; set; }
         public List<XFLCSMS.Models.Audit.AuditLog> History { get; set; } = new();
-
-        // ---- the conversation, the service times and the rating (ticket page only, filled in CsmsController.TicketView)
-
-        /// <summary>The conversation as the signed-in user may read it, oldest first.</summary>
-        public List<XFLCSMS.Models.Desk.TicketMessage> Messages { get; set; } = new();
-        /// <summary>Ready-made texts for the reply box (XFL staff).</summary>
-        public List<XFLCSMS.Models.Desk.CannedReply> CannedReplies { get; set; } = new();
-        /// <summary>User id of the person who raised the ticket.</summary>
-        public int RaisedById { get; set; }
-        public XFLCSMS.Services.SlaClock ResponseClock { get; set; } = new();
-        public XFLCSMS.Services.SlaClock ResolveClock { get; set; } = new();
-        public DateTime? FirstResponseAt { get; set; }
-        public DateTime? ResolvedAt { get; set; }
-        public int ReopenCount { get; set; }
-        public int? Rating { get; set; }
-        public string? RatingComment { get; set; }
-        public DateTime? RatedAt { get; set; }
-        /// <summary>The signed-in user raised the ticket, it is closed and not rated yet.</summary>
-        public bool CanRate { get; set; }
         public ICollection<User>? SupportEngineers { get; set; }
     }
 }

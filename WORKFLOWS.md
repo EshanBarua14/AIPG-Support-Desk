@@ -1,6 +1,6 @@
 # Xpert CSMS - who does what
 
-Customer Support Management System of Xpert Fintech Ltd. (version 3.3). Staff of brokerage houses raise
+Customer Support Management System of Xpert Fintech Ltd. (version 3.1). Staff of brokerage houses raise
 support tickets; the XFL support team assigns them, works on them and closes them. Everybody is told what
 happens to their tickets: on the page while they work, by e-mail, and by SMS.
 
@@ -36,9 +36,6 @@ This is the default. A platform admin changes it under **System > Roles & permis
 | Deploy, close and reopen | yes | yes | yes | - | - |
 | Delete tickets | yes | no | - | - | - |
 | Workload page | yes | yes | no | - | - |
-| Service report | yes | yes | no | yes (own house) | - |
-| Manage canned replies | yes | yes | no | - | - |
-| Service targets | yes | no | - | - | - |
 | Manage all accounts | always | no | - | - | - |
 | Manage the accounts of their house | - | - | - | yes | - |
 | Manage the branches of their house | - | - | - | yes | - |
@@ -71,7 +68,7 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 1 - the person registers**
 1. **Register** (`/RegisterLogin/Register`): name, e-mail, phone, brokerage house, branch, employee ID, user name, password.
-2. A **token** (8 letters and digits) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
+2. A **token** (6 characters) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
 3. No e-mail? The account waits as **Not verified**. The platform admin and the admin of that house see it: a
    notice under the bell, and the number of waiting accounts in the menu. They press **Activate** under **Users**
    - after the person has confirmed that the registration is theirs (anybody can register under any name).
@@ -79,22 +76,11 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 2 - an administrator creates the account**
 **Users > New user**: same details plus the role. The account is active at once; the administrator passes the
-user name and password on (the owner gets an e-mail with the user name, never with the password). At the first
-sign-in the owner has to choose an own password before anything else.
+user name and password on (the owner gets an e-mail with the user name, never with the password).
 A platform admin creates any account; a house admin creates house users and house admins of the own house.
 
-Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). The page
-answers the same for every name, so it does not tell who is registered. If the mail does not arrive, an
-administrator sets a new password under **Users > Edit**; the owner then has to replace it at the next sign-in.
-
-**Passwords.** A new password has 10 or more characters with at least one letter and one digit, does not contain
-the user name or the e-mail address and is not a common one. Passwords that existed before version 3.2 stay valid.
-
-**Wrong attempts.** Five wrong passwords or activation tokens in a row lock the account for 15 minutes; during
-that time the right password is refused too. The lock ends by itself, with **Users > Edit > Unlock now**, with a
-new password from an administrator, or with a reset by e-mail. A name that has no account gets exactly the same
-answers. Thirty failed attempts from one network address in ten minutes make the site refuse that address for a
-while. The numbers are settings ("SignIn" in appsettings.json).
+Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). If that mail
+does not arrive, an administrator sets a new password under **Users > Edit**.
 
 A sign-in ends after 10 minutes in which the person did nothing (an open page that only listens for notifications
 does not count as doing something). It also ends at the next click when an administrator disables the account,
@@ -131,39 +117,6 @@ Rules the system keeps:
 - Every step is written to the **history** on the ticket page (who, in which role, when, from what to what) and
   to the audit trail.
 
-### Conversation
-Every ticket has a conversation on its page (it replaced the single "Comments" field, which every edit overwrote).
-- **Reply**: everybody who may open the ticket writes there: formatted text and files. An entry keeps its author,
-  role and time and cannot be changed or removed afterwards.
-- **Internal note** (XFL staff only): a tick under the reply box. The brokerage house never sees the note, its
-  files, or any trace of it in the history of the ticket or in the activity list of the house.
-- **Canned replies**: XFL staff choose a ready-made text above the reply box and adapt it. `{name}` becomes the
-  first name of the person who raised the ticket, `{ticket}` the ticket number, `{me}` the writer. The texts are
-  managed under **Tickets > Canned replies** (permission "manage canned replies").
-- A reply does not change the status. Replies are possible on closed tickets too; they do not reopen it.
-- The "first message" of the create form opens the conversation.
-
-### Service targets
-A ticket gets two target times when it is raised, from **System > Service targets**: the first response and the
-solution, per priority (defaults: High 0.5 h / 4 h, Medium 2 h / 18 h, Low 4 h / 45 h of working time).
-- **Working time**: the working days and hours and the days off entered on that page (default Sunday to Thursday,
-  09:00 to 18:00). A priority can count round the clock instead.
-- **First response** is the first reply of XFL staff that the house can read, or the engineer setting the ticket
-  to In progress - whichever comes first. Assigning a ticket and internal notes do not count.
-- **Solved** is the first time the ticket reaches Done, Deployed or Closed. While it is **Pending** the clock for
-  the solution stands still, and the target moves later by that time. Reopening makes it unsolved again.
-- Lists show how an open ticket stands ("Reply due in 20 min", "Due in 3 h", "Overdue 2 d", "On hold"); the
-  ticket page shows both targets. **Overdue** in the menu lists the open tickets past a target.
-- The engineer of a ticket is told when 75 % of the time to a target is used; the people who assign tickets when
-  it has passed. Each message goes out once per ticket and target.
-- A ticket keeps the targets it got. Changing the priority recalculates them; changing the settings affects
-  tickets raised afterwards. Tickets raised before version 3.3 have no targets.
-
-### Rating
-When a ticket is closed, the person who raised it is asked on its page how the support was: 1 (bad) to 5 (very
-good) and an optional sentence, once. XFL staff see the rating on the ticket; the engineer and the people who
-assign tickets are told.
-
 ### Assignment
 - Tickets are assigned to **support engineers** (active XFL accounts with that role).
 - **Assign / Reassign** (permission "assign tickets"): from the lists, the ticket page, the workload page or the
@@ -183,10 +136,6 @@ assign tickets are told.
   result comes with charts (raised and closed over time, by priority, by product, by house, time to close);
   **Table** turns them into tables. Every role reports on the tickets it may see.
 - The search of every list also finds a ticket by the name or short name of its product.
-- **Service report** (permission "service report"): for the last 7, 30, 90 days or 12 months: how long the first
-  response and the solution took (the time within which half of the tickets were done, in working time), how many
-  targets were met, ratings, tickets raised and solved per day, open tickets by age, and the same per priority,
-  product, engineer and brokerage house. A house admin sees the own house.
 
 ### The dashboard
 Every role has one, over the tickets it may see. It is made of parts:
@@ -238,12 +187,7 @@ under the bell), **e-mail**, **SMS**. The person who does something is never tol
 | Ticket unassigned | the engineer who had it, and XFL staff who assign tickets | on | off | off |
 | Status changed | the person who raised it and its engineer | on | off | off |
 | Ticket deployed or closed | the person who raised it and its engineer | on | on | on |
-| Ticket edited | the person who raised it and its engineer | on | off | off |
-| Reply in the conversation | the person who raised it and its engineer; without an engineer: XFL staff who assign tickets | on | on | off |
-| Internal note | the engineer of the ticket (XFL staff only) | on | off | off |
-| Support was rated | the engineer and XFL staff who assign tickets | on | off | off |
-| Service target is due soon | the engineer; without one: XFL staff who assign tickets | on | off | off |
-| Service target was missed | XFL staff who assign tickets, and the engineer | on | on | off |
+| Ticket edited or commented | the person who raised it and its engineer | on | off | off |
 | Registration waiting for activation | the administrators who can activate it | on | off | off |
 | Account activated | the owner of the account | off | on | on |
 | Account created by an administrator | the owner | off | on | off |
@@ -298,12 +242,11 @@ the lists of all users, editing included, and the report over them.
     are added once; what is renamed or deleted afterwards stays that way.
 
 **System**
-- **Audit trail**: who did what and when: sign-ins (also failed ones, and accounts locked by them), accounts, tickets, master data, settings.
+- **Audit trail**: who did what and when: sign-ins (also failed ones), accounts, tickets, master data, settings.
   Filter by date, kind, house, text; export to CSV. Lines are only ever added.
 - **System health**: database, e-mail, notifications (open pages listening, queue, failed messages, SMS), file
   storage, security settings, the support queue, facts about the installation, the latest warnings and errors.
   `/health` answers `Healthy` or `Unhealthy` for monitoring tools, without sign-in.
-- **Service targets**: on / off, the two times per priority, working days and hours, days off, when to warn.
 - **Roles & permissions**: the table of section 1 as switches. A change is in force as soon as it is saved, also
   for people who are signed in; it is written to the audit trail; **Reset to defaults** puts everything back.
   A locked box cannot be changed, a dash cannot be given.
@@ -349,10 +292,8 @@ in every status with their history, to-dos, and notices under the bell.
 |---|---|
 | Product, support type and category are set when the ticket is raised and cannot be changed afterwards | a ticket raised under the wrong product keeps it; the report then counts it there |
 | The arrangement of the dashboard is kept in the browser, not in the account | on another computer the dashboard starts in its standard arrangement |
-| Support is reached through the web form only | no ticket by e-mail, no reply by e-mail, no chat |
-| No knowledge base | every question becomes a ticket; nothing suggests an answer while a ticket is typed |
-| No rules (auto-assign, auto-close after Deployed, reminders on Pending) | a manager assigns by hand; old Deployed tickets stay open until somebody closes them |
-| One escalation step for a missed target (the people who assign tickets) | no second step to the platform admin after a further delay |
+| One "Comments" field that every edit overwrites; no conversation | the history says that comments changed, not what they said before |
+| No due date, SLA or escalation | old tickets are visible as "oldest first" on the dashboard and the workload page only |
 | No "send the token again" on the activation page | when the mail is lost, an administrator activates |
 | Lists and reports load all visible tickets and filter in memory | fine for thousands of tickets, slow for hundreds of thousands |
 | Two people saving the same ticket at the same moment: the last one wins for title, details and comments | rare; status and engineer are protected (section 3) |
@@ -361,21 +302,13 @@ in every status with their history, to-dos, and notices under the bell.
 
 **Security and operations**
 
-Built in since version 3.2: passwords stored with PBKDF2 (210,000 rounds; older ones are converted at the owner's next
-sign-in), the limits on wrong attempts above, a content security policy and the other browser protection headers on
-every page, upload limits with a check of the file content, and "choose your own password first" for passwords an
-administrator or the settings file supplied. **System > System health** shows the state of each.
-
-Still to do by hand or later:
-
 | Item | Action |
 |---|---|
 | The Gmail app password is in `appsettings.json` and in the git history | revoke it; enter the new one under Notification settings (stored encrypted in the database) and remove it from the file |
-| Sign-in is user name and password only | add a second factor (code by e-mail or authenticator app) before institutions ask for it |
-| Limits per network address are kept in memory | fine for one instance; they start again after a restart |
+| No limit on sign-in or activation attempts, no lock-out | add an attempt limit before the site is reachable from the internet |
 | The folder `App_Data/keys` holds the keys for sign-in cookies and stored secrets | the account the site runs under must be able to write there; keep it out of version control and out of "delete extra files" deployments. After a move to another server, enter the mail password and SMS key again |
 | Start SQL Server before the application | database updates are applied at start-up only; if the database was not reachable then, restart the application |
-| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to .NET 10 (.NET 8 support ends in November 2026) and update MailKit |
+| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to a supported .NET and update MailKit |
 | Uploaded files are in the repository (`wwwroot/Uplods`) | remove them from git, keep the folder |
 | `Controllers/UserController.cs` is dead code (its API class is never registered) | delete it |
 | No automated tests in the repository | the checks so far were run from outside |

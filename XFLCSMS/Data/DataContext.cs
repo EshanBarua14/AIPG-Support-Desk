@@ -40,8 +40,6 @@ namespace XFLCSMS.Data
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
         public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
-        public DbSet<XFLCSMS.Models.Desk.TicketMessage> TicketMessages => Set<XFLCSMS.Models.Desk.TicketMessage>();
-        public DbSet<XFLCSMS.Models.Desk.CannedReply> CannedReplies => Set<XFLCSMS.Models.Desk.CannedReply>();
 
         /// <summary>
         /// Runs right before changes are written. The signed-in area sets it to add the audit lines for master data
@@ -125,14 +123,6 @@ namespace XFLCSMS.Data
             modelBuilder.Entity<SupportSubCatagory>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<AffectedSection>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<IssueTable>().HasOne(issue => issue.Product).WithMany().HasForeignKey(issue => issue.ProductId).OnDelete(DeleteBehavior.Restrict);
-            // The conversation of a ticket is read per ticket, oldest first; it goes when the ticket is deleted.
-            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketMessage>().HasIndex(message => new { message.IssueId, message.Id });
-            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketMessage>()
-                .HasOne(message => message.Issue).WithMany().HasForeignKey(message => message.IssueId).OnDelete(DeleteBehavior.Cascade);
-            modelBuilder.Entity<Attachment>().HasIndex(file => file.MessageId);
-
-            // The watcher of the service targets looks for open tickets whose target time comes up.
-            modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.ResolveDueAt);
         }
 
 

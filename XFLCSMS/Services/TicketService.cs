@@ -26,17 +26,13 @@ namespace XFLCSMS.Services
         private readonly IWebHostEnvironment _environment;
         private readonly AuditService _audit;
         private readonly NotificationService _notify;
-        private readonly UploadLimits _uploads;
-        private readonly SlaService _sla;
 
-        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit, NotificationService notify, UploadLimits uploads, SlaService sla)
+        public TicketService(DataContext context, IWebHostEnvironment environment, AuditService audit, NotificationService notify)
         {
-            _sla = sla;
             _context = context;
             _environment = environment;
             _audit = audit;
             _notify = notify;
-            _uploads = uploads;
         }
 
         public string UploadFolder =>
@@ -117,6 +113,7 @@ namespace XFLCSMS.Services
                 Priority = form.Priority,
                 ITitle = form.ITitle.Trim(),
                 Details = CleanRichText(form.IssueDetails),
+                Comments = form.Commands,
                 UserId = user.Id,
                 BrokerageId = user.BrokerageHouseName,
                 ProductId = productId,
@@ -134,16 +131,8 @@ namespace XFLCSMS.Services
                 return (null, "Please select a priority.", rejected);
             }
 
-            _sla.Start(issue); // the two service targets, counted from now
-
             _context.Issues.Add(issue);
             await _context.SaveChangesAsync(); // the ticket gets its id here
-
-            // what used to be the "Comments" field of the form opens the conversation
-            if (!string.IsNullOrWhiteSpace(form.Commands))
-            {
-                _context.TicketMessages.Add(NewMessage(issue, user, _actorRole, System.Net.WebUtility.HtmlEncode(form.Commands.Trim()).Replace("\n", "<br>"), isInternal: false, issue.TDate));
-            }
 
             Log(AuditActions.TicketCreate, issue, "Raised the ticket \u201c" + issue.ITitle + "\u201d, priority " + issue.Priority);
             _notify.TicketRaised(issue, user);
@@ -159,13 +148,8 @@ namespace XFLCSMS.Services
             return id.HasValue && _context.Products.Any(product => product.ProductId == id && product.IsActive) ? id : null;
         }
 
-        /// <summary>
-        /// Stores uploaded files for a ticket. Returns the files that were refused, each with the reason in brackets:
-        /// "setup.exe (file type not allowed)", "scan.pdf (larger than 10 MB)", "report.pdf (not a PDF file)".
-        /// </summary>
-        /// <param name="messageId">The conversation entry the files come with; null for files of the ticket itself.</param>
-        /// <param name="internalNote">The entry is an internal note: its files are as internal as the note.</param>
-        public async Task<List<string>> SaveAttachmentsAsync(int issueId, IEnumerable<IFormFile>? files, long? messageId = null, bool internalNote = false)
+        /// <summary>Stores uploaded files for a ticket. Returns the names of files that were refused.</summary>
+        public async Task<List<string>> SaveAttachmentsAsync(int issueId, IEnumerable<IFormFile>? files)
         {
             var rejected = new List<string>();
             if (files == null)
@@ -176,7 +160,6 @@ namespace XFLCSMS.Services
             Directory.CreateDirectory(UploadFolder);
             var added = false;
             var names = new List<string>();
-            var taken = 0;
 
             foreach (var file in files)
             {
@@ -191,36 +174,9 @@ namespace XFLCSMS.Services
 
                 if (string.IsNullOrWhiteSpace(originalName) || !AllowedExtensions.Contains(extension))
                 {
-                    rejected.Add((string.IsNullOrWhiteSpace(originalName) ? "(unnamed file)" : originalName) + " (file type not allowed)");
+                    rejected.Add(string.IsNullOrWhiteSpace(originalName) ? "(unnamed file)" : originalName);
                     continue;
                 }
-
-                if (file.Length > _uploads.MaxFileBytes)
-                {
-                    rejected.Add(originalName + " (larger than " + _uploads.MaxFileMb + " MB)");
-                    continue;
-                }
-
-                if (taken >= _uploads.MaxFilesPerSave)
-                {
-                    rejected.Add(originalName + " (more than " + _uploads.MaxFilesPerSave + " files at once)");
-                    continue;
-                }
-
-                // the name says what the file claims to be; the first bytes say what it is
-                string? contentProblem;
-                await using (var content = file.OpenReadStream())
-                {
-                    contentProblem = await UploadContent.ProblemAsync(content, extension);
-                }
-
-                if (contentProblem != null)
-                {
-                    rejected.Add(originalName + " (" + contentProblem + ")");
-                    continue;
-                }
-
-                taken++;
 
                 // Unique name on disk so two tickets with "screenshot.png" no longer overwrite each other.
                 var storedName = Guid.NewGuid().ToString("N") + extension;
@@ -235,8 +191,7 @@ namespace XFLCSMS.Services
                 {
                     FileName = originalName,
                     AttachmentLoc = filePath,
-                    IssueId = issueId,
-                    MessageId = messageId
+                    IssueId = issueId
                 });
                 names.Add(originalName);
                 added = true;
@@ -247,18 +202,8 @@ namespace XFLCSMS.Services
                 var issue = await _context.Issues.FirstOrDefaultAsync(i => i.IssueId == issueId);
                 if (issue != null)
                 {
-                    if (internalNote)
-                    {
-                        // like the note itself: no brokerage house on the line, and left out of the history the house reads
-                        _audit.Add(AuditActions.TicketNote, _actor, Rbac.Label(_actorRole), null, "Ticket", issue.IssueId, issue.TNumber, "Attached " + string.Join(", ", names) + " to an internal note");
-                    }
-                    else
-                    {
-                        Log(AuditActions.TicketFileAdd, issue, "Attached " + string.Join(", ", names));
-                    }
-
-                    // files that come with a new ticket are part of "ticket raised", files of a reply part of that reply
-                    if (messageId == null && issue.TDate < DateTime.Now.AddMinutes(-1))
+                    Log(AuditActions.TicketFileAdd, issue, "Attached " + string.Join(", ", names));
+                    if (issue.TDate < DateTime.Now.AddMinutes(-1)) // files that come with a new ticket are part of "ticket raised"
                     {
                         _notify.TicketEdited(issue, "Attached " + string.Join(", ", names), _actor);
                     }
@@ -440,9 +385,7 @@ namespace XFLCSMS.Services
                 issue.ApproveOn = null;
                 if (!closed)
                 {
-                    var statusBefore = issue.IStatus;
                     issue.IStatus = TicketStatus.Unassigned; // a ticket without an engineer is "Unassigned", whatever it was
-                    _sla.StatusChanged(issue, statusBefore, Rbac.IsStaff(_actorRole), now);
                 }
             }
             else
@@ -616,7 +559,6 @@ namespace XFLCSMS.Services
 
             issue.UpdatedOn = now;
             issue.UpdatedBy = _actor?.FullName;
-            _sla.StatusChanged(issue, oldStatus, Rbac.IsStaff(_actorRole), now);
             Log(AuditActions.TicketStatus, issue,
                 (newStatus == TicketStatus.Closed ? "Closed the ticket" : wasClosed ? "Reopened the ticket as " + TicketStatus.Name(newStatus) : "Status " + TicketStatus.Name(newStatus))
                 + " (was " + TicketStatus.Name(oldStatus) + ")");
@@ -672,7 +614,7 @@ namespace XFLCSMS.Services
         /// <summary>Value of the "Assigned to" field that means: do not touch the assignment.</summary>
         public const int KeepAssignee = -1;
 
-        private List<string> ApplyCommonFields(IssueTable issue, MakerView form, User editor)
+        private static List<string> ApplyCommonFields(IssueTable issue, MakerView form, User editor)
         {
             var changes = new List<string>();
 
@@ -690,13 +632,17 @@ namespace XFLCSMS.Services
                 changes.Add("the details");
             }
 
-            // (The "Comments" field is gone from the form: comments are entries of the conversation now, see AddMessageAsync.)
+            var comments = string.IsNullOrWhiteSpace(form.Command) ? null : form.Command;
+            if (comments != (string.IsNullOrWhiteSpace(issue.Comments) ? null : issue.Comments))
+            {
+                issue.Comments = form.Command;
+                changes.Add("the comments");
+            }
 
             if (!string.IsNullOrWhiteSpace(form.Priority) && form.Priority != issue.Priority && Array.IndexOf(Priorities, form.Priority) >= 0)
             {
                 changes.Add("the priority from " + issue.Priority + " to " + form.Priority);
                 issue.Priority = form.Priority;
-                _sla.PriorityChanged(issue); // another priority has other service targets
             }
 
             if (changes.Count > 0)
@@ -709,164 +655,6 @@ namespace XFLCSMS.Services
         }
 
         public static readonly string[] Priorities = { "Low", "Medium", "High" };
-
-        // ---- conversation ----------------------------------------------------------------------
-
-        /// <summary>
-        /// The conversation of a ticket as the acting user may read it, oldest first: XFL staff see everything,
-        /// people of the brokerage house never see the internal notes.
-        /// </summary>
-        public async Task<List<XFLCSMS.Models.Desk.TicketMessage>> MessagesAsync(int issueId)
-        {
-            var staff = Rbac.IsStaff(_actorRole);
-            return await _context.TicketMessages
-                .Where(message => message.IssueId == issueId && (staff || !message.IsInternal))
-                .OrderBy(message => message.Id)
-                .ToListAsync();
-        }
-
-        /// <summary>May the acting user read this conversation entry (and download what came with it)?</summary>
-        public bool CanRead(XFLCSMS.Models.Desk.TicketMessage message)
-        {
-            return !message.IsInternal || Rbac.IsStaff(_actorRole);
-        }
-
-        private static XFLCSMS.Models.Desk.TicketMessage NewMessage(IssueTable issue, User author, Role role, string html, bool isInternal, DateTime at)
-        {
-            return new XFLCSMS.Models.Desk.TicketMessage
-            {
-                IssueId = issue.IssueId,
-                UserId = author.Id,
-                AuthorName = author.FullName,
-                AuthorRole = Rbac.Label(role),
-                FromStaff = Rbac.IsStaff(role),
-                IsInternal = isInternal,
-                At = at,
-                Body = html
-            };
-        }
-
-        /// <summary>
-        /// Adds a reply (or, from XFL staff, an internal note) to the conversation, with its files. Everybody who may
-        /// open the ticket may write; the caller has checked that. A reply of staff that the house can read counts as
-        /// the first response. Returns the entry, or the reason nothing was added, and the files that were refused.
-        /// </summary>
-        public async Task<(XFLCSMS.Models.Desk.TicketMessage? Message, string? Error, List<string> RejectedFiles)> AddMessageAsync(
-            IssueTable issue, string? html, bool isInternal, IEnumerable<IFormFile>? files)
-        {
-            var rejected = new List<string>();
-            if (_actor == null)
-            {
-                return (null, "Please sign in again.", rejected);
-            }
-
-            var staff = Rbac.IsStaff(_actorRole);
-            isInternal = isInternal && staff; // only XFL staff write internal notes, whatever the form says
-            var body = CleanRichText(html);
-            var hasFiles = files != null && files.Any(file => file != null && file.Length > 0);
-            if (string.IsNullOrWhiteSpace(PlainText(body)) && !hasFiles)
-            {
-                return (null, "Write a reply or attach a file first.", rejected);
-            }
-
-            if (body != null && body.Length > 200_000)
-            {
-                return (null, "The reply is too long. Put long texts into a file and attach it.", rejected);
-            }
-
-            var now = DateTime.Now;
-            var message = NewMessage(issue, _actor, _actorRole, body ?? string.Empty, isInternal, now);
-            _context.TicketMessages.Add(message);
-
-            if (staff && !isInternal)
-            {
-                _sla.Responded(issue, now);
-            }
-
-            var preview = Preview(body, hasFiles);
-            if (isInternal)
-            {
-                // The line carries no brokerage house: the activity list of a house shows the lines of that house, and
-                // the house must not learn that XFL made a note. (The history on the ticket page leaves it out too.)
-                _audit.Add(AuditActions.TicketNote, _actor, Rbac.Label(_actorRole), null, "Ticket", issue.IssueId, issue.TNumber, "Added an internal note");
-            }
-            else
-            {
-                Log(AuditActions.TicketReply, issue, "Replied in the conversation");
-            }
-            if (isInternal)
-            {
-                _notify.TicketNoted(issue, _actor, preview);
-            }
-            else
-            {
-                _notify.TicketReplied(issue, _actor, staff, preview);
-            }
-
-            await _context.SaveChangesAsync(); // the entry gets its id here
-
-            rejected = await SaveAttachmentsAsync(issue.IssueId, files, message.Id, isInternal);
-            return (message, null, rejected);
-        }
-
-        /// <summary>The words of a formatted text, without the formatting.</summary>
-        public static string PlainText(string? html)
-        {
-            if (string.IsNullOrEmpty(html))
-            {
-                return string.Empty;
-            }
-
-            var text = System.Text.RegularExpressions.Regex.Replace(html, "<(br|/p|/div|/li|/h[1-6])[^>]*>", " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            text = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", string.Empty);
-            return System.Text.RegularExpressions.Regex.Replace(System.Net.WebUtility.HtmlDecode(text), "\\s+", " ").Trim();
-        }
-
-        private static string Preview(string? html, bool hasFiles)
-        {
-            var text = PlainText(html);
-            if (text.Length == 0)
-            {
-                return hasFiles ? "(attached a file)" : string.Empty;
-            }
-
-            return text.Length <= 160 ? text : text.Substring(0, 157) + "...";
-        }
-
-        // ---- rating ----------------------------------------------------------------------------
-
-        /// <summary>May the acting user rate the support on this ticket? The person who raised it, once, after it was closed.</summary>
-        public bool CanRate(IssueTable issue)
-        {
-            return _actor != null && issue.UserId == _actor.Id && issue.Rating == null && TicketStatus.IsClosed(issue.IStatus);
-        }
-
-        /// <summary>Stores the rating (1 to 5) with an optional sentence. Returns null, or why it was not stored.</summary>
-        public string? Rate(IssueTable issue, int rating, string? comment)
-        {
-            if (!CanRate(issue))
-            {
-                return issue.Rating != null ? "This ticket was rated already." : "Only the person who raised a ticket can rate it, once it is closed.";
-            }
-
-            if (rating < 1 || rating > 5)
-            {
-                return "Choose between 1 and 5.";
-            }
-
-            comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
-            if (comment != null && comment.Length > 1000)
-            {
-                comment = comment.Substring(0, 1000);
-            }
-
-            issue.Rating = rating;
-            issue.RatingComment = comment;
-            issue.RatedAt = DateTime.Now;
-            Log(AuditActions.TicketRate, issue, "Rated the support " + rating + " of 5" + (comment == null ? string.Empty : ": \u201c" + comment + "\u201d"));
-            _notify.TicketRated(issue, _actor!);
-            return null;
-        }
 
         // ---- audit -----------------------------------------------------------------------------
 

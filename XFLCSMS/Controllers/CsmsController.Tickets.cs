@@ -321,9 +321,7 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                var view = ToMakerView(issue, includeEngineers: false);
-                await FillDeskAsync(view, issue); // conversation, service times, rating
-                return View(view);
+                return View(ToMakerView(issue, includeEngineers: false));
             }
             catch (Exception ex)
             {
@@ -390,7 +388,7 @@ namespace XFLCSMS.Controllers
                 var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
                 if (rejected.Count > 0)
                 {
-                    problems.Add("these files were not attached: " + string.Join(", ", rejected));
+                    problems.Add("these files were not attached (file type not allowed): " + string.Join(", ", rejected));
                 }
 
                 if (problems.Count > 0)
@@ -467,9 +465,6 @@ namespace XFLCSMS.Controllers
                 {
                     return NotFound("The ticket was not found.");
                 }
-
-                // the conversation goes with the ticket
-                Db.TicketMessages.RemoveRange(Db.TicketMessages.Where(message => message.IssueId == issue.IssueId));
 
                 // remove the uploaded files too, not only the database rows
                 var files = issue.attachment?.ToList() ?? new List<Attachment>();

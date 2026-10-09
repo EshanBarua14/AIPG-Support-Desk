@@ -523,9 +523,6 @@
         var input = $('input[type="file"]', zone);
         var list = $(zone.getAttribute('data-drop') || '#none') || zone.nextElementSibling;
         var allowed = (zone.getAttribute('data-accept') || '').toLowerCase().split(',').filter(Boolean);
-        // the server enforces both limits (TicketService); checking here saves the person a wasted upload
-        var maxMb = parseFloat(zone.getAttribute('data-max-mb')) || 0;
-        var maxFiles = parseInt(zone.getAttribute('data-max-files'), 10) || 0;
         var canEdit = typeof DataTransfer !== 'undefined';
         var chosen = canEdit ? new DataTransfer() : null;
 
@@ -549,15 +546,12 @@
             var refused = [];
             Array.prototype.forEach.call(files, function (file) {
                 var extension = file.name.indexOf('.') >= 0 ? file.name.split('.').pop().toLowerCase() : '';
-                if (allowed.length && allowed.indexOf(extension) < 0) { refused.push(file.name + ' (file type not allowed)'); return; }
-                if (maxMb && file.size > maxMb * 1048576) { refused.push(file.name + ' (larger than ' + maxMb + ' MB)'); return; }
-                if (chosen && isChosen(file)) { return; } // the same file twice is one attachment
-                if (maxFiles && chosen && chosen.files.length >= maxFiles) { refused.push(file.name + ' (more than ' + maxFiles + ' files at once)'); return; }
-                if (chosen) { chosen.items.add(file); }
+                if (allowed.length && allowed.indexOf(extension) < 0) { refused.push(file.name); return; }
+                if (chosen && !isChosen(file)) { chosen.items.add(file); } // the same file twice is one attachment
             });
             if (chosen) { input.files = chosen.files; }
             if (refused.length) {
-                toast('Not attached: ' + refused.join(', '), true);
+                toast('Not attached (file type not allowed): ' + refused.join(', '), true);
                 if (!chosen) { input.value = ''; }
             }
             draw();

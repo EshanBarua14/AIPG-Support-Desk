@@ -34,11 +34,10 @@
                 }
             </p>
             <div class="row" style="justify-content: center">
-                <button type="button" class="btn" data-go-back><icon name="arrow-left" /> Go back</button>
+                <a class="btn" href="javascript:history.back()"><icon name="arrow-left" /> Go back</a>
                 <a class="btn btn-primary" href="~/">Start page</a>
             </div>
         </div>
     </main>
-    <script>document.querySelector('[data-go-back]').addEventListener('click', function () { history.back(); });</script>
 </body>
 </html>

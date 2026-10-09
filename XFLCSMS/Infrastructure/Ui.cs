@@ -19,7 +19,7 @@ namespace XFLCSMS.Infrastructure
         public const string Brand = "Xpert CSMS";
 
         /// <summary>Shown in the footer and on the system health page.</summary>
-        public const string Version = "3.3";
+        public const string Version = "3.1";
 
         /// <summary>The role a page belongs to. Each role has its own controller, so the controller name decides.</summary>
         public sealed class RoleInfo
@@ -178,23 +178,6 @@ namespace XFLCSMS.Infrastructure
                 case "In progress": return Pill("st-inprogress", "In progress");
                 default: return Pill(string.Empty, string.IsNullOrEmpty(status) ? "No status" : status);
             }
-        }
-
-        /// <summary>
-        /// How a service target stands, as a badge: green "in time", amber "due in 40 min" when it comes up, red when
-        /// it has passed. <paramref name="whenNone"/> is shown for a ticket without that target (null: nothing).
-        /// </summary>
-        public static IHtmlContent SlaPill(XFLCSMS.Services.SlaClock clock, string? whenNone = null)
-        {
-            if (clock.State == "none")
-            {
-                var text = string.IsNullOrEmpty(clock.Text) ? whenNone : clock.Text;
-                return string.IsNullOrEmpty(text) ? HtmlString.Empty : new HtmlString("<span class=\"muted\">" + Encode(char.ToUpperInvariant(text[0]) + text.Substring(1)) + "</span>");
-            }
-
-            // the words say how it stands ("overdue by 2 h"); the colour only repeats it
-            var title = clock.Due == null ? string.Empty : " title=\"Target: " + Encode(Stamp(clock.Due)) + "\"";
-            return new HtmlString("<span class=\"pill sla sla-" + clock.State + "\"" + title + ">" + Encode(char.ToUpperInvariant(clock.Text[0]) + clock.Text.Substring(1)) + "</span>");
         }
 
         public static IHtmlContent Pill(string cssClass, string text)

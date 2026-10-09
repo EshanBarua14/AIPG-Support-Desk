@@ -86,7 +86,7 @@ namespace XFLCSMS.Controllers
             // with every click, so a disabled user who kept working was never signed out.)
             var stored = Db.Users
                 .Where(u => u.Id == user.Id)
-                .Select(u => new { u.UStatus, u.UCatagory, u.UType, u.Department, u.PasswordHash, u.BrokerageHouseName, u.MustChangePassword })
+                .Select(u => new { u.UStatus, u.UCatagory, u.UType, u.Department, u.PasswordHash, u.BrokerageHouseName })
                 .FirstOrDefault();
             if (stored == null
                 || !stored.UStatus
@@ -105,24 +105,6 @@ namespace XFLCSMS.Controllers
                 context.Result = SessionAuthorizeAttribute.Challenge(Request);
                 return;
             }
-
-            // A password somebody else chose (the first administrator's from the settings file, one an administrator
-            // typed in) is only good for one thing: choosing an own one. Until then every other page leads there.
-            var actionName = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?.ActionName;
-            if (stored.MustChangePassword
-                && actionName != nameof(ChangePassword) && actionName != nameof(Logout) && actionName != nameof(NotificationStream))
-            {
-                if (SessionAuthorizeAttribute.IsAjax(Request))
-                {
-                    context.Result = StatusCode(StatusCodes.Status403Forbidden, "Choose a new password first.");
-                    return;
-                }
-
-                context.Result = RedirectToAction(nameof(ChangePassword));
-                return;
-            }
-
-            ViewBag.MustChangePassword = stored.MustChangePassword;
 
             // An action that needs a permission this role does not hold is refused here, before it runs.
             var needed = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?
@@ -217,10 +199,6 @@ namespace XFLCSMS.Controllers
                 {
                     ViewBag.AssignedToMeCount = Db.Issues.Where(TicketService.AssignedTo(user)).Count(TicketService.NotClosed);
                 }
-                var now = DateTime.Now;
-                ViewBag.OverdueCount = VisibleIssues.Where(TicketService.NotClosed).Count(i =>
-                    (i.ResponseDueAt != null && i.FirstResponseAt == null && i.ResponseDueAt < now)
-                    || (i.ResolveDueAt != null && i.ResolvedAt == null && i.PendingSince == null && i.ResolveDueAt < now));
                 ViewBag.UnreadNotifications = Db.Notifications.Count(n => n.UserId == user.Id && n.ReadAt == null);
                 ViewBag.InAppNotifications = Services.Notify.NotificationEvents.ChannelOn(Settings, Services.Notify.NotificationEvents.InAppChannel);
                 if (Can(Permission.UsersAll) || Can(Permission.UsersHouse))
@@ -475,9 +453,7 @@ namespace XFLCSMS.Controllers
                 CanWork = Tickets.CanWorkOn(issue),
                 StatusChoices = Tickets.StatusChoices(issue),
                 IsMine = CurrentUser != null && TicketService.IsAssignedTo(issue, CurrentUser),
-                // XFL staff read everything that happened; the brokerage house does not see that an internal note was made
-                History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList()
-                    .Where(line => Rbac.IsStaff(MyRole) || line.Action != AuditActions.TicketNote).ToList(),
+                History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList(),
                 TicketDetails = issue.Details,
                 Command = issue.Comments,
                 TicketStatus = issue.IStatus,
@@ -575,11 +551,9 @@ namespace XFLCSMS.Controllers
                     return View(password);
                 }
 
-                // the same rules as everywhere a password is set (Services/PasswordPolicy.cs)
-                var problem = PasswordPolicy.Problem(password.NewPassword, user.UserName, user.Email);
-                if (problem != null)
+                if (string.IsNullOrEmpty(password.NewPassword) || ModelState[nameof(Password.NewPassword)]?.Errors.Count > 0)
                 {
-                    ViewBag.message = problem;
+                    ViewBag.message = "Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character";
                     return View(password);
                 }
 
@@ -589,16 +563,9 @@ namespace XFLCSMS.Controllers
                     return View(password);
                 }
 
-                if (PasswordHasher.Verify(password.NewPassword, user.PasswordHash, user.PasswordSalt))
-                {
-                    ViewBag.message = "The new password is the same as the current one. Choose a different password.";
-                    return View(password);
-                }
-
                 PasswordHasher.Create(password.NewPassword, out byte[] passwordHash, out byte[] passwordSalt);
                 user.PasswordHash = passwordHash;
                 user.PasswordSalt = passwordSalt;
-                user.MustChangePassword = false;
                 Audit(AuditActions.PasswordChange, "User", user.Id, user.FullName + " (" + user.UserName + ")", "Changed their own password", Rbac.HouseOf(user));
                 await Db.SaveChangesAsync();
 
@@ -624,16 +591,6 @@ namespace XFLCSMS.Controllers
                 return NotFound("Attachment not found.");
             }
 
-            // a file that came with an internal note is as internal as the note
-            if (attachment.MessageId != null)
-            {
-                var message = await Db.TicketMessages.FirstOrDefaultAsync(item => item.Id == attachment.MessageId);
-                if (message != null && !Tickets.CanRead(message))
-                {
-                    return NotFound("Attachment not found.");
-                }
-            }
-
             var filePath = Tickets.ResolveAttachmentPath(attachment);
             if (filePath == null)
             {
@@ -652,9 +609,8 @@ namespace XFLCSMS.Controllers
                 return NotFound();
             }
 
-            // seeing a ticket is not enough to remove its files: the same rule as for editing it.
-            // What was sent with a conversation entry stays, like the entry itself.
-            if (!Tickets.CanEdit(attachment.issue) || attachment.MessageId != null)
+            // seeing a ticket is not enough to remove its files: the same rule as for editing it
+            if (!Tickets.CanEdit(attachment.issue))
             {
                 return Refused();
             }

@@ -1,5 +1,6 @@
 Xpert CSMS - how to run
-=======================
+=====================
+
 Requirements
 ------------
 - Visual Studio 2022 with the "ASP.NET and web development" workload and the .NET 6 SDK/runtime
@@ -16,9 +17,8 @@ Option A - use the supplied data (CSMS.bak)
 Option B - start with an empty database (also the way to go on SQL Server 2019)
    Do nothing. On first start the application creates the "CSMS" database and all tables by itself
    and, because the database has no users yet, creates a first administrator:
-        user name and password: "SeedAdmin" in appsettings.Development.json
-   That password only opens one page: the first sign-in has to choose a new one (version 3.2). Because the
-   file is in the repository, treat the password in it as public.
+        user name: admin        password: Admin@12345
+   (values come from "SeedAdmin" in appsettings.Development.json; change the password after signing in).
    That administrator can then create brokerage houses and branches, which registration needs.
 
 2. Connection string
@@ -64,7 +64,7 @@ a) Same office network
    1. Start it with the "lan" profile (plain http on port 5100, all network cards, Production mode):
           dotnet run --launch-profile lan
    2. Allow the port in Windows Firewall, once, in a terminal opened "as administrator":
-          netsh advfirewall firewall add rule name="Xpert CSMS" dir=in action=allow protocol=TCP localport=5100
+          netsh advfirewall firewall add rule name="XFL CSMS" dir=in action=allow protocol=TCP localport=5100
    3. Find the address of this computer:   ipconfig   (IPv4 Address, for example 192.168.1.25)
    4. The others open   http://192.168.1.25:5100
    The first start on an EMPTY database must be the normal profile (F5 / plain "dotnet run"): only that one
@@ -118,59 +118,5 @@ with their support types and categories.
    c) Dashboard > Customize: every person arranges the own dashboard; nothing to set up.
 The old logo file XFLCSMS/wwwroot/img/XFLlogo.png is not used any more and can be deleted.
 If a page looks unstyled right after the update, reload it once with Ctrl+F5 (the browser kept the old files).
-
-9. Version 3.2: sign-in protection, browser protection, upload limits
---------------------------------------------------------------------
-Start the application once: it adds three columns to the Users table (FailedAttempts, LockedUntil,
-MustChangePassword) by itself. Nothing else in the database changes, and everybody's password keeps working.
-
-What is different for people:
-   - A new password needs 10 characters with at least one letter and one digit, must not contain the user
-     name or e-mail address and must not be a common one. Passwords that exist stay valid until changed.
-   - Five wrong passwords (or activation tokens) in a row lock the account for 15 minutes. An administrator
-     ends a lock under Users > Edit > "Unlock now"; setting a new password or a reset by e-mail ends it too.
-   - Whoever signs in with a password somebody else chose (the first administrator's from the settings file,
-     an account an administrator created, a password an administrator set) has to choose an own one first.
-   - "Forgot your password?" answers the same for every name, so it no longer tells who is registered.
-   - A file may be 10 MB, 10 files at once, and its content has to match its type.
-
-Settings (appsettings.json; every one is optional, these are the defaults):
-   "SignIn":   { "MaxFailuresPerAccount": 5, "LockMinutes": 15, "MaxFailuresPerAddress": 30, "AddressWindowMinutes": 10 }
-   "Uploads":  { "MaxFileMb": 10, "MaxFilesPerSave": 10 }
-   "Session":  { "IdleMinutes": 10, "CookieSecure": "auto" }       "always" = cookies only over https
-   "Security": { "ContentSecurityPolicy": "enforce" }              "report" = only note violations, "off"
-
-"MaxFailuresPerAddress" counts failed attempts from one network address. Behind a reverse proxy that does
-not pass the visitor's address on, every visitor has the proxy's address: raise the number or configure
-forwarded headers before going live that way.
-
-To do by hand, once (System > System health reminds you of the first two):
-   a) The mail password stands in appsettings.json, and that file is in the repository: change the password
-      at the mail provider, enter the new one under System > Notification settings (it is stored encrypted
-      in the database) and empty "EmailPassword" in the file.
-   b) Sign in as the first administrator and choose a new password, if it is still the one from the file.
-   c) Stop tracking files that do not belong in a repository (they stay on your disk):
-          git rm --cached add_admin.sql
-          git rm -r --cached XFLCSMS/wwwroot/Uplods
-          git commit -m "Stop tracking the admin script and uploaded files"
-      .gitignore now keeps them out. They remain in the history of the repository: for a public repository
-      that means the uploaded files and the old password can still be read there. Rewriting the history
-      (git filter-repo) removes them; changing the password is what makes the old one worthless.
-
-10. Version 3.3: conversation, service targets, canned replies, rating, service report
-------------------------------------------------------------------------------------
-Start the application once: it adds two tables and some columns by itself, turns the old "Comments" text of
-every ticket into the first entry of its conversation, and adds four starter canned replies.
-
-Then, signed in as platform admin:
-   a) System > Service targets: the times per priority, the working days and hours, the days off.
-      The defaults are assumptions (High 0.5 h / 4 h, Medium 2 h / 18 h, Low 4 h / 45 h; Sunday to Thursday,
-      09:00 to 18:00; no days off). Tickets that exist already have no targets and are never reported as late.
-   b) Tickets > Canned replies: change the four starters to the wording of your team.
-   c) System > Notification settings: five new events (reply, internal note, rating, target due soon, target
-      missed). A reply and a missed target also go out by e-mail unless you switch that off.
-   d) System > Roles & permissions: three new permissions under "Service".
-
-Setting (appsettings.json, optional):   "Sla": { "CheckSeconds": 60 }   how often the targets are checked.
 
 See WORKFLOWS.md for what each role can do, and FIXES.md for the list of what was changed.

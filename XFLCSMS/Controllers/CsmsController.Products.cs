@@ -7,7 +7,7 @@ using XFLCSMS.Services;
 
 namespace XFLCSMS.Controllers
 {
-    // The products of XFL (order management system, mobile app, ...). A support type, category, sub-category or
+    // The products of AIPG (order management system, mobile app, ...). A support type, category, sub-category or
     // affected section can belong to one product: the ticket form then offers it for that product only. An entry
     // without a product is offered for every product.
     // For every role that holds Permission.MasterData (by default the platform admin). The pages are in Views/Shared.
@@ -144,7 +144,7 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateProduct([Bind("Name,Code,Description,IsActive")] Product product)
+        public async Task<IActionResult> CreateProduct([Bind("Name,Code,Description,IsActive,EngineerId")] Product product)
         {
             try
             {
@@ -183,7 +183,7 @@ namespace XFLCSMS.Controllers
         [RequirePermission(Permission.MasterData)]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateProduct([Bind("ProductId,Name,Code,Description,IsActive")] Product product)
+        public async Task<IActionResult> UpdateProduct([Bind("ProductId,Name,Code,Description,IsActive,EngineerId")] Product product)
         {
             try
             {
@@ -203,6 +203,7 @@ namespace XFLCSMS.Controllers
                 existing.Code = product.Code;
                 existing.Description = product.Description;
                 existing.IsActive = product.IsActive;
+                existing.EngineerId = product.EngineerId;
                 await Db.SaveChangesAsync();
                 return RedirectToAction("ViewProduct", new { id = existing.ProductId });
             }
@@ -220,6 +221,12 @@ namespace XFLCSMS.Controllers
             product.Code = product.Code.Length == 0 ? null : product.Code;
             product.Description = string.IsNullOrWhiteSpace(product.Description) ? null : product.Description.Trim();
             Revalidate(product, nameof(Product.Name), nameof(Product.Code), nameof(Product.Description));
+
+            // the default engineer: an active support engineer, or nobody
+            if (product.EngineerId != null && !await Tickets.Engineers().AnyAsync(user => user.Id == product.EngineerId))
+            {
+                product.EngineerId = null;
+            }
 
             if (ModelState.IsValid && await Db.Products.AnyAsync(item => item.Name == product.Name && item.ProductId != product.ProductId))
             {

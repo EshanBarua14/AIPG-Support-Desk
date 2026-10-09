@@ -22,7 +22,7 @@ namespace XFLCSMS.Services
             "1234567890a", "a1234567890", "abc1234567", "abcd123456", "abcde12345", "qwerty12345", "qwertyuiop1", "1q2w3e4r5t",
             "1qaz2wsx3edc", "q1w2e3r4t5", "q1w2e3r4t5y6", "iloveyou123", "welcome123", "welcome1234", "letmein1234",
             "admin12345", "admin123456", "admin@12345", "admin@1234", "administrator1", "changeme123", "default12345",
-            "bangladesh1", "bangladesh123", "dhaka12345", "xpert12345", "xpert@12345", "xfl1234567", "xfl@123456", "csms123456", "csms@12345"
+            "bangladesh1", "bangladesh123", "dhaka12345", "xpert12345", "xpert@12345", "xfl1234567", "xfl@123456", "csms123456", "csms@12345", "aipg123456", "aipg@12345", "aipgsupport1", "supportdesk1"
         };
 
         /// <summary>Null when the password is acceptable; otherwise what is wrong with it, as a sentence for the form.</summary>

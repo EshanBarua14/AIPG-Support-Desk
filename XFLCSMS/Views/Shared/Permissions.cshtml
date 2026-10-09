@@ -1,7 +1,7 @@
 @*
     What each role may do, as a table of switches (Infrastructure/Rbac.cs). A switch that cannot be changed is
     shown locked: either the role can never hold that permission (it would reach into other brokerage houses,
-    or it belongs to a brokerage house and the role is XFL staff), or it can never lose it (the platform admin
+    or it belongs to a brokerage house and the role is AIPG staff), or it can never lose it (the platform admin
     keeps the accounts and this page, so a wrong setting can always be repaired).
 *@
 @model XFLCSMS.Models.Admin.PermissionsView
@@ -104,10 +104,10 @@
     <div class="card-body prose">
         <ul>
             <li>A person has exactly one role. It is set on the account (Users &gt; Edit).</li>
-            <li><b>XFL roles</b> (platform admin, support manager, support engineer) work across all brokerage houses. <b>House roles</b> (house admin, house user) never see anything outside their own house, whatever is ticked here.</li>
+            <li><b>AIPG roles</b> (platform admin, support manager, support engineer) work across all brokerage houses. <b>House roles</b> (house admin, house user) never see anything outside their own house, whatever is ticked here.</li>
             <li>A <b>house user</b> always sees only the tickets he raised himself: anybody can register for a brokerage house, so that role cannot be given more. People who should see the whole house are made <b>house admin</b>.</li>
             <li>The <b>settings of the system</b> (mail server, SMS gateway, demo data) stay with the platform admin.</li>
-            <li>Tickets are assigned to support engineers only. Without &ldquo;Work on any ticket&rdquo;, XFL staff change the tickets assigned to them.</li>
+            <li>Tickets are assigned to support engineers only. Without &ldquo;Work on any ticket&rdquo;, AIPG staff change the tickets assigned to them.</li>
             <li>Only a platform admin can create, change or delete platform admin accounts, also when another role has &ldquo;Manage all accounts&rdquo;.</li>
             <li>Every change made here is written to the audit trail.</li>
         </ul>

@@ -20,6 +20,7 @@
     <partial name="_Theme" />
     <link rel="icon" href="~/favicon.ico">
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/desk.css" asp-append-version="true">
 </head>
 <body>
     <div class="app" id="app">
@@ -113,7 +114,11 @@
             </main>
 
             <footer class="foot">
-                <span>&copy; @DateTime.Now.Year <a href="https://xpertfintech.com" target="_blank" rel="noopener">Xpert Fintech Limited</a></span>
+                <span class="credits">
+                    <span class="credit">Design By: <img src="@Url.Content(Ui.DesignLogo)" alt="" width="20" height="20"><b>@Ui.DesignBy</b></span>
+                    <span class="credit">Developed By: <img src="@Url.Content(Ui.DevelopedLogo)" alt="" width="20" height="20"><b>@Ui.DevelopedBy</b></span>
+                    <span class="credit">Powered By: <img src="@Url.Content(Ui.PoweredLogo)" alt="" width="20" height="20"><b>@Ui.PoweredBy</b></span>
+                </span>
                 <span class="spacer"></span>
                 <span>@Ui.Brand @Ui.Version</span>
             </footer>
@@ -121,6 +126,7 @@
     </div>
 
     <script src="~/js/app.js" asp-append-version="true"></script>
+    <script src="~/js/desk.js" asp-append-version="true"></script>
     <script src="~/js/charts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

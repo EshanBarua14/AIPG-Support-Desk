@@ -46,7 +46,7 @@ namespace XFLCSMS.Models.Issue
         // Filled for the page only (never posted): what the signed-in user may do with this ticket, and its history.
         /// <summary>May change title, details, priority and files.</summary>
         public bool CanEdit { get; set; }
-        /// <summary>May set status and comments (XFL staff working on the ticket).</summary>
+        /// <summary>May set status and comments (AIPG staff working on the ticket).</summary>
         public bool CanWork { get; set; }
         /// <summary>Edit form: the status the form showed when it was opened (hidden field).</summary>
         public string? OriginalStatus { get; set; }
@@ -57,6 +57,54 @@ namespace XFLCSMS.Models.Issue
         /// <summary>The ticket is assigned to the signed-in engineer.</summary>
         public bool IsMine { get; set; }
         public List<XFLCSMS.Models.Audit.AuditLog> History { get; set; } = new();
+
+        // ---- the conversation, the service times and the rating (ticket page only, filled in CsmsController.TicketView)
+
+        /// <summary>The conversation as the signed-in user may read it, oldest first.</summary>
+        public List<XFLCSMS.Models.Desk.TicketMessage> Messages { get; set; } = new();
+        /// <summary>Ready-made texts for the reply box (AIPG staff).</summary>
+        public List<XFLCSMS.Models.Desk.CannedReply> CannedReplies { get; set; } = new();
+        /// <summary>User id of the person who raised the ticket.</summary>
+        public int RaisedById { get; set; }
+        public XFLCSMS.Services.SlaClock ResponseClock { get; set; } = new();
+        public XFLCSMS.Services.SlaClock ResolveClock { get; set; } = new();
+        public DateTime? FirstResponseAt { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public int ReopenCount { get; set; }
+        public int? Rating { get; set; }
+        public string? RatingComment { get; set; }
+        public DateTime? RatedAt { get; set; }
+        /// <summary>The signed-in user raised the ticket, it is closed and not rated yet.</summary>
+        public bool CanRate { get; set; }
         public ICollection<User>? SupportEngineers { get; set; }
+
+        // ---- tags, links, watching, related articles (ticket page only, filled in CsmsController.FillOrganiseAsync)
+
+        /// <summary>The tags on the ticket (AIPG staff only; empty for the brokerage house).</summary>
+        public List<string> Tags { get; set; } = new();
+        /// <summary>Every tag there is, for the suggestions of the tag field.</summary>
+        public List<string> AllTags { get; set; } = new();
+        public List<LinkedTicket> Links { get; set; } = new();
+        /// <summary>The signed-in user watches the ticket.</summary>
+        public bool IsWatching { get; set; }
+        /// <summary>False for the person who raised it and for its engineer: they are told anyway.</summary>
+        public bool CanWatch { get; set; }
+        /// <summary>Names of the people who watch (AIPG staff only).</summary>
+        public List<string> Watchers { get; set; } = new();
+        /// <summary>Articles of the knowledge base that fit the title of the ticket (AIPG staff).</summary>
+        public List<XFLCSMS.Models.Desk.KbArticle> RelatedArticles { get; set; } = new();
+        public bool CanWriteKnowledge { get; set; }
+
+        /// <summary>Another ticket this one is linked to, as the signed-in user may see it.</summary>
+        public class LinkedTicket
+        {
+            public int LinkId { get; set; }
+            public int IssueId { get; set; }
+            public string? Number { get; set; }
+            public string? Title { get; set; }
+            public string? Status { get; set; }
+            /// <summary>"Related to", "Duplicate of" or "Has the duplicate".</summary>
+            public string What { get; set; } = string.Empty;
+        }
     }
 }

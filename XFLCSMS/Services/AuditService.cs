@@ -9,6 +9,7 @@ namespace XFLCSMS.Services
     {
         public const string SignIn = "auth.signin";
         public const string SignInFailed = "auth.signin_failed";
+        public const string SignInLocked = "auth.locked";
         public const string SignOut = "auth.signout";
         public const string Register = "auth.register";
         public const string Verify = "auth.verify";
@@ -20,6 +21,7 @@ namespace XFLCSMS.Services
         public const string UserUpdate = "user.update";
         public const string UserActivate = "user.activate";
         public const string UserPasswordSet = "user.password_set";
+        public const string UserUnlock = "user.unlock";
         public const string UserDelete = "user.delete";
 
         public const string TicketCreate = "ticket.create";
@@ -30,6 +32,12 @@ namespace XFLCSMS.Services
         public const string TicketDelete = "ticket.delete";
         public const string TicketFileAdd = "ticket.file_add";
         public const string TicketFileDelete = "ticket.file_delete";
+        public const string TicketReply = "ticket.reply";
+        public const string TicketNote = "ticket.note";
+        public const string TicketRate = "ticket.rate";
+        public const string TicketReminder = "ticket.reminder";
+        public const string TicketTag = "ticket.tag";
+        public const string TicketLink = "ticket.link";
 
         public const string DataCreate = "data.create";
         public const string DataUpdate = "data.update";
@@ -41,6 +49,15 @@ namespace XFLCSMS.Services
         public const string SystemSettings = "system.settings";
         public const string SystemDemoData = "system.demo_data";
         public const string SystemStatusFix = "system.status_fix";
+
+        /// <summary>
+        /// Lines about a ticket that only AIPG staff read: internal notes, tags, links to other tickets (which may
+        /// belong to another brokerage house). They carry no brokerage house and are left out of the history a house sees.
+        /// </summary>
+        public static bool IsStaffOnly(string action)
+        {
+            return action == TicketNote || action == TicketTag || action == TicketLink;
+        }
 
         /// <summary>Categories as offered in the filter of the audit page: key (prefix of the action) and name.</summary>
         public static readonly (string Key, string Name)[] Categories =
@@ -59,6 +76,7 @@ namespace XFLCSMS.Services
             {
                 case SignIn: return "Signed in";
                 case SignInFailed: return "Sign-in failed";
+                case SignInLocked: return "Account locked";
                 case SignOut: return "Signed out";
                 case Register: return "Registered";
                 case Verify: return "Account verified";
@@ -69,9 +87,16 @@ namespace XFLCSMS.Services
                 case UserUpdate: return "Account changed";
                 case UserActivate: return "Account activated";
                 case UserPasswordSet: return "Password set";
+                case UserUnlock: return "Account unlocked";
                 case UserDelete: return "Account deleted";
                 case TicketCreate: return "Ticket raised";
                 case TicketEdit: return "Ticket edited";
+                case TicketReply: return "Reply";
+                case TicketNote: return "Internal note";
+                case TicketRate: return "Support rated";
+                case TicketReminder: return "Reminder sent";
+                case TicketTag: return "Tags changed";
+                case TicketLink: return "Tickets linked";
                 case TicketAssign: return "Ticket assigned";
                 case TicketUnassign: return "Ticket unassigned";
                 case TicketStatus: return "Status changed";
@@ -220,6 +245,7 @@ namespace XFLCSMS.Services
                             case "Code": parts.Add("short name from \u201c" + property.OriginalValue + "\u201d to \u201c" + property.CurrentValue + "\u201d"); break;
                             case "Description": parts.Add("description changed"); break;
                             case "IsActive": parts.Add(Equals(property.CurrentValue, true) ? "made active" : "made inactive"); break;
+                            case "EngineerId": parts.Add("default engineer from " + UserName(property.OriginalValue as int?) + " to " + UserName(property.CurrentValue as int?)); break;
                         }
                     }
 
@@ -254,6 +280,11 @@ namespace XFLCSMS.Services
                     }
                 }
             }
+        }
+
+        private string UserName(int? id)
+        {
+            return id == null ? "nobody" : _context.Users.Where(user => user.Id == id).Select(user => user.FullName).FirstOrDefault() ?? "(deleted account)";
         }
 
         private string ProductName(int? id)

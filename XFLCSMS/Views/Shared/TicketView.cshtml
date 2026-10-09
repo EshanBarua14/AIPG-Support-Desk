@@ -53,10 +53,24 @@
         <h1 class="page-title">@(string.IsNullOrWhiteSpace(Model.IssueTitle) ? "(no title)" : Model.IssueTitle)</h1>
         <p class="page-sub">Raised by @Model.CreatedBy@(string.IsNullOrEmpty(Model.BrokerageHouse) ? "" : ", " + Model.BrokerageHouse) on @Ui.Stamp(Model.CreatedOn)</p>
     </div>
-    @if (Model.CanEdit && (!closed || role.Can(Permission.TicketWorkAny)))
+    @{ var canEditNow = Model.CanEdit && (!closed || role.Can(Permission.TicketWorkAny)); }
+    @if (canEditNow || Model.CanWatch)
     {
         <div class="page-actions">
-            <a class="btn @(choices.Count > 0 ? "" : "btn-primary")" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> Edit ticket</a>
+            @if (Model.CanWatch)
+            {
+                <form asp-action="WatchTicket" asp-route-id="@Model.IssueId" method="post">
+                    <input type="hidden" name="on" value="@(Model.IsWatching ? "false" : "true")">
+                    <button type="submit" class="btn @(Model.IsWatching ? "is-on" : "")" aria-pressed="@(Model.IsWatching ? "true" : "false")" data-watch
+                            title="@(Model.IsWatching ? "You are told about replies and status changes. Press to stop." : "Be told about replies and status changes of this ticket")">
+                        <icon name="@(Model.IsWatching ? "eye" : "eye-off")" /> @(Model.IsWatching ? "Watching" : "Watch")
+                    </button>
+                </form>
+            }
+            @if (canEditNow)
+            {
+                <a class="btn @(choices.Count > 0 ? "" : "btn-primary")" asp-action="EditTicket" asp-route-id="@Model.IssueId"><icon name="pencil" /> Edit ticket</a>
+            }
         </div>
     }
 </header>
@@ -109,7 +123,7 @@
                                 <div class="msg-main">
                                     <div class="msg-head">
                                         <b>@message.AuthorName</b>
-                                        <span>@(message.FromStaff ? "XFL" : "Brokerage house")@(string.IsNullOrEmpty(message.AuthorRole) ? "" : ", " + message.AuthorRole.ToLowerInvariant()) &middot; @Ui.Stamp(message.At)</span>
+                                        <span>@(message.FromStaff ? "AIPG" : "Brokerage house")@(string.IsNullOrEmpty(message.AuthorRole) ? "" : ", " + message.AuthorRole.ToLowerInvariant()) &middot; @Ui.Stamp(message.At)</span>
                                         @if (message.IsInternal)
                                         {
                                             <span class="pill note-pill"><icon name="lock" /> Internal note</span>
@@ -166,7 +180,7 @@
                     <button type="submit" class="btn btn-primary" data-reply-send><icon name="send" /> <span>Send reply</span></button>
                     @if (role.IsStaff)
                     {
-                        <label class="check"><input type="checkbox" name="internalNote" value="true" data-note-toggle> <span>Internal note: only XFL staff can read it</span></label>
+                        <label class="check"><input type="checkbox" name="internalNote" value="true" data-note-toggle> <span>Internal note: only AIPG staff can read it</span></label>
                     }
                 </div>
             </form>
@@ -372,11 +386,122 @@
                         <dt>Closed</dt>
                         <dd>@Ui.Stamp(Model.CloseOn)@(string.IsNullOrEmpty(Model.ClosedbyName) ? "" : " by " + Model.ClosedbyName)</dd>
                     }
+                    @if (Model.Watchers.Count > 0)
+                    {
+                        <dt>Watched by</dt>
+                        <dd id="watchers">@string.Join(", ", Model.Watchers)</dd>
+                    }
                 </dl>
             </div>
         </section>
 
         <partial name="_TicketFacts" model="Model" />
+
+        @if (role.IsStaff)
+        {
+            <section class="card" id="tags">
+                <div class="card-head"><h2>Tags</h2><span class="sub">AIPG staff only</span></div>
+                <form class="card-body tag-box" asp-action="SetTags" asp-route-id="@Model.IssueId" method="post">
+                    @if (Model.Tags.Count > 0)
+                    {
+                        <div class="tag-chips">
+                            @foreach (var tag in Model.Tags)
+                            {
+                                <a class="tag-chip" asp-action="@role.TicketList" asp-route-searchString="tag:@tag" title="Tickets with the tag @tag"><icon name="tag" />@tag</a>
+                            }
+                        </div>
+                    }
+                    <div class="field">
+                        <label for="ticketTags">@(Model.Tags.Count == 0 ? "Add tags" : "Change the tags")</label>
+                        <input class="input" name="tags" id="ticketTags" value="@string.Join(", ", Model.Tags)" list="knownTags" maxlength="400" placeholder="regression, release 4.2" autocomplete="off" data-tag-input>
+                        <datalist id="knownTags">
+                            @foreach (var tag in Model.AllTags)
+                            {
+                                <option value="@tag"></option>
+                            }
+                        </datalist>
+                        <span class="hint">Separated by commas. The brokerage house does not see them.</span>
+                    </div>
+                    <button type="submit" class="btn btn-sm">Save tags</button>
+                </form>
+            </section>
+        }
+
+        @if (Model.Links.Count > 0 || role.IsStaff)
+        {
+            <section class="card" id="links">
+                <div class="card-head"><h2>Linked tickets</h2></div>
+                @if (Model.Links.Count > 0)
+                {
+                    <ul class="link-list">
+                        @foreach (var link in Model.Links)
+                        {
+                            <li>
+                                <span class="t-meta">@link.What</span>
+                                <a asp-action="TicketView" asp-route-id="@link.IssueId"><b>@link.Number</b> @link.Title</a>
+                                <span class="link-state">@Ui.StatusPill(link.Status)</span>
+                                @if (role.IsStaff)
+                                {
+                                    <form asp-action="UnlinkTicket" asp-route-id="@Model.IssueId" method="post">
+                                        <input type="hidden" name="linkId" value="@link.LinkId">
+                                        <button type="submit" class="btn btn-icon btn-sm danger" aria-label="Remove the link to @link.Number" title="Remove the link"><icon name="x" /></button>
+                                    </form>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+                @if (role.IsStaff)
+                {
+                    <form class="card-body link-box" asp-action="LinkTicket" asp-route-id="@Model.IssueId" method="post">
+                        <div class="field">
+                            <label for="linkNumber">Ticket number</label>
+                            <input class="input" name="number" id="linkNumber" required maxlength="60" placeholder="ABC_0000042" autocomplete="off">
+                        </div>
+                        <div class="field">
+                            <label for="linkKind">This ticket</label>
+                            <select class="select" name="kind" id="linkKind">
+                                <option value="related">is related to it</option>
+                                <option value="duplicate">is a duplicate of it</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-sm"><icon name="link" /> Link</button>
+                    </form>
+                }
+            </section>
+        }
+
+        @if (role.IsStaff && (Model.RelatedArticles.Count > 0 || Model.CanWriteKnowledge))
+        {
+            <section class="card" id="knowledge">
+                <div class="card-head"><h2>Knowledge base</h2><span class="sub">@(Model.RelatedArticles.Count == 0 ? "Nothing fits yet" : "Articles that may fit")</span></div>
+                @if (Model.RelatedArticles.Count > 0)
+                {
+                    <ul class="kb-related">
+                        @foreach (var article in Model.RelatedArticles)
+                        {
+                            <li>
+                                <a asp-action="Article" asp-route-id="@article.Id" target="_blank" rel="noopener">@article.Title</a>
+                                @if (article.IsInternal)
+                                {
+                                    <span class="pill note-pill kb-internal"><icon name="lock" /> Internal</span>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm" data-kb-insert data-href="/go/article/@article.Id" data-title="@article.Title" title="Put a link to this article into your reply"><icon name="link" /> Insert link</button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+                @if (Model.CanWriteKnowledge)
+                {
+                    <div class="card-body">
+                        <a class="btn btn-sm" asp-action="EditArticle" asp-route-fromTicket="@Model.IssueId"><icon name="book-open" /> Write an article from this ticket</a>
+                    </div>
+                }
+            </section>
+        }
 
         <section class="card" id="history">
             <div class="card-head"><h2>History</h2><span class="sub">Who did what</span></div>

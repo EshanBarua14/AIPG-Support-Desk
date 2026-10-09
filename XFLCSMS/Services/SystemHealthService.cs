@@ -22,14 +22,27 @@ namespace XFLCSMS.Services
         private readonly IEmailServices _mail;
         private readonly IServer _server;
         private readonly IHttpContextAccessor _http;
+        private readonly SignInLimits _signIn;
+        private readonly UploadLimits _uploads;
+        private readonly SlaWatcher _slaWatcher;
+        private readonly SlaPolicy _slaPolicy;
+        private readonly AutomationRules _rules;
+        private readonly AutomationWorker _automation;
 
         /// <summary>Result of the last "Test mail server" (kept in memory until the application restarts).</summary>
         private static string? _lastMailTest;
         private static bool? _lastMailOk;
 
         public SystemHealthService(DataContext context, IConfiguration configuration, IWebHostEnvironment environment,
-            TicketService tickets, IEmailServices mail, IServer server, IHttpContextAccessor http)
+            TicketService tickets, IEmailServices mail, IServer server, IHttpContextAccessor http, SignInLimits signIn, UploadLimits uploads,
+            SlaWatcher slaWatcher, SlaPolicy slaPolicy, AutomationRules rules, AutomationWorker automation)
         {
+            _rules = rules;
+            _automation = automation;
+            _slaWatcher = slaWatcher;
+            _slaPolicy = slaPolicy;
+            _signIn = signIn;
+            _uploads = uploads;
             _context = context;
             _configuration = configuration;
             _environment = environment;
@@ -330,6 +343,28 @@ namespace XFLCSMS.Services
                 Add(report, area, "Encryption", HealthLevel.Ok, "This page was opened over https.");
             }
 
+            // what the application does by itself against guessing, hostile pages and oversized uploads
+            Add(report, area, "Guessing passwords", HealthLevel.Ok,
+                "An account is locked for " + _signIn.LockMinutes + " minutes after " + _signIn.MaxFailuresPerAccount + " wrong passwords or tokens in a row; a network address is refused after "
+                + _signIn.MaxFailuresPerAddress + " failed attempts in " + _signIn.AddressWindowMinutes + " minutes.");
+
+            var policy = (_configuration["Security:ContentSecurityPolicy"] ?? "enforce").Trim().ToLowerInvariant();
+            Add(report, area, "Browser protection", policy == "enforce" ? HealthLevel.Ok : HealthLevel.Warning,
+                policy == "enforce" ? "Pages are sent with a content security policy: only this site's own scripts run, and no other site can show these pages in a frame."
+                    : policy == "report" ? "The content security policy only reports: the browser notes violations but still runs foreign scripts."
+                    : "The content security policy is switched off.",
+                policy == "enforce" ? null : "Set \"Security\": { \"ContentSecurityPolicy\": \"enforce\" } in appsettings.json (or remove the setting).");
+
+            Add(report, area, "Uploads", HealthLevel.Ok,
+                "A file may be up to " + _uploads.MaxFileMb + " MB, " + _uploads.MaxFilesPerSave + " files at once; the content of every file is checked against its type.");
+
+            if (!string.IsNullOrEmpty(_configuration["EmailPassword"]))
+            {
+                Add(report, area, "Mail password", HealthLevel.Warning, "The password of the mail account is written in appsettings.json.",
+                    "Everybody who can read that file - or a copy of it in a repository or backup - can send mail as this account. Enter the mail server under Notification settings (the password is stored encrypted in the database), then empty \"EmailPassword\" in the file. If the file was ever shared, change the password at the mail provider first.",
+                    "NotificationSettings", "Notification settings");
+            }
+
             if (!dbUp)
             {
                 return;
@@ -337,6 +372,21 @@ namespace XFLCSMS.Services
 
             try
             {
+                var now = DateTime.Now;
+                var locked = await _context.Users.CountAsync(u => u.LockedUntil != null && u.LockedUntil > now);
+                Add(report, area, "Locked accounts", locked > 0 ? HealthLevel.Warning : HealthLevel.Ok,
+                    locked == 0 ? "No account is locked." : locked + " account(s) are locked after too many wrong passwords.",
+                    locked > 0 ? "Each lock ends by itself. If the owners did not mistype, somebody is guessing: see who and from where in the audit trail (\u201cAccount locked\u201d)." : null,
+                    locked > 0 ? "UserList" : null, locked > 0 ? "Users" : null);
+
+                // counted here, not in the database: there are never many accounts, and it keeps the query simple
+                var hashes = await _context.Users.Where(u => u.UStatus).Select(u => u.PasswordHash).ToListAsync();
+                var oldForm = hashes.Count(PasswordHasher.NeedsUpgrade);
+                Add(report, area, "Stored passwords", oldForm > 0 ? HealthLevel.Info : HealthLevel.Ok,
+                    oldForm == 0 ? "Every active account has its password in the current, slow-to-guess form."
+                        : oldForm + " of " + hashes.Count + " active accounts still have their password in the old form (saved before version 3.2).",
+                    oldForm > 0 ? "Each one is brought up to date the next time its owner signs in; nothing to do. Accounts that never sign in again keep the old form: disable them, or set a new password." : null);
+
                 var seedName = _configuration["SeedAdmin:UserName"];
                 var seedPassword = _configuration["SeedAdmin:Password"];
                 if (!string.IsNullOrEmpty(seedName) && !string.IsNullOrEmpty(seedPassword))
@@ -379,6 +429,50 @@ namespace XFLCSMS.Services
             const string area = "Support work";
             try
             {
+                // service targets: are they on, is somebody watching them, how many open tickets are past one
+                if (!_slaPolicy.IsOn)
+                {
+                    Add(report, area, "Service targets", HealthLevel.Info, "Service targets are switched off: new tickets get no target times and nobody is warned.",
+                        null, "ServiceTargets", "Service targets");
+                }
+                else
+                {
+                    var now = DateTime.Now;
+                    var late = await _context.Issues.CountAsync(i => i.IStatus != TicketStatus.Closed
+                        && ((i.ResponseDueAt != null && i.FirstResponseAt == null && i.ResponseDueAt < now)
+                            || (i.ResolveDueAt != null && i.ResolvedAt == null && i.PendingSince == null && i.ResolveDueAt < now)));
+                    Add(report, area, "Service targets", late > 0 ? HealthLevel.Warning : HealthLevel.Ok,
+                        late == 0 ? "No open ticket is past a service target." : late + " open ticket(s) are past a service target.",
+                        late > 0 ? "They are not answered or not solved within the time set under Service targets." : null,
+                        late > 0 ? "OverdueTicketList" : null, late > 0 ? "Overdue tickets" : null);
+
+                    var stale = _slaWatcher.LastRun == null || _slaWatcher.LastRun < now.AddMinutes(-10);
+                    Add(report, area, "Target warnings", _slaWatcher.LastError != null || (stale && _slaWatcher.LastRun != null) ? HealthLevel.Warning : HealthLevel.Ok,
+                        _slaWatcher.LastError != null ? "The last check of the targets failed: " + _slaWatcher.LastError
+                            : _slaWatcher.LastRun == null ? "The first check of the targets runs shortly after the start."
+                            : "Targets were last checked " + SlaService.Span(now - _slaWatcher.LastRun.Value) + " ago.",
+                        _slaWatcher.LastError != null || (stale && _slaWatcher.LastRun != null) ? "Warnings before and after a target only go out while this check runs. Restart the application if it stays like this." : null);
+                }
+
+                // the rules that act by themselves: which are on, and is the check that applies them running
+                {
+                    var on = new List<string>();
+                    if (_rules.AssignMode == AutomationRules.RoundRobin) { on.Add("new tickets go to the engineers in turn"); }
+                    if (_rules.AssignMode == AutomationRules.LeastLoad) { on.Add("new tickets go to the engineer with the fewest open tickets"); }
+                    if (_rules.CloseDays > 0) { on.Add("closing " + _rules.CloseDays + " day(s) after Deployed"); }
+                    if (_rules.RemindDays > 0) { on.Add("a reminder every " + _rules.RemindDays + " day(s) while Pending"); }
+                    if (_rules.PendingCloseDays > 0) { on.Add("closing after " + _rules.PendingCloseDays + " day(s) Pending"); }
+                    var now = DateTime.Now;
+                    var failed = _automation.LastError != null;
+                    var stale = _rules.AnyTimed && _automation.LastRun != null && _automation.LastRun < now - TimeSpan.FromTicks(Math.Max(TimeSpan.FromHours(2).Ticks, _automation.Every.Ticks * 3));
+                    Add(report, area, "Automation", failed || stale ? HealthLevel.Warning : on.Count == 0 ? HealthLevel.Info : HealthLevel.Ok,
+                        failed ? "The last run of the rules failed: " + _automation.LastError
+                            : on.Count == 0 ? "No rule is switched on: nothing is assigned, closed or reminded by itself."
+                            : "On: " + string.Join("; ", on) + "." + (_automation.LastResult != null ? " Last action " + _automation.LastResult + "." : string.Empty),
+                        failed || stale ? "The rules that depend on time only act while their check runs. Restart the application if it stays like this." : null,
+                        "Automation", "Automation");
+                }
+
                 var waiting = await _context.Users.CountAsync(u => u.VerifiedAt == null && u.UStatus);
                 Add(report, area, "Accounts waiting", waiting > 0 ? HealthLevel.Warning : HealthLevel.Ok,
                     waiting == 0 ? "No registered account waits for activation." : waiting + " registered account(s) wait for activation.",
@@ -449,7 +543,7 @@ namespace XFLCSMS.Services
                 addresses = string.Empty;
             }
 
-            report.Facts.Add(("Application", "Xpert CSMS " + Ui.Version));
+            report.Facts.Add(("Application", "AIPG Support Desk " + Ui.Version));
             report.Facts.Add(("Mode", _environment.EnvironmentName));
             report.Facts.Add(("Started", started.ToString("dd MMM yyyy, h:mm tt") + " (" + (up.TotalDays >= 1 ? (int)up.TotalDays + " d " : "") + up.Hours + " h " + up.Minutes + " min ago)"));
             report.Facts.Add(("Server time", DateTime.Now.ToString("dd MMM yyyy, h:mm:ss tt") + ", " + TimeZoneInfo.Local.DisplayName));

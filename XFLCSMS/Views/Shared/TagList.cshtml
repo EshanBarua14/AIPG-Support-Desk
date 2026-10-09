@@ -1,0 +1,50 @@
+@*
+    Tags: the labels AIPG staff put on tickets. They are made by typing them on a ticket; this page renames,
+    merges (rename to the name of another tag) and removes them.
+*@
+@model List<XFLCSMS.Models.Desk.Tag>
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Tags";
+    ViewData["PageClass"] = "narrow";
+    var counts = ViewBag.Counts as Dictionary<int, int> ?? new Dictionary<int, int>();
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Tags</h1>
+        <p class="page-sub">Labels the support team puts on tickets to find them again. A tag is made by typing it on a ticket. The people of the brokerage houses do not see tags.</p>
+    </div>
+</header>
+
+<section class="card flush">
+    <div class="card-head"><h2>@Model.Count @(Model.Count == 1 ? "tag" : "tags")</h2><span class="sub">Rename a tag to the name of another one to merge the two</span></div>
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <icon name="tag" />
+            <b>No tags yet</b>
+            <span>Open a ticket and type one under &ldquo;Tags&rdquo;: for example <i>regression</i>, <i>waiting for exchange</i> or <i>release 4.2</i>.</span>
+        </div>
+    }
+    else
+    {
+        <ul class="tag-rows">
+            @foreach (var tag in Model)
+            {
+                var used = counts.GetValueOrDefault(tag.Id);
+                <li id="tag-@tag.Id">
+                    <form class="tag-rename" asp-action="RenameTag" asp-route-id="@tag.Id" method="post">
+                        <label class="sr-only" for="tagName@(tag.Id)">Name of the tag @tag.Name</label>
+                        <input class="input" name="name" id="tagName@(tag.Id)" value="@tag.Name" required minlength="2" maxlength="40">
+                        <button type="submit" class="btn btn-sm">Rename</button>
+                    </form>
+                    <a class="t-meta tag-used" asp-action="@role.TicketList" asp-route-searchString="tag:@tag.Name">@used @(used == 1 ? "ticket" : "tickets")</a>
+                    <form asp-action="DeleteTag" asp-route-id="@tag.Id" method="post"
+                          data-confirm-submit="Remove the tag &ldquo;@tag.Name&rdquo;?" data-action="Remove" data-confirm-text="@(used == 0 ? "No ticket carries it." : "It is taken off " + used + (used == 1 ? " ticket." : " tickets.") + " The tickets stay.")">
+                        <button type="submit" class="btn btn-icon btn-sm danger" aria-label="Remove the tag @tag.Name" title="Remove"><icon name="trash-2" /></button>
+                    </form>
+                </li>
+            }
+        </ul>
+    }
+</section>

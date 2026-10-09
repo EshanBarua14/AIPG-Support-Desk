@@ -36,7 +36,7 @@
             <div class="empty">
                 <icon name="users" />
                 <b>No active support engineer yet</b>
-                <span>Tickets can only be assigned to XFL staff with the role Support engineer.@(role.Can(Permission.UsersAll) ? "" : " A platform admin creates them.")</span>
+                <span>Tickets can only be assigned to AIPG staff with the role Support engineer.@(role.Can(Permission.UsersAll) ? "" : " A platform admin creates them.")</span>
                 @if (role.Can(Permission.UsersAll))
                 {
                     <div><a class="btn btn-primary" asp-action="CreateUser"><icon name="plus" /> New user</a></div>

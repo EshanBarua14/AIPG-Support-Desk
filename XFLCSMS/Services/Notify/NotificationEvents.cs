@@ -15,6 +15,7 @@ namespace XFLCSMS.Services.Notify
         public const string TicketReply = "ticket.reply";
         public const string TicketNote = "ticket.note";
         public const string TicketRated = "ticket.rated";
+        public const string TicketReminder = "ticket.reminder";
         public const string SlaSoon = "sla.soon";
         public const string SlaMissed = "sla.missed";
         public const string AccountWaiting = "account.waiting";
@@ -42,17 +43,18 @@ namespace XFLCSMS.Services.Notify
 
         public static readonly Info[] All =
         {
-            new(TicketCreated, "Tickets", "Ticket raised", "XFL staff who assign tickets, and the administrators of the house it was raised for", true, true, false),
+            new(TicketCreated, "Tickets", "Ticket raised", "AIPG staff who assign tickets, and the administrators of the house it was raised for", true, true, false),
             new(TicketAssigned, "Tickets", "Ticket assigned", "The engineer who got it, and the person who raised it", true, true, true),
-            new(TicketUnassigned, "Tickets", "Ticket unassigned", "The engineer who had it, and XFL staff who assign tickets", true, false, false),
-            new(TicketStatus, "Tickets", "Status changed", "The person who raised it and its engineer", true, false, false),
-            new(TicketClosed, "Tickets", "Ticket deployed or closed", "The person who raised it and its engineer", true, true, true),
+            new(TicketUnassigned, "Tickets", "Ticket unassigned", "The engineer who had it, and AIPG staff who assign tickets", true, false, false),
+            new(TicketStatus, "Tickets", "Status changed", "The person who raised it, its engineer and whoever watches it", true, false, false),
+            new(TicketClosed, "Tickets", "Ticket deployed or closed", "The person who raised it, its engineer and whoever watches it", true, true, true),
             new(TicketEdited, "Tickets", "Ticket edited", "The person who raised it and its engineer", true, false, false),
-            new(TicketReply, "Tickets", "Reply in the conversation", "The person who raised it and its engineer; while it has no engineer, XFL staff who assign tickets", true, true, false),
-            new(TicketNote, "Tickets", "Internal note", "The engineer of the ticket (XFL staff only)", true, false, false),
-            new(TicketRated, "Tickets", "Support was rated", "The engineer of the ticket and XFL staff who assign tickets", true, false, false),
-            new(SlaSoon, "Service targets", "Target is due soon", "The engineer of the ticket; while it has none, XFL staff who assign tickets", true, false, false),
-            new(SlaMissed, "Service targets", "Target was missed", "XFL staff who assign tickets, and the engineer of the ticket", true, true, false),
+            new(TicketReply, "Tickets", "Reply in the conversation", "The person who raised it, its engineer and whoever watches it; while it has no engineer, AIPG staff who assign tickets", true, true, false),
+            new(TicketNote, "Tickets", "Internal note", "The engineer of the ticket (AIPG staff only)", true, false, false),
+            new(TicketRated, "Tickets", "Support was rated", "The engineer of the ticket and AIPG staff who assign tickets", true, false, false),
+            new(TicketReminder, "Tickets", "Reminder while a ticket is pending", "The person who raised it (when the rule under System > Automation is on)", true, true, false),
+            new(SlaSoon, "Service targets", "Target is due soon", "The engineer of the ticket; while it has none, AIPG staff who assign tickets", true, false, false),
+            new(SlaMissed, "Service targets", "Target was missed", "AIPG staff who assign tickets, and the engineer of the ticket", true, true, false),
             // no e-mail by default: registering needs no sign-in, and every registration would mail every administrator
             new(AccountWaiting, "Accounts", "Registration waiting for activation", "The administrators who can activate the account", true, false, false),
             new(AccountActivated, "Accounts", "Account activated", "The owner of the account", false, true, true),

@@ -1,5 +1,5 @@
 @*
-    Dashboard of every role. A house user sees the own tickets, a house admin those of the house; XFL staff
+    Dashboard of every role. A house user sees the own tickets, a house admin those of the house; AIPG staff
     see all tickets plus the load per brokerage house. The numbers come from CsmsController.BuildDashboardAsync;
     the charts are drawn by wwwroot/js/charts.js from Model.Charts (another period: CsmsController.DashboardData).
 
@@ -28,7 +28,7 @@
 <header class="page-head">
     <div>
         <h1 class="page-title">@(role.SeesOwn ? "Your tickets" : role.SeesHouse ? "Tickets of your house" : "Support board")</h1>
-        <p class="page-sub">@(role.SeesOwn ? (role.IsStaff ? "The tickets assigned to you and the ones you raised." : "Everything you have raised with XFL support.") : role.SeesHouse ? "Everything the people of your brokerage house have raised with XFL support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
+        <p class="page-sub">@(role.SeesOwn ? (role.IsStaff ? "The tickets assigned to you and the ones you raised." : "Everything you have raised with AIPG support.") : role.SeesHouse ? "Everything the people of your brokerage house have raised with AIPG support." : "Every ticket from every brokerage house.") @DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture).</p>
     </div>
     <div class="page-actions">
         @if (role.Can(Permission.Workload))
@@ -81,6 +81,10 @@
                         <div class="kpi">
                             <span class="fig num">@Model.HighPriorityOpen.ToString("N0")</span>
                             <span>high priority, open</span>
+                        </div>
+                        <div class="kpi">
+                            <a class="fig num" asp-action="OverdueTicketList">@(((int?)ViewBag.OverdueCount ?? 0).ToString("N0"))</a>
+                            <span>past a service target</span>
                         </div>
                         <div class="kpi">
                             <a class="fig num" asp-action="ClosedTicketList">@closed.ToString("N0")</a>

@@ -1,4 +1,4 @@
-/* Xpert CSMS - pages before sign-in.
+/* AIPG Support Desk - pages before sign-in.
    The picture story on the left is animated in css/signin.css; this file only gives it a pause / play button. */
 (function () {
     'use strict';

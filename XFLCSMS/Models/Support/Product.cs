@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace XFLCSMS.Models.Support
 {
     /// <summary>
-    /// A product of XFL that brokerage houses get support for (order management system, mobile app, ...).
+    /// A product of AIPG that brokerage houses get support for (order management system, mobile app, ...).
     /// Support types, categories, sub-categories and affected sections can belong to one product; the ticket form
     /// then offers them only for that product. Maintained under Administration > Products.
     /// </summary>
@@ -35,6 +35,13 @@ namespace XFLCSMS.Models.Support
         /// </summary>
         [Display(Name = "Active")]
         public bool IsActive { get; set; }
+
+        /// <summary>
+        /// The support engineer new tickets for this product go to (user id); empty: nobody in particular, the rule
+        /// for new tickets under System > Automation decides. No foreign key on purpose, as with IssueTable.AssignedToId.
+        /// </summary>
+        [Display(Name = "Default engineer")]
+        public int? EngineerId { get; set; }
 
         /// <summary>What to show where space is tight.</summary>
         [NotMapped]

@@ -9,12 +9,12 @@
     var chosenBranch = Model.userRegisterRequest?.Branch ?? 0;
 }
 <h2>Register an account</h2>
-<p class="lead">For staff of brokerage houses that use XFL systems. We email you a token to activate the account.</p>
+<p class="lead">For staff of brokerage houses that use AIPG systems. We email you a token to activate the account.</p>
 
 <partial name="_Messages" />
 @if (houses.Count == 0)
 {
-    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>No brokerage house is set up yet, so nobody can register. Ask the XFL support team to add yours.</span></div>
+    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>No brokerage house is set up yet, so nobody can register. Ask the AIPG support team to add yours.</span></div>
 }
 
 <form asp-controller="RegisterLogin" asp-action="Register" method="post" id="form1">
@@ -62,7 +62,7 @@
                     <option value="@branch.BranchId" selected="@(branch.BranchId == chosenBranch)">@branch.BranchName</option>
                 }
             </select>
-            <span class="hint" id="BranchHint" hidden>Ask the XFL support team to add your branch. You cannot register without one.</span>
+            <span class="hint" id="BranchHint" hidden>Ask the AIPG support team to add your branch. You cannot register without one.</span>
             <span asp-validation-for="userRegisterRequest.Branch"></span>
         </div>
         <div class="field">
@@ -102,7 +102,7 @@
     <div class="field">
         <label class="check">
             <input type="checkbox" name="userRegisterRequest.Terms" id="Terms" value="true" required checked="@(Model.userRegisterRequest?.Terms == true)">
-            <span>I agree to the terms and conditions of XFL support.</span>
+            <span>I agree to the terms and conditions of AIPG support.</span>
         </label>
         <span asp-validation-for="userRegisterRequest.Terms"></span>
     </div>

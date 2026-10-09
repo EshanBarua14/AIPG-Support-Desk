@@ -1,6 +1,94 @@
-# Xpert CSMS - fixes
+# AIPG Support Desk - fixes
 
-What was wrong and what was changed. File names are relative to `XFLCSMS/`.
+What was wrong and what was changed. File names are relative to `XFLCSMS/`. The sections below use the names the
+application had when they were written (XFL CSMS, then Xpert CSMS); since version 3.4 this repository is the AIPG edition.
+
+## Version 3.4 - knowledge base, order among tickets, automation
+
+Fewer tickets, tickets that find their engineer, and tickets nobody forgets.
+
+| What | Where |
+|---|---|
+| **Knowledge base.** Articles per product with keywords; published / draft; internal (XFL staff only). Search ranked by title and keywords. "Did this answer your question?" once per sign-in. | `Models/Desk/Knowledge.cs`, `Controllers/CsmsController.Knowledge.cs`, `Services/KnowledgeSearch.cs`, views `Knowledge`, `Article`, `EditArticle` |
+| **Suggestions on the ticket form.** While the title is typed, up to four articles that fit (within the chosen product) are offered under it. Strict on purpose: a word in title or keywords, or two in the text. | `SuggestArticles`, `wwwroot/js/desk.js` (`data-kb-ask`) |
+| **Articles on the ticket page** for XFL staff: the ones that fit, "Insert link" into the reply, "Write an article from this ticket". | `Views/Shared/TicketView.cshtml`, `desk.js` (`data-kb-insert`) |
+| **Short links** `/go/article/N`, `/go/ticket/N` that open in the area of whoever is signed in. The only application addresses the text cleaner lets through in a link. | `Controllers/GoController.cs`, `HtmlSanitizer.IsShortLink` |
+| **Tags** for XFL staff: on the ticket, in the lists, `tag:name` in the search, a page to rename / merge / remove. | `Models/Desk/Organise.cs`, `Controllers/CsmsController.Organise.cs`, `Views/Shared/TagList.cshtml` |
+| **Linked tickets**: related, or duplicate of; shown on both; a house sees a link only to a ticket it may open. | same files |
+| **Watching** a ticket: told about replies, status, edits, new engineer; internal notes only to XFL watchers. List "Watching". | same files, `NotificationService.Watchers` |
+| **Automation**, every rule off until switched on: new tickets to the engineers in turn or to the one with the fewest open tickets; a default engineer per product; close N days after Deployed; reminders while Pending; close after N days Pending. Done as "Automation" in the history, with an entry in the conversation where the house should know why. | `Services/Automation.cs` (`AutomationRules`, `AutomationWorker`), `TicketService.AutoAssign` / `ActAsSystem` / `AddSystemMessage`, `Views/Shared/Automation.cshtml` |
+| Since when a ticket has its status (`Issues.StatusSince`), reminders sent (`ReminderCount`, `LastReminderAt`). | `Models/Issue/IssueTable.cs`, `TicketService.Stamp` |
+| **Two permissions**: "write the knowledge base" (default: every XFL role), "automation" (platform admin, support manager). One notification event: reminder while pending. | `Infrastructure/Rbac.cs`, `Services/Notify/NotificationEvents.cs` |
+| History lines about tags and links are for XFL staff only (no brokerage house on them), like internal notes. | `AuditActions.IsStaffOnly` |
+| Demo data: six articles, tags, a duplicate, a watcher. Removing the demo data removes them. | `Services/DemoDataService.cs` |
+| System health: which rules are on, whether their check runs. | `Services/SystemHealthService.cs` |
+
+New migration: `KnowledgeAutomationTags` (tables `KbArticles`, `Tags`, `TicketTags`, `TicketLinks`, `TicketWatchers`; columns `Issues.StatusSince`, `ReminderCount`, `LastReminderAt`, `Products.EngineerId`). Applied at start-up.
+
+**AIPG edition.** This repository carries the AIPG name from this version on (the old interface with the XFL name lives in `XFL-CSMS-stable`).
+
+| What | Where |
+|---|---|
+| The application is called **AIPG Support Desk**: titles, menu, sign-in pages, e-mails, SMS, system health. | `Ui.Brand` |
+| Under every page: "Design By: AIPG Studios - Developed By: AIPG Systems - Powered By: AIPG", with the logo. Also on the sign-in pages. | `Ui.DesignBy`, `Ui.DevelopedBy`, `Ui.PoweredBy`, `Views/Shared/_Layout.cshtml`, `_AuthLayout.cshtml` |
+| Logo: `wwwroot/img/brand-logo.png` (the AIPG mark, cut out of the supplied logo on a clear background), tab icon `wwwroot/favicon.ico`. The credits carry the marks of AIPG Studios (`img/aipg-studios.png`), AIPG Systems (`img/aipg-systems.png`) and AIPG. `img/xpert-logo.png` is removed. | `Ui.Logo`, `Ui.DesignLogo`, `Ui.DevelopedLogo`, `Ui.PoweredLogo` |
+| The organisation that gives the support is called "AIPG" in every text (was "XFL"): role descriptions, messages, e-mails, pages. | all views and messages |
+| The first starting product is "Trading OMS" (was "Xpert Trading OMS"). Only for a database that has no product yet. | `Data/ProductSeed.cs` |
+| Not renamed: project folder and namespace `XFLCSMS`, the database, what is already stored (starter canned replies, the names of products and houses). | - |
+
+**After the review of this version**: no reminder when the house has answered since the ticket went pending; "fewest open tickets" counts tickets that carry only the engineer's name; pending tickets from before 3.3 are covered; the check re-reads each ticket before it acts and saves it at once; at most 20 tickets per check; a reply of the person who raised the ticket counts as "the house wrote" also when that person is staff; tags and the search of the knowledge base accept Bangla; two saves at the same moment no longer end in an error page.
+
+Nothing changes by itself after the update: no rule is on, no article exists. Tickets whose status has not changed since the update have no "since when"; the rule for Deployed then counts from their last change.
+
+## Version 3.3 - support desk
+
+What every support desk is built around and this system did not have: a conversation per ticket, time targets, and
+numbers on how fast and how well support answered.
+
+| What | Where |
+|---|---|
+| **Conversation.** Replies and internal notes as entries with author, role and time, with their own files; nothing is overwritten. The old Comments text of each ticket becomes its first entry at the first start. Internal notes, their files and every trace of them stay with XFL staff. | `Models/Desk/TicketMessage.cs`, `TicketService.AddMessageAsync`, `CsmsController.Desk.cs` (ReplyTicket), `Views/Shared/TicketView.cshtml`, `DbInitializer.MoveCommentsIntoConversations` |
+| **Service targets.** First response and solution per priority, in working time (days, hours, days off) or round the clock; stamped first response and solution; the clock stops while Pending; reopen counts. Shown on lists, the ticket page, the dashboard and an Overdue list. | `Services/Sla.cs`, `Models/Desk/ServiceTargetsForm.cs`, `Views/Shared/ServiceTargets.cshtml`, hooks in `TicketService` (create, status, priority) |
+| **Warnings.** A background check once a minute: "due soon" to the engineer at 75 % of the time, "overdue" to the people who assign tickets. Once per ticket and target. | `Services/SlaWatcher.cs`, `NotificationService.SlaAlert` |
+| **Canned replies** with `{name}`, `{ticket}`, `{me}`; four starters are added once. | `Models/Desk/TicketMessage.cs` (CannedReply), `Views/Shared/CannedReplies.cshtml`, `wwwroot/js/desk.js` |
+| **Rating** by the person who raised the ticket, after it is closed. | `TicketService.Rate`, ticket page |
+| **Service report**: median first response and solution, targets met, ratings, raised / solved per day, backlog by age, per priority, product, engineer and house. | `Services/ServiceReportBuilder.cs`, `Views/Shared/ServiceReport.cshtml` |
+| **Three permissions** (service report, manage canned replies, service targets). A permission table saved by an older version keeps its changes and gives permissions it did not know to their default roles. | `Infrastructure/Rbac.cs` (Parse, "Known") |
+| Demo data has conversations, service times and ratings. | `Services/DemoDataService.cs` |
+
+New migration: `SupportDesk` (tables `TicketMessages`, `CannedReplies`; columns on `Issues` and `Attachments`). Applied at start-up.
+
+The default targets and working hours are assumptions. Set the real ones under System > Service targets before relying on the numbers.
+
+**Version 3.1 put back together.** The packages of 3.1 and 3.2 were applied to the same folder one after the other, and
+3.2 had been built without 3.1: in the 25 files both packages contain, the 3.2 file replaced the 3.1 file. The result
+built and started, but parts of 3.1 were gone - no "Products" in the menu and no starting products, the charts of the
+dashboard and of the report were not drawn (their script was not loaded, their styles were missing), the menu did
+not collapse to a rail, the ticket form did not narrow its lists by product, and the model snapshot did not know the
+product tables. This version is 3.1, 3.2 and 3.3 merged file by file: every one of those 25 files carries the changes
+of all three. Nothing has to be done by hand; at the first start the five starting products are added (section 12)
+if the database has no product yet. The designer file of the migration `SignInProtection` and the model snapshot
+now describe the product tables as well; the migration itself (what it does to the database) is unchanged.
+
+## Version 3.2 - security
+
+| Problem | Fix |
+|---|---|
+| Passwords were stored as one HMAC-SHA512: anybody with a copy of the database could try millions of passwords a second. | `Services/PasswordHasher.cs`: PBKDF2-HMAC-SHA512, 210,000 rounds, 16 byte salt; the hash carries its format and round count. Old passwords still verify and are saved again in the new form at the owner's next sign-in. |
+| No limit on wrong passwords, activation tokens or reset tokens. The activation token had 16.7 million values. | `Services/AttemptGuard.cs`, `Controllers/RegisterLoginController.cs`: an account is locked for 15 minutes after 5 wrong tries (`Users.FailedAttempts`, `LockedUntil`), an address is refused after 30 failures in 10 minutes (HTTP 429), names without an account are counted and answered the same way. The token has 8 characters from 31 (850 thousand million values). Unlock under Users > Edit. |
+| A password could be 4 characters (change password) or 6 (registration), and only `@$!%*?&` were allowed as symbols. | `Services/PasswordPolicy.cs`, one rule for every form: 10 or more characters, a letter and a digit, any symbols, not the user name or e-mail, not a common password. |
+| The first administrator's password is in a settings file in the repository and stayed valid. Passwords typed in by an administrator stayed valid too. | `Users.MustChangePassword`: set for the first administrator, for accounts an administrator creates and passwords an administrator sets, and at sign-in with the password from the settings file. Until an own password is chosen every page leads to Change password (`CsmsController.OnActionExecuting`). |
+| "Forgot your password?" said "User not found": a list of registered names for anybody who asks. | Same answer and same page for every name; a second request within two minutes sends no second mail. |
+| No protection headers. Any site could show the pages in a frame; a script that slipped into a page would run. | `Infrastructure/SecurityHeaders.cs`: content security policy (scripts only from the site or with the response's nonce, added to every script tag by `Infrastructure/ScriptNonceTagHelper.cs`), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy. The two `javascript:` links on the error pages became buttons. |
+| Session and anti-forgery cookies relied on defaults. | `Program.cs`: SameSite Lax / Strict set explicitly; `Session:CookieSecure` = `always` for sites that are only reached over https. |
+| Uploads had no size limit and were judged by the file name alone. | `Services/UploadLimits.cs`, `TicketService.SaveAttachmentsAsync`: 10 MB per file, 10 files at once, the first bytes must match the type. Each refused file is named with its reason. The form checks size and number before uploading. |
+| Registration could be flooded by a script. | Ten registrations per address and hour. |
+| The menu logo was a broken picture (the file had been deleted) and the pages still said "XFL CSMS". | `wwwroot/img/xpert-logo.png` (centred), name "Xpert CSMS" on pages, in e-mails and SMS. |
+| `add_admin.sql` and the uploaded files were tracked by git. | `.gitignore`; the commands to stop tracking them are in `read me.txt`, section 9. |
+
+New migration: `SignInProtection` (three columns on `Users`). It is applied at start-up.
+
+Not changed, still open: second factor at sign-in, single sign-on, move to .NET 10, MailKit update (see WORKFLOWS.md, section 9).
 
 ## 1. Could not build / start on another machine
 

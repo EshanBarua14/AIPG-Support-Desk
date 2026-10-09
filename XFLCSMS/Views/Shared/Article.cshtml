@@ -1,0 +1,87 @@
+@* One article of the knowledge base, with "did this answer your question?". *@
+@model XFLCSMS.Models.Desk.KbArticle
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = Model.Title;
+    ViewData["PageClass"] = "narrow";
+    bool canWrite = ViewBag.CanWrite ?? false;
+    bool voted = ViewBag.Voted ?? false;
+    string? productName = ViewBag.ProductName;
+    string? sourceTicket = ViewBag.SourceTicket;
+    var votes = Model.Helpful + Model.NotHelpful;
+}
+<a class="back" asp-action="Knowledge"><icon name="arrow-left" /> Knowledge base</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@Model.Title</h1>
+        <p class="page-sub kb-meta">
+            @if (productName != null)
+            {
+                <b class="t-product">@productName</b>
+            }
+            @if (!Model.IsPublished)
+            {
+                @Ui.Pill("st-disabled", "Draft")
+            }
+            @if (Model.IsInternal)
+            {
+                <span class="pill note-pill kb-internal"><icon name="lock" /> Internal: AIPG staff only</span>
+            }
+            <span class="muted">Updated @Ui.Date(Model.UpdatedAt)@(role.IsStaff && !string.IsNullOrEmpty(Model.UpdatedBy) ? " by " + Model.UpdatedBy : "")</span>
+        </p>
+    </div>
+    @if (canWrite)
+    {
+        <div class="page-actions">
+            <a class="btn btn-primary" asp-action="EditArticle" asp-route-id="@Model.Id"><icon name="pencil" /> Edit</a>
+        </div>
+    }
+</header>
+
+@if (!Model.IsPublished)
+{
+    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>This is a draft. Only the people who write the knowledge base see it; publish it under Edit.</span></div>
+}
+
+<article class="card">
+    <div class="card-body prose kb-body" id="articleBody">@Html.Raw(HtmlSanitizer.Sanitize(Model.Body))</div>
+</article>
+
+@if (Model.IsPublished)
+{
+    <section class="card kb-feedback" id="feedback">
+        <div class="card-body">
+            @if (voted)
+            {
+                <p class="muted" style="margin: 0">Thank you for telling us.</p>
+            }
+            else
+            {
+                <b>Did this answer your question?</b>
+                <div class="kb-votes">
+                    <form asp-action="ArticleFeedback" asp-route-id="@Model.Id" method="post">
+                        <input type="hidden" name="helpful" value="true">
+                        <button type="submit" class="btn"><icon name="thumbs-up" /> Yes</button>
+                    </form>
+                    <form asp-action="ArticleFeedback" asp-route-id="@Model.Id" method="post">
+                        <input type="hidden" name="helpful" value="false">
+                        <button type="submit" class="btn"><icon name="thumbs-down" /> No</button>
+                    </form>
+                </div>
+            }
+            @if (role.Can(Permission.TicketCreate) && !role.IsStaff)
+            {
+                <p class="muted" style="margin: 12px 0 0">Still stuck? <a asp-action="IssueRaiseFrom">Raise a ticket</a> and the support team answers.</p>
+            }
+        </div>
+    </section>
+}
+
+@if (role.IsStaff)
+{
+    <p class="muted kb-stats">
+        @Model.Views @(Model.Views == 1 ? "view" : "views")@(votes > 0 ? ". Helped " + Model.Helpful + " of " + votes + " readers who answered" : "").
+        Link for replies: <code>/go/article/@Model.Id</code>@(sourceTicket != null ? ". Written from ticket " : "")@if (sourceTicket != null) {<a asp-action="TicketView" asp-route-id="@Model.SourceIssueId">@sourceTicket</a>}
+    </p>
+}

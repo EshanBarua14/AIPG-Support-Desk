@@ -42,7 +42,7 @@ namespace XFLCSMS.Models.Issue
 
         public string? UpdatedBy { get; set; }= string.Empty;
 
-        /// <summary>The XFL product the ticket is about; empty when the person who raised it was not sure.</summary>
+        /// <summary>The AIPG product the ticket is about; empty when the person who raised it was not sure.</summary>
         public int? ProductId { get; set; }
         public Product? Product { get; set; }
 
@@ -76,6 +76,52 @@ namespace XFLCSMS.Models.Issue
 
         public DateTime? ClosedOn { get; set; }
         public string? ClosedBy { get; set; }
+
+        // ---- service times (Services/Sla*.cs). All null for tickets raised before version 3.3: they have no targets.
+
+        /// <summary>When AIPG first answered: the first reply of staff the house can read, or the start of the work.</summary>
+        public DateTime? FirstResponseAt { get; set; }
+
+        /// <summary>When the ticket was solved (first Done, Deployed or Closed). Cleared when it is reopened.</summary>
+        public DateTime? ResolvedAt { get; set; }
+
+        /// <summary>Target for the first response, from the service targets in force when the ticket was raised.</summary>
+        public DateTime? ResponseDueAt { get; set; }
+
+        /// <summary>Target for the solution. Moves later by the time the ticket spends in "Pending".</summary>
+        public DateTime? ResolveDueAt { get; set; }
+
+        /// <summary>Since when the ticket is "Pending" (the clock for the solution stands still), else null.</summary>
+        public DateTime? PendingSince { get; set; }
+
+        /// <summary>Working minutes the ticket has spent in "Pending" so far (they do not count towards the solution).</summary>
+        public int SlaPausedMinutes { get; set; }
+
+        /// <summary>Which warnings about the targets were already sent (bits of SlaNotice), so each goes out once.</summary>
+        public int SlaNotices { get; set; }
+
+        /// <summary>How often the ticket was reopened after it had been solved or closed.</summary>
+        public int ReopenCount { get; set; }
+
+        // ---- automation (Services/Automation.cs)
+
+        /// <summary>Since when the ticket has the status it has now. Null for tickets whose status did not change since version 3.4.</summary>
+        public DateTime? StatusSince { get; set; }
+
+        /// <summary>How often the person who raised the ticket was reminded while it is "Pending". Back to 0 when it leaves that status.</summary>
+        public int ReminderCount { get; set; }
+
+        public DateTime? LastReminderAt { get; set; }
+
+        // ---- what the person who raised it thought of the support
+
+        /// <summary>1 (bad) to 5 (very good), given once by the person who raised the ticket after it was closed.</summary>
+        public int? Rating { get; set; }
+
+        [MaxLength(1000)]
+        public string? RatingComment { get; set; }
+
+        public DateTime? RatedAt { get; set; }
 
       
 

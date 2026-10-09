@@ -4,7 +4,7 @@
     var role = Ui.Role(ViewContext);
     ViewData["ListSub"] = role.IsStaff
         ? "Open tickets with a service target that has passed: no first response in time, or not solved in time."
-        : "Open tickets that XFL has not answered or solved within its service targets.";
+        : "Open tickets that AIPG has not answered or solved within its service targets.";
     ViewData["ListAction"] = "OverdueTicketList";
     ViewData["EmptyText"] = "No open ticket has missed a service target";
 }

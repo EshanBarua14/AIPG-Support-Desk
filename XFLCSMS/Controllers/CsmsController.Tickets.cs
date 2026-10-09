@@ -61,7 +61,16 @@ namespace XFLCSMS.Controllers
                 var products = await Db.Products.ToDictionaryAsync(product => product.ProductId);
                 ViewBag.ProductLabels = products.ToDictionary(pair => pair.Key, pair => pair.Value.ShortName);
 
-                if (!string.IsNullOrWhiteSpace(searchString))
+                // "tag:regression" in the search box: the tickets with that tag (AIPG staff; tags are theirs)
+                var staffReader = Rbac.IsStaff(MyRole);
+                if (staffReader && !string.IsNullOrWhiteSpace(searchString) && searchString.Trim().StartsWith("tag:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var tagName = CleanTag(searchString.Trim().Substring(4)) ?? string.Empty;
+                    var tagged = await Db.TicketTags.Where(row => row.Tag!.Name == tagName).Select(row => row.IssueId).ToListAsync();
+                    tickets = tickets.Where(ticket => tagged.Contains(ticket.IssueId)).ToList();
+                    ViewBag.TagFilter = tagName;
+                }
+                else if (!string.IsNullOrWhiteSpace(searchString))
                 {
                     var text = searchString.Trim().ToLower();
                     tickets = tickets.Where(e =>
@@ -106,6 +115,14 @@ namespace XFLCSMS.Controllers
                 ViewBag.pager = pager;
                 var shown = tickets.Skip((Math.Max(pager.CurrentPage, 1) - 1) * pageSize).Take(pageSize).ToList();
                 SetRaisers(shown);
+                if (staffReader && shown.Count > 0)
+                {
+                    // the tags of the tickets on this page, for the chips under the title
+                    var shownIds = shown.Select(ticket => ticket.IssueId).ToList();
+                    ViewBag.TagsOf = (await Db.TicketTags.Where(row => shownIds.Contains(row.IssueId)).Select(row => new { row.IssueId, row.Tag!.Name }).ToListAsync())
+                        .GroupBy(row => row.IssueId).ToDictionary(group => group.Key, group => group.Select(row => row.Name).OrderBy(name => name).ToList());
+                }
+
                 return View(shown);
             }
             catch (Exception ex)
@@ -321,7 +338,10 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                return View(ToMakerView(issue, includeEngineers: false));
+                var view = ToMakerView(issue, includeEngineers: false);
+                await FillDeskAsync(view, issue); // conversation, service times, rating
+                await FillOrganiseAsync(view, issue); // tags, links, watching, related articles
+                return View(view);
             }
             catch (Exception ex)
             {
@@ -353,7 +373,7 @@ namespace XFLCSMS.Controllers
             }
         }
 
-        /// <summary>Saves the edit form. XFL staff: text, status, engineer. People of the house: text and priority.</summary>
+        /// <summary>Saves the edit form. AIPG staff: text, status, engineer. People of the house: text and priority.</summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditTicketttt(MakerView makerView, List<IFormFile> files)
@@ -388,7 +408,7 @@ namespace XFLCSMS.Controllers
                 var rejected = await Tickets.SaveAttachmentsAsync(issue.IssueId, files);
                 if (rejected.Count > 0)
                 {
-                    problems.Add("these files were not attached (file type not allowed): " + string.Join(", ", rejected));
+                    problems.Add("these files were not attached: " + string.Join(", ", rejected));
                 }
 
                 if (problems.Count > 0)
@@ -465,6 +485,12 @@ namespace XFLCSMS.Controllers
                 {
                     return NotFound("The ticket was not found.");
                 }
+
+                // the conversation goes with the ticket, and so do its tags, its watchers and its links (from both sides)
+                Db.TicketMessages.RemoveRange(Db.TicketMessages.Where(message => message.IssueId == issue.IssueId));
+                Db.TicketTags.RemoveRange(Db.TicketTags.Where(row => row.IssueId == issue.IssueId));
+                Db.TicketWatchers.RemoveRange(Db.TicketWatchers.Where(row => row.IssueId == issue.IssueId));
+                Db.TicketLinks.RemoveRange(Db.TicketLinks.Where(link => link.IssueId == issue.IssueId || link.OtherIssueId == issue.IssueId));
 
                 // remove the uploaded files too, not only the database rows
                 var files = issue.attachment?.ToList() ?? new List<Attachment>();

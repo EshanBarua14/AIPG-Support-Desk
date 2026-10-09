@@ -3,7 +3,7 @@
 <div asp-validation-summary="ModelOnly"></div>
 <div class="field">
     <label asp-for="Name">Name</label>
-    <input class="input" asp-for="Name" placeholder="For example: Xpert Trading OMS" autocomplete="off" required maxlength="100">
+    <input class="input" asp-for="Name" placeholder="For example: Trading OMS" autocomplete="off" required maxlength="100">
     <span class="hint">@XFLCSMS.Models.Support.SupportListRules.Hint</span>
     <span asp-validation-for="Name"></span>
 </div>
@@ -17,6 +17,20 @@
     <label asp-for="Description">Description</label>
     <textarea class="textarea" asp-for="Description" rows="3" maxlength="500" placeholder="What the product is, in one or two sentences"></textarea>
     <span asp-validation-for="Description"></span>
+</div>
+@{
+    var productEngineers = ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value;
+}
+<div class="field">
+    <label asp-for="EngineerId">Default engineer</label>
+    <select class="select" name="EngineerId" id="EngineerId">
+        <option value="">Nobody in particular</option>
+        @foreach (var engineer in productEngineers)
+        {
+            <option value="@engineer.Id" selected="@(engineer.Id == Model.EngineerId)">@engineer.Name (@engineer.Open open)</option>
+        }
+    </select>
+    <span class="hint">A new ticket for this product goes straight to this engineer. Nobody: the rule for new tickets under System &gt; Automation decides.</span>
 </div>
 <label class="check">
     <input type="checkbox" name="IsActive" value="true" checked="@Model.IsActive">

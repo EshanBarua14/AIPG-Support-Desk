@@ -277,7 +277,7 @@ namespace XFLCSMS.Services
             issue.ResolveDueAt = resolve > 0 ? calendar.Add(issue.TDate, resolve + issue.SlaPausedMinutes) : null;
         }
 
-        /// <summary>XFL staff answered where the house can read it, or started to work: the first response, once.</summary>
+        /// <summary>AIPG staff answered where the house can read it, or started to work: the first response, once.</summary>
         public void Responded(IssueTable issue, DateTime at)
         {
             issue.FirstResponseAt ??= at;

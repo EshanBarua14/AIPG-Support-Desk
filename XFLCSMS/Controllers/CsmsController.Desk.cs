@@ -64,7 +64,7 @@ namespace XFLCSMS.Controllers
                 }
                 else
                 {
-                    TempData["SuccessMessage"] = result.Message!.IsInternal ? "Internal note added. Only XFL staff can read it." : "Reply added.";
+                    TempData["SuccessMessage"] = result.Message!.IsInternal ? "Internal note added. Only AIPG staff can read it." : "Reply added.";
                 }
 
                 return Redirect(Url.Action("TicketView", new { id }) + "#conversation");
@@ -264,7 +264,7 @@ namespace XFLCSMS.Controllers
         // ---- service report ---------------------------------------------------------------------------------
 
         /// <param name="days">The period: tickets raised in the last 7, 30, 90 or 365 days.</param>
-        /// <param name="house">One brokerage house (XFL roles); a house admin always gets the own house.</param>
+        /// <param name="house">One brokerage house (AIPG roles); a house admin always gets the own house.</param>
         [HttpGet]
         [RequirePermission(Permission.ServiceReport)]
         public async Task<IActionResult> ServiceReport(int days = 30, int house = 0)

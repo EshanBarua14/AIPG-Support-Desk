@@ -138,7 +138,7 @@ namespace XFLCSMS.Controllers
 
                 if (result.RejectedFiles.Count > 0)
                 {
-                    TempData["ErrorMessage"] = "Ticket " + result.Issue.TNumber + " was created, but these files were not attached (file type not allowed): "
+                    TempData["ErrorMessage"] = "Ticket " + result.Issue.TNumber + " was created, but these files were not attached: "
                         + string.Join(", ", result.RejectedFiles);
                 }
                 else

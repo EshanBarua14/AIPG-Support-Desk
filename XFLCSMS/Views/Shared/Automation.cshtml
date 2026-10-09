@@ -1,0 +1,150 @@
+@*
+    Automation: the rules that act by themselves. Everything is off until it is switched on here.
+    Who gets a new ticket is decided the moment it is raised; the rules that depend on time are applied by a
+    check that runs every few minutes (Services/Automation.cs).
+*@
+@model XFLCSMS.Models.Desk.AutomationForm
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Automation";
+    ViewData["PageClass"] = "narrow";
+    int engineers = ViewBag.EngineerCount ?? 0;
+    var productEngineers = ViewBag.ProductEngineers as List<(XFLCSMS.Models.Support.Product Product, string? Engineer)> ?? new List<(XFLCSMS.Models.Support.Product, string?)>();
+    int productCount = ViewBag.ProductCount ?? 0;
+    DateTime? lastRun = ViewBag.LastRun;
+    string? lastResult = ViewBag.LastResult;
+    string? lastError = ViewBag.LastError;
+    int maxPerCheck = ViewBag.MaxPerCheck ?? 20;
+    int deployedCount = ViewBag.DeployedCount ?? 0; DateTime? deployedOldest = ViewBag.DeployedOldest;
+    int pendingCount = ViewBag.PendingCount ?? 0; DateTime? pendingOldest = ViewBag.PendingOldest;
+    int closeDue = ViewBag.CloseDue ?? 0; int pendingCloseDue = ViewBag.PendingCloseDue ?? 0;
+    Func<DateTime?, string> since = moment => moment == null ? "" : ", the oldest since " + Ui.Date(moment);
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Automation</h1>
+        <p class="page-sub">What the system does by itself. Each rule is off until you switch it on; what a rule did is written into the history of the ticket as done by &ldquo;Automation&rdquo;.</p>
+    </div>
+</header>
+
+@if (ViewBag.Problem != null)
+{
+    <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@ViewBag.Problem</span></div>
+}
+
+<form asp-action="Automation" method="post" class="stack" autocomplete="off">
+    <section class="card">
+        <div class="card-head"><h2>New tickets</h2><span class="sub">Who gets a ticket the moment it is raised</span></div>
+        <div class="card-body stack">
+            <fieldset class="rule-choice">
+                <legend class="sr-only">Who gets a new ticket</legend>
+                <label class="switch radio">
+                    <input type="radio" name="Assign" value="off" checked="@(Model.Assign != "round" && Model.Assign != "least")">
+                    <span><b>Nobody: a manager assigns it</b><small>New tickets wait under &ldquo;Unassigned&rdquo;, as before.</small></span>
+                </label>
+                <label class="switch radio">
+                    <input type="radio" name="Assign" value="round" checked="@(Model.Assign == "round")">
+                    <span><b>The engineers in turn</b><small>The engineer whose last ticket was assigned longest ago. Everybody gets the same number over time.</small></span>
+                </label>
+                <label class="switch radio">
+                    <input type="radio" name="Assign" value="least" checked="@(Model.Assign == "least")">
+                    <span><b>The engineer with the fewest open tickets</b><small>Evens out the load; an engineer who closes quickly gets more.</small></span>
+                </label>
+            </fieldset>
+            <p class="muted" style="margin: 0">
+                @if (engineers == 0)
+                {
+                    <span>There is no active support engineer: nothing can be assigned until there is one.</span>
+                }
+                else
+                {
+                    <span>@engineers active support @(engineers == 1 ? "engineer" : "engineers"). A disabled account gets no tickets.</span>
+                }
+                The engineer and the person who raised the ticket are told at once.
+            </p>
+            <div class="rule-products">
+                <b>A product can have its own engineer</b>
+                @if (productEngineers.Count == 0)
+                {
+                    <p class="muted">No product has one@(productCount == 0 ? " (there are no products yet)" : ""). Set &ldquo;Default engineer&rdquo; on a product and its new tickets go there, whatever is chosen above.@if (role.Can(Permission.MasterData)) {<text> <a asp-action="ProductList">Products</a></text>}</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var row in productEngineers)
+                        {
+                            <li><a asp-action="@(role.Can(Permission.MasterData) ? "EditProduct" : "Automation")" asp-route-id="@(role.Can(Permission.MasterData) ? row.Product.ProductId : null)">@row.Product.Name</a> &rarr; @(row.Engineer ?? "an account that is no longer an active engineer (the rule above decides)")</li>
+                        }
+                    </ul>
+                    <p class="muted">These win over the choice above. Tickets without a product, or for a product without an engineer, follow the choice above.</p>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>After &ldquo;Deployed&rdquo;</h2><span class="sub">Tickets nobody closes</span></div>
+        <div class="card-body stack">
+            <div class="field rule-days">
+                <label for="CloseDays">Close a ticket this many days after it became &ldquo;Deployed&rdquo;</label>
+                <span class="unit"><input class="input" type="number" min="0" max="365" step="1" name="CloseDays" id="CloseDays" value="@Model.CloseDays" required> days</span>
+                <span class="hint">0 = never. Not closed when the brokerage house wrote in the conversation after the deployment: then somebody has to look. The ticket gets an entry that says why it was closed, and the person who raised it can rate the support.</span>
+            </div>
+            <p class="rule-now" id="deployedNow">
+                <b>Right now:</b> @deployedCount @(deployedCount == 1 ? "ticket is" : "tickets are") &ldquo;Deployed&rdquo;@since(deployedOldest).
+                @if (closeDue > 0)
+                {
+                    <span>With the saved rule, @closeDue of them @(closeDue == 1 ? "is" : "are") due to be closed.</span>
+                }
+                Each closing tells the person who raised the ticket (also by e-mail and SMS, as set under Notification settings). At most @maxPerCheck tickets are closed per check, so an old backlog goes in steps, not at once.
+            </p>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>While &ldquo;Pending&rdquo;</h2><span class="sub">Tickets that wait for an answer</span></div>
+        <div class="card-body stack">
+            <div class="form-grid">
+                <div class="field rule-days">
+                    <label for="RemindDays">Remind the person who raised it every</label>
+                    <span class="unit"><input class="input" type="number" min="0" max="365" step="1" name="RemindDays" id="RemindDays" value="@Model.RemindDays" required> days</span>
+                    <span class="hint">0 = never. A notification (and an e-mail, unless switched off under Notification settings).</span>
+                </div>
+                <div class="field rule-days">
+                    <label for="RemindMax">At most</label>
+                    <span class="unit"><input class="input" type="number" min="1" max="10" step="1" name="RemindMax" id="RemindMax" value="@Model.RemindMax" required> times</span>
+                </div>
+            </div>
+            <div class="field rule-days">
+                <label for="PendingCloseDays">Close a ticket that has been &ldquo;Pending&rdquo; without a word from the brokerage house for</label>
+                <span class="unit"><input class="input" type="number" min="0" max="365" step="1" name="PendingCloseDays" id="PendingCloseDays" value="@Model.PendingCloseDays" required> days</span>
+                <span class="hint">0 = never. Use it only when &ldquo;Pending&rdquo; means &ldquo;waiting for the brokerage house&rdquo; in your team: a ticket that waits for a third party would be closed as well.</span>
+            </div>
+            <p class="rule-now" id="pendingNow">
+                <b>Right now:</b> @pendingCount @(pendingCount == 1 ? "ticket is" : "tickets are") &ldquo;Pending&rdquo;@since(pendingOldest).
+                @if (pendingCloseDue > 0)
+                {
+                    <span>With the saved rule, @pendingCloseDue of them @(pendingCloseDue == 1 ? "is" : "are") due to be closed.</span>
+                }
+                No reminder and no closing when the people who raised the ticket have written since it went pending: then it is the support team&rsquo;s turn.
+            </p>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> Save rules</button>
+            <span class="muted">
+                @if (lastError != null)
+                {
+                    <span>The last check failed: @lastError</span>
+                }
+                else if (lastRun != null)
+                {
+                    <span>Last check @Ui.Stamp(lastRun)@(lastResult != null ? ". Last action " + lastResult : "").</span>
+                }
+                else
+                {
+                    <span>The rules that depend on time are checked every few minutes.</span>
+                }
+            </span>
+        </div>
+    </section>
+</form>

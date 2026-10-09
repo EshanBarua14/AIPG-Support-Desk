@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Xpert CSMS - interface styles
+   AIPG Support Desk - interface styles
    One stylesheet, no framework. Sections:
      1 tokens   2 base   3 shell   4 buttons + forms   5 data display
      6 feedback + overlays   7 tickets   8 dashboard + charts   9 sign-in pages   10 print   11 motion
@@ -28,11 +28,11 @@
     --ink-2: #43546A;
     --ink-3: #607187;
 
-    --brand: #1D5FC4;          /* XFL royal blue */
+    --brand: #1D5FC4;          /* AIPG royal blue */
     --brand-strong: #164B9E;
     --brand-soft: #E6EFFC;
     --brand-ink: #FFFFFF;
-    --cyan: #129BD4;           /* XFL cyan: links in motion, focus, the logo tiles */
+    --cyan: #129BD4;           /* AIPG cyan: links in motion, focus, the logo tiles */
     --focus: rgba(18, 155, 212, .42);
 
     --red: #C93A3A;      --red-soft: #FDECEC;     --red-ink: #9C2222;
@@ -137,7 +137,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
 }
 .nav-brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px; color: var(--ink); min-height: 44px; }
 .nav-brand:hover { text-decoration: none; }
-/* the frame of the logo: the drawing is centred in its image (img/xpert-logo.png), the image fills the frame */
+/* the frame of the logo: the drawing is centred in its image (Ui.Logo), the image fills the frame */
 .brand-mark {
     flex: none; width: 40px; height: 40px; border-radius: 11px; background: #fff; border: 1px solid var(--line);
     display: grid; place-items: center; overflow: hidden;
@@ -201,7 +201,12 @@ details.nav-sub > a.nav-link .icon { width: 15px; height: 15px; }
 .page-sub { margin-top: 5px; color: var(--ink-2); max-width: 70ch; }
 .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; color: var(--ink-2); font-weight: 500; }
-.foot { padding: 14px 28px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; display: flex; gap: 12px; flex-wrap: wrap; }
+.foot { padding: 14px 28px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.foot .credits { display: inline-flex; align-items: center; gap: 6px 18px; flex-wrap: wrap; }
+/* one credit: the words, the mark on a white tile (the marks are dark, so they need it on a dark page), the name */
+.credit { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.credit img { display: block; flex: none; width: 20px; height: 20px; border-radius: 5px; background: #fff; }
+.foot .credits b { font-weight: 600; color: var(--ink-2); }
 
 .backdrop { display: none; }
 

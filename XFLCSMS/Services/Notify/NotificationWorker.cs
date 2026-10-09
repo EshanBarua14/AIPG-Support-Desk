@@ -128,7 +128,7 @@ namespace XFLCSMS.Services.Notify
                         else
                         {
                             scope.ServiceProvider.GetRequiredService<IEmailServices>()
-                                .SendEmail(new EmailDto { To = item.Recipient, Subject = item.Subject ?? "Xpert CSMS", Body = item.Body });
+                                .SendEmail(new EmailDto { To = item.Recipient, Subject = item.Subject ?? "AIPG Support Desk", Body = item.Body });
                             error = null;
                         }
                     }

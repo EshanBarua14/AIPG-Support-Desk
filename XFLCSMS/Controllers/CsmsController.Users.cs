@@ -31,7 +31,7 @@ namespace XFLCSMS.Controllers
 
                 if (Can(Permission.UsersHouse))
                 {
-                    // XFL staff are never part of a brokerage house's reach, even when their account names that house.
+                    // AIPG staff are never part of a brokerage house's reach, even when their account names that house.
                     var myHouse = CurrentUser?.BrokerageHouseName ?? 0;
                     return Db.Users.Where(u => u.BrokerageHouseName == myHouse && !u.UType && !u.UCatagory);
                 }

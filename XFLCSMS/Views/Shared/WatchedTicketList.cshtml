@@ -1,0 +1,8 @@
+@model IEnumerable<XFLCSMS.Models.Issue.IssueTable>
+@{
+    ViewData["Title"] = "Watching";
+    ViewData["ListSub"] = "Tickets you asked to be told about. Open one and press Watching to stop.";
+    ViewData["ListAction"] = "WatchedTicketList";
+    ViewData["EmptyText"] = "You watch no ticket. Open a ticket and press Watch to be told what happens on it";
+}
+<partial name="_TicketList" />

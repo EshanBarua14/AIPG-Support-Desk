@@ -24,7 +24,7 @@ namespace XFLCSMS.Data
         {
             new Entry
             {
-                Name = "Xpert Trading OMS", Code = "OMS",
+                Name = "Trading OMS", Code = "OMS",
                 Description = "Order management system: dealer terminals, order routing to the exchanges, pre-trade risk checks.",
                 Types = new[] { "Bug or error", "Service outage", "Configuration change", "Data correction", "New feature request", "How-to question" },
                 Categories = new[] { "Order entry", "Order routing and execution", "Market data feed", "Risk and limits", "Dealer terminal", "User and permission setup", "Exchange connectivity (DSE/CSE)", "End-of-day processing", "Reports" }

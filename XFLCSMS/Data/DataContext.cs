@@ -40,6 +40,13 @@ namespace XFLCSMS.Data
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
         public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+        public DbSet<XFLCSMS.Models.Desk.TicketMessage> TicketMessages => Set<XFLCSMS.Models.Desk.TicketMessage>();
+        public DbSet<XFLCSMS.Models.Desk.CannedReply> CannedReplies => Set<XFLCSMS.Models.Desk.CannedReply>();
+        public DbSet<XFLCSMS.Models.Desk.KbArticle> KbArticles => Set<XFLCSMS.Models.Desk.KbArticle>();
+        public DbSet<XFLCSMS.Models.Desk.Tag> Tags => Set<XFLCSMS.Models.Desk.Tag>();
+        public DbSet<XFLCSMS.Models.Desk.TicketTag> TicketTags => Set<XFLCSMS.Models.Desk.TicketTag>();
+        public DbSet<XFLCSMS.Models.Desk.TicketLink> TicketLinks => Set<XFLCSMS.Models.Desk.TicketLink>();
+        public DbSet<XFLCSMS.Models.Desk.TicketWatcher> TicketWatchers => Set<XFLCSMS.Models.Desk.TicketWatcher>();
 
         /// <summary>
         /// Runs right before changes are written. The signed-in area sets it to add the audit lines for master data
@@ -115,7 +122,7 @@ namespace XFLCSMS.Data
             // "Assigned to me" is looked up by the engineer's user id.
             modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.AssignedToId);
 
-            // Products of XFL. A support list entry and a ticket may point at one product; a product that is still
+            // Products of AIPG. A support list entry and a ticket may point at one product; a product that is still
             // pointed at cannot be deleted (the page says so, and the database would refuse as well).
             modelBuilder.Entity<Product>().HasIndex(product => product.Name).IsUnique();
             modelBuilder.Entity<SupportType>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
@@ -123,6 +130,31 @@ namespace XFLCSMS.Data
             modelBuilder.Entity<SupportSubCatagory>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<AffectedSection>().HasOne(item => item.Product).WithMany().HasForeignKey(item => item.ProductId).OnDelete(DeleteBehavior.Restrict);
             modelBuilder.Entity<IssueTable>().HasOne(issue => issue.Product).WithMany().HasForeignKey(issue => issue.ProductId).OnDelete(DeleteBehavior.Restrict);
+            // The conversation of a ticket is read per ticket, oldest first; it goes when the ticket is deleted.
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketMessage>().HasIndex(message => new { message.IssueId, message.Id });
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketMessage>()
+                .HasOne(message => message.Issue).WithMany().HasForeignKey(message => message.IssueId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Attachment>().HasIndex(file => file.MessageId);
+
+            // The watcher of the service targets looks for open tickets whose target time comes up.
+            modelBuilder.Entity<IssueTable>().HasIndex(issue => issue.ResolveDueAt);
+
+            // Knowledge base. An article of a product that is deleted becomes an article for every product.
+            modelBuilder.Entity<XFLCSMS.Models.Desk.KbArticle>().HasIndex(article => article.IsPublished);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.KbArticle>()
+                .HasOne<Product>().WithMany().HasForeignKey(article => article.ProductId).OnDelete(DeleteBehavior.SetNull);
+
+            // Tags, links and watchers go when their ticket is deleted. The "other" ticket of a link has no foreign
+            // key (SQL Server allows one cascading path per table): CsmsController.DeleteTicket removes those links.
+            modelBuilder.Entity<XFLCSMS.Models.Desk.Tag>().HasIndex(tag => tag.Name).IsUnique();
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketTag>().HasKey(row => new { row.IssueId, row.TagId });
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketTag>().HasOne(row => row.Issue).WithMany().HasForeignKey(row => row.IssueId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketTag>().HasOne(row => row.Tag).WithMany().HasForeignKey(row => row.TagId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketLink>().HasOne<IssueTable>().WithMany().HasForeignKey(link => link.IssueId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketLink>().HasIndex(link => link.OtherIssueId);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketWatcher>().HasKey(row => new { row.IssueId, row.UserId });
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketWatcher>().HasOne<IssueTable>().WithMany().HasForeignKey(row => row.IssueId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<XFLCSMS.Models.Desk.TicketWatcher>().HasIndex(row => row.UserId);
         }
 
 

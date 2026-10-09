@@ -25,7 +25,7 @@ namespace XFLCSMS.Services.EmailService
         public string User { get; private set; } = string.Empty;
         public string Password { get; private set; } = string.Empty;
         public string From { get; private set; } = string.Empty;
-        public string FromName { get; private set; } = "Xpert CSMS";
+        public string FromName { get; private set; } = "AIPG Support Desk";
         /// <summary>"page" (entered in the application), "file" (appsettings.json) or "none".</summary>
         public string Source { get; private set; } = "none";
         /// <summary>The password stored by the page cannot be decrypted any more.</summary>
@@ -62,7 +62,7 @@ namespace XFLCSMS.Services.EmailService
                     Password = store.GetSecret(PasswordKey) ?? string.Empty,
                     PasswordUnreadable = store.SecretIsUnreadable(PasswordKey),
                     From = store.Get(FromKey, user),
-                    FromName = store.Get(FromNameKey, "Xpert CSMS"),
+                    FromName = store.Get(FromNameKey, "AIPG Support Desk"),
                     Source = "page"
                 };
             }

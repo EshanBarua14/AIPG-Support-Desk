@@ -6,7 +6,7 @@ namespace XFLCSMS.Models.Desk
 {
     /// <summary>
     /// One entry in the conversation of a ticket: a reply everybody on the ticket reads, or an internal note that
-    /// only XFL staff see. Entries are only ever added - what was said stays said, with who and when - which is
+    /// only AIPG staff see. Entries are only ever added - what was said stays said, with who and when - which is
     /// what the single "Comments" field of a ticket (overwritten with every edit) could not offer.
     /// </summary>
     public class TicketMessage
@@ -29,10 +29,10 @@ namespace XFLCSMS.Models.Desk
         [MaxLength(40)]
         public string? AuthorRole { get; set; }
 
-        /// <summary>Written by XFL staff (true) or by somebody of the brokerage house (false).</summary>
+        /// <summary>Written by AIPG staff (true) or by somebody of the brokerage house (false).</summary>
         public bool FromStaff { get; set; }
 
-        /// <summary>An internal note: shown to XFL staff only, never to the brokerage house.</summary>
+        /// <summary>An internal note: shown to AIPG staff only, never to the brokerage house.</summary>
         public bool IsInternal { get; set; }
 
         public DateTime At { get; set; }

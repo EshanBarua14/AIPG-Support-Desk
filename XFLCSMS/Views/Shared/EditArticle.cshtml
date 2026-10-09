@@ -1,0 +1,88 @@
+@* Write or change an article of the knowledge base (permission "write the knowledge base"). *@
+@model XFLCSMS.Models.Desk.KbArticle
+@{
+    var isNew = Model.Id <= 0;
+    ViewData["Title"] = isNew ? "New article" : "Edit article";
+    ViewData["PageClass"] = "narrow";
+    var products = ViewBag.Products as List<XFLCSMS.Models.Support.Product> ?? new List<XFLCSMS.Models.Support.Product>();
+    string? fromTicket = ViewBag.FromTicket;
+}
+<a class="back" asp-action="@(isNew ? "Knowledge" : "Article")" asp-route-id="@(isNew ? null : Model.Id)"><icon name="arrow-left" /> @(isNew ? "Knowledge base" : "Back to the article")</a>
+
+<header class="page-head">
+    <div>
+        <h1 class="page-title">@(isNew ? "New article" : "Edit article")</h1>
+        <p class="page-sub">Write it for somebody who has the problem right now: the question as they would ask it, then what to do, step by step.</p>
+    </div>
+</header>
+
+@if (ViewBag.Problem != null)
+{
+    <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@ViewBag.Problem</span></div>
+}
+@if (fromTicket != null)
+{
+    <div class="alert alert-warning" role="status"><icon name="triangle-alert" /><span>Started from ticket @fromTicket. The text below is what the brokerage house wrote: rewrite it in general words and take out names, account numbers and anything else that belongs to that house before you publish.</span></div>
+}
+
+<form asp-action="SaveArticle" method="post" class="stack" autocomplete="off">
+    <input type="hidden" name="id" value="@Model.Id">
+    <input type="hidden" name="sourceIssueId" value="@Model.SourceIssueId">
+    <section class="card">
+        <div class="card-body stack">
+            <div class="field">
+                <label for="articleTitle">Title <span class="req" aria-hidden="true">*</span></label>
+                <input class="input" name="title" id="articleTitle" value="@Model.Title" required minlength="5" maxlength="200" placeholder="Order screen freezes after the morning session opens">
+                <span class="hint">The problem or the question in the words of the person who has it. This is what the search and the suggestions on the ticket form match first.</span>
+            </div>
+            <div class="form-grid">
+                <div class="field">
+                    <label for="articleProduct">Product</label>
+                    <select class="select" name="productId" id="articleProduct">
+                        <option value="">All products</option>
+                        @foreach (var product in products)
+                        {
+                            <option value="@product.ProductId" selected="@(product.ProductId == Model.ProductId)">@product.Name@(product.IsActive ? "" : " (inactive)")</option>
+                        }
+                    </select>
+                    <span class="hint">An article of one product is not suggested for tickets of another.</span>
+                </div>
+                <div class="field">
+                    <label for="articleKeywords">Keywords</label>
+                    <input class="input" name="keywords" id="articleKeywords" value="@Model.Keywords" maxlength="300" placeholder="hang, not responding, stuck">
+                    <span class="hint">Other words people use for the same thing, separated by commas.</span>
+                </div>
+            </div>
+            <div class="field">
+                <label for="articleBody">Text <span class="req" aria-hidden="true">*</span></label>
+                <textarea class="textarea" name="body" id="articleBody" data-rte rows="14" aria-label="Text of the article">@HtmlSanitizer.Sanitize(Model.Body)</textarea>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>Who reads it</h2></div>
+        <div class="card-body switches two">
+            <label class="switch">
+                <input type="checkbox" name="isPublished" value="true" checked="@Model.IsPublished">
+                <span><b>Published</b><small>Off: a draft, seen only by the people who write the knowledge base.</small></span>
+            </label>
+            <label class="switch">
+                <input type="checkbox" name="isInternal" value="true" checked="@Model.IsInternal">
+                <span><b>Internal</b><small>For AIPG staff only: how to diagnose, whom to ask. Never shown to a brokerage house.</small></span>
+            </label>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> Save article</button>
+            <a class="btn" asp-action="@(isNew ? "Knowledge" : "Article")" asp-route-id="@(isNew ? null : Model.Id)">Cancel</a>
+        </div>
+    </section>
+</form>
+
+@if (!isNew)
+{
+    <form asp-action="DeleteArticle" asp-route-id="@Model.Id" method="post" class="kb-delete"
+          data-confirm-submit="Remove this article?" data-action="Remove" data-confirm-text="Links to it in replies that were already sent will no longer open.">
+        <button type="submit" class="btn danger"><icon name="trash-2" /> Remove article</button>
+    </form>
+}

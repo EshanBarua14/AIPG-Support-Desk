@@ -9,7 +9,7 @@
 <header class="page-head">
     <div>
         <h1 class="page-title">Create ticket</h1>
-        <p class="page-sub">Say what is wrong and how urgent it is. The XFL support team picks it up from here.</p>
+        <p class="page-sub">Say what is wrong and how urgent it is. The AIPG support team picks it up from here.</p>
     </div>
 </header>
 
@@ -20,7 +20,14 @@
                 <div class="card-body stack">
                     <div class="field">
                         <label for="ITitle">Title <span class="req" aria-hidden="true">*</span></label>
-                        <input class="input" asp-for="issueFrom.ITitle" id="ITitle" required maxlength="250" autofocus placeholder="One line that says what is wrong">
+                        <input class="input" asp-for="issueFrom.ITitle" id="ITitle" required maxlength="250" autofocus placeholder="One line that says what is wrong"
+                               data-kb-ask="@Url.Action("SuggestArticles")" data-kb-product="#ProductId" data-kb-into="#kbSuggest" autocomplete="off">
+                        @* filled by wwwroot/js/desk.js while the title is typed: articles of the knowledge base that may answer it *@
+                        <div class="kb-suggest" id="kbSuggest" hidden aria-live="polite">
+                            <b><icon name="lightbulb" /> This may answer it already</b>
+                            <ul></ul>
+                            <span class="hint">The articles open in a new tab; what you typed stays here.</span>
+                        </div>
                     </div>
 
                     <div class="field">
@@ -40,8 +47,8 @@
                     </div>
 
                     <div class="field">
-                        <label for="Commands">Comments</label>
-                        <textarea class="textarea" asp-for="issueFrom.Commands" id="Commands" rows="3" placeholder="Anything else the support team should know"></textarea>
+                        <label for="Commands">First message <span class="muted">(optional)</span></label>
+                        <textarea class="textarea" asp-for="issueFrom.Commands" id="Commands" rows="3" placeholder="Anything else the support team should know. It opens the conversation of the ticket."></textarea>
                     </div>
                 </div>
             </section>

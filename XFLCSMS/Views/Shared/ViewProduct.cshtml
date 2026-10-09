@@ -19,6 +19,11 @@
                 <span class="muted">Short name @product.Code</span>
             }
             <span class="muted num">@(Model.Tickets == 1 ? "1 ticket" : Model.Tickets + " tickets")</span>
+            @if (product.EngineerId != null)
+            {
+                var defaultEngineer = ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value.FirstOrDefault(engineer => engineer.Id == product.EngineerId);
+                <span class="muted" id="productEngineer">@(defaultEngineer != null ? "New tickets go to " + defaultEngineer.Name : "Its default engineer is no longer an active engineer")</span>
+            }
         </p>
     </div>
     <div class="page-actions">

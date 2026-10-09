@@ -23,11 +23,17 @@
     string? statusFilter = ViewBag.StatusFilter;
     int statusTotal = ViewBag.StatusTotal ?? 0;
     ViewData["ShownCount"] = rows.Count;
-    ViewData["SearchHint"] = "Search number, title, product, priority, status or engineer";
+    ViewData["SearchHint"] = role.IsStaff ? "Search number, title, product, status, engineer, or tag:name" : "Search number, title, product, priority, status or engineer";
+    var tagsOf = ViewBag.TagsOf as Dictionary<int, List<string>>;   // the tags of the tickets shown (AIPG staff)
+    string? tagFilter = ViewBag.TagFilter;
 
+    var sla = Context.RequestServices.GetRequiredService<XFLCSMS.Services.SlaService>();
+    var now = DateTime.Now;
+    int overdue = ViewBag.OverdueCount ?? 0;
     var tabs = new List<(string Text, string Action, int Count)> { (role.TicketListName, role.TicketList, 0) };
     if (role.IsEngineer) { tabs.Add(("Assigned to me", "AssignedTicketList", mine)); }
     tabs.Add(("Unassigned", "UnassignedTicketList", unassigned));
+    if (overdue > 0 || action == "OverdueTicketList") { tabs.Add(("Overdue", "OverdueTicketList", overdue)); }
     tabs.Add(("Closed", "ClosedTicketList", 0));
 }
 <header class="page-head">
@@ -87,7 +93,7 @@
                 }
                 else
                 {
-                    <b>@(statusFilter != null ? "No ticket is " + TicketStatus.Name(statusFilter).ToLowerInvariant() + " right now" : ViewData["EmptyText"] ?? "No tickets here")</b>
+                    <b>@(statusFilter != null ? "No ticket is " + TicketStatus.Name(statusFilter).ToLowerInvariant() + " right now" : tagFilter != null ? "No ticket here has the tag \u201c" + tagFilter + "\u201d" : ViewData["EmptyText"] ?? "No tickets here")</b>
                     @if (role.CanCreateTicket && action == role.TicketList && statusFilter == null)
                     {
                         <span>Tickets you raise show up in this list.</span>
@@ -119,6 +125,10 @@
                                 <td class="c-title">
                                     <a class="t-title" asp-action="TicketView" asp-route-id="@item.IssueId">@(string.IsNullOrWhiteSpace(item.ITitle) ? "(no title)" : item.ITitle)</a>
                                     <span class="t-meta">@if (item.ProductId != null && productLabels != null && productLabels.TryGetValue(item.ProductId.Value, out var productLabel)) {<b class="t-product">@productLabel</b>}Raised @Ui.Stamp(item.TDate)@(raisers != null && raisers.TryGetValue(item.UserId, out var raiser) ? " by " + raiser : "")</span>
+                                    @if (tagsOf != null && tagsOf.TryGetValue(item.IssueId, out var itemTags))
+                                    {
+                                        <span class="t-tags">@foreach (var tag in itemTags) {<a class="tag-chip" asp-action="@(ViewData["ListAction"] ?? role.TicketList)" asp-route-searchString="tag:@tag">@tag</a>}</span>
+                                    }
                                 </td>
                                 <td class="c-who">
                                     @if (!string.IsNullOrEmpty(item.AssignBy))
@@ -131,7 +141,14 @@
                                     }
                                 </td>
                                 <td class="c-prio">@Ui.PriorityPill(item.Priority)</td>
-                                <td class="c-status"><span data-status="@item.IStatus">@Ui.StatusPill(item.IStatus)</span></td>
+                                <td class="c-status">
+                                    <span data-status="@item.IStatus">@Ui.StatusPill(item.IStatus)</span>
+                                    @* how the service target of an open ticket stands, in a few words *@
+                                    @if (!closed)
+                                    {
+                                        <span class="sla-line">@Ui.SlaPill(sla.Short(item, now))</span>
+                                    }
+                                </td>
                                 <td class="t-actions">
                                     <a class="btn btn-icon btn-sm" asp-action="TicketView" asp-route-id="@item.IssueId" title="View" aria-label="View ticket @item.TNumber"><icon name="eye" /></a>
                                     @if (!closed)

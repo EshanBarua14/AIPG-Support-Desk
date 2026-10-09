@@ -109,6 +109,12 @@ builder.Services.AddScoped<SlaService>();
 builder.Services.AddSingleton<SlaWatcher>();
 builder.Services.AddHostedService(services => services.GetRequiredService<SlaWatcher>());
 
+// Rules that act by themselves (System > Automation): who gets a new ticket, closing after "Deployed", reminders
+// while "Pending". Everything is off until switched on. "Automation": { "CheckSeconds": 300 } sets how often.
+builder.Services.AddSingleton<AutomationRules>();
+builder.Services.AddSingleton<AutomationWorker>();
+builder.Services.AddHostedService(services => services.GetRequiredService<AutomationWorker>());
+
 builder.Services.AddScoped<TicketService>();
 
 // Connection string lives in appsettings.json -> ConnectionStrings:DefaultConnection

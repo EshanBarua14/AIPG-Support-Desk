@@ -1,7 +1,7 @@
-# Xpert CSMS - who does what
+# AIPG Support Desk - who does what
 
-Customer Support Management System of Xpert Fintech Ltd. (version 3.1). Staff of brokerage houses raise
-support tickets; the XFL support team assigns them, works on them and closes them. Everybody is told what
+A customer support management system (version 3.4), in the AIPG edition. Staff of brokerage houses raise
+support tickets; the AIPG support team assigns them, works on them and closes them. Everybody is told what
 happens to their tickets: on the page while they work, by e-mail, and by SMS.
 
 ## 1. The five roles
@@ -11,9 +11,9 @@ the person lands in.
 
 | Role | Who | Area | Sees |
 |---|---|---|---|
-| **Platform admin** | administrator of XFL | `/Admin/...` | everything, for every brokerage house |
-| **Support manager** | XFL staff | `/SupportManegar/...` | every ticket; assigns the engineers |
-| **Support engineer** | XFL staff | `/SupportEngineer/...` | every ticket; works on the ones assigned to him |
+| **Platform admin** | administrator of AIPG | `/Admin/...` | everything, for every brokerage house |
+| **Support manager** | AIPG staff | `/SupportManegar/...` | every ticket; assigns the engineers |
+| **Support engineer** | AIPG staff | `/SupportEngineer/...` | every ticket; works on the ones assigned to him |
 | **House admin** | administrator of one brokerage house | `/HouseAdmin/...` | the tickets, people and branches of that house |
 | **House user** | staff of a brokerage house | `/Maker/...` | the tickets he raised himself |
 
@@ -36,6 +36,11 @@ This is the default. A platform admin changes it under **System > Roles & permis
 | Deploy, close and reopen | yes | yes | yes | - | - |
 | Delete tickets | yes | no | - | - | - |
 | Workload page | yes | yes | no | - | - |
+| Service report | yes | yes | no | yes (own house) | - |
+| Manage canned replies | yes | yes | no | - | - |
+| Service targets | yes | no | - | - | - |
+| Write the knowledge base | yes | yes | yes | - | - |
+| Automation | yes | yes | - | - | - |
 | Manage all accounts | always | no | - | - | - |
 | Manage the accounts of their house | - | - | - | yes | - |
 | Manage the branches of their house | - | - | - | yes | - |
@@ -50,7 +55,7 @@ This is the default. A platform admin changes it under **System > Roles & permis
 
 "-" means the role can never be given that permission. Three things are fixed on purpose:
 
-- **House roles never reach outside their house.** Everything that works across houses can only go to XFL roles.
+- **House roles never reach outside their house.** Everything that works across houses can only go to AIPG roles.
 - **A house user never sees more than his own tickets.** Anybody can register for a brokerage house and activate
   the account with the token from his own e-mail, so "house user" proves nothing about a person. People who
   should see the whole house are made house admin by an administrator.
@@ -58,8 +63,9 @@ This is the default. A platform admin changes it under **System > Roles & permis
   The system settings (mail server, SMS gateway, demo data) stay with the platform admin too: whoever sets the
   mail server can read password-reset e-mails.
 
-Everybody always may: see and edit the own open tickets, keep a personal to-do list, see the own notifications,
-change the own password.
+Everybody always may: see and edit the own open tickets, read the knowledge base (people of a brokerage house:
+the published articles that are not internal), keep a personal to-do list, see the own notifications, change
+the own password.
 
 ## 2. Getting an account
 
@@ -68,7 +74,7 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 1 - the person registers**
 1. **Register** (`/RegisterLogin/Register`): name, e-mail, phone, brokerage house, branch, employee ID, user name, password.
-2. A **token** (6 characters) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
+2. A **token** (8 letters and digits) arrives by e-mail. Enter it together with the e-mail address on **Activate your account**.
 3. No e-mail? The account waits as **Not verified**. The platform admin and the admin of that house see it: a
    notice under the bell, and the number of waiting accounts in the menu. They press **Activate** under **Users**
    - after the person has confirmed that the registration is theirs (anybody can register under any name).
@@ -76,11 +82,22 @@ Before anybody of a brokerage house can start, a platform admin creates the **ho
 
 **Way 2 - an administrator creates the account**
 **Users > New user**: same details plus the role. The account is active at once; the administrator passes the
-user name and password on (the owner gets an e-mail with the user name, never with the password).
+user name and password on (the owner gets an e-mail with the user name, never with the password). At the first
+sign-in the owner has to choose an own password before anything else.
 A platform admin creates any account; a house admin creates house users and house admins of the own house.
 
-Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). If that mail
-does not arrive, an administrator sets a new password under **Users > Edit**.
+Forgot the password: **Forgot your password?** e-mails a reset token (32 characters, valid 24 hours). The page
+answers the same for every name, so it does not tell who is registered. If the mail does not arrive, an
+administrator sets a new password under **Users > Edit**; the owner then has to replace it at the next sign-in.
+
+**Passwords.** A new password has 10 or more characters with at least one letter and one digit, does not contain
+the user name or the e-mail address and is not a common one. Passwords that existed before version 3.2 stay valid.
+
+**Wrong attempts.** Five wrong passwords or activation tokens in a row lock the account for 15 minutes; during
+that time the right password is refused too. The lock ends by itself, with **Users > Edit > Unlock now**, with a
+new password from an administrator, or with a reset by e-mail. A name that has no account gets exactly the same
+answers. Thirty failed attempts from one network address in ten minutes make the site refuse that address for a
+while. The numbers are settings ("SignIn" in appsettings.json).
 
 A sign-in ends after 10 minutes in which the person did nothing (an open page that only listens for notifications
 does not count as doing something). It also ends at the next click when an administrator disables the account,
@@ -117,8 +134,71 @@ Rules the system keeps:
 - Every step is written to the **history** on the ticket page (who, in which role, when, from what to what) and
   to the audit trail.
 
+### Conversation
+Every ticket has a conversation on its page (it replaced the single "Comments" field, which every edit overwrote).
+- **Reply**: everybody who may open the ticket writes there: formatted text and files. An entry keeps its author,
+  role and time and cannot be changed or removed afterwards.
+- **Internal note** (AIPG staff only): a tick under the reply box. The brokerage house never sees the note, its
+  files, or any trace of it in the history of the ticket or in the activity list of the house.
+- **Canned replies**: AIPG staff choose a ready-made text above the reply box and adapt it. `{name}` becomes the
+  first name of the person who raised the ticket, `{ticket}` the ticket number, `{me}` the writer. The texts are
+  managed under **Tickets > Canned replies** (permission "manage canned replies").
+- A reply does not change the status. Replies are possible on closed tickets too; they do not reopen it.
+- The "first message" of the create form opens the conversation.
+
+### Service targets
+A ticket gets two target times when it is raised, from **System > Service targets**: the first response and the
+solution, per priority (defaults: High 0.5 h / 4 h, Medium 2 h / 18 h, Low 4 h / 45 h of working time).
+- **Working time**: the working days and hours and the days off entered on that page (default Sunday to Thursday,
+  09:00 to 18:00). A priority can count round the clock instead.
+- **First response** is the first reply of AIPG staff that the house can read, or the engineer setting the ticket
+  to In progress - whichever comes first. Assigning a ticket and internal notes do not count.
+- **Solved** is the first time the ticket reaches Done, Deployed or Closed. While it is **Pending** the clock for
+  the solution stands still, and the target moves later by that time. Reopening makes it unsolved again.
+- Lists show how an open ticket stands ("Reply due in 20 min", "Due in 3 h", "Overdue 2 d", "On hold"); the
+  ticket page shows both targets. **Overdue** in the menu lists the open tickets past a target.
+- The engineer of a ticket is told when 75 % of the time to a target is used; the people who assign tickets when
+  it has passed. Each message goes out once per ticket and target.
+- A ticket keeps the targets it got. Changing the priority recalculates them; changing the settings affects
+  tickets raised afterwards. Tickets raised before version 3.3 have no targets.
+
+### Knowledge base
+**Tickets > Knowledge base**: answers written down once, so the same question does not become a ticket each time.
+- **Reading**: everybody who is signed in. People of a brokerage house see the published articles; AIPG roles also
+  the **internal** ones (how to diagnose, whom to ask). Search by words (title and keywords count most), filter
+  by product. Under an article: "Did this answer your question?" - once per sign-in.
+- **While a ticket is typed**: the form looks for articles that fit the title (and the chosen product) and offers
+  up to four under the title field. They open in a new tab; what was typed stays.
+- **Writing** (permission "write the knowledge base"; by default every AIPG role): title, product, keywords,
+  text; **Published** off = a draft only the writers see; **Internal** = AIPG staff only. An article of one
+  product is not offered for tickets of another.
+- **On a ticket** (AIPG staff): the articles that fit, each with **Insert link**: a link to the article goes into
+  the reply. The link (`/go/article/12`) opens the article in the area of whoever reads the reply. **Write an
+  article from this ticket** starts a draft with the title and details of the ticket - rewrite it in general
+  words before publishing; what a brokerage house wrote belongs to that house.
+
+### Tags, linked tickets, watching
+- **Tags** (AIPG staff only; the brokerage house never sees them): typed on the ticket page, separated by commas,
+  up to eight; a new tag is made by typing it. Lists show them under the title; a click on a tag, or `tag:name`
+  in the search box, lists the tickets with it. **Administration > Support lists > Tags** renames, merges
+  (rename to the name of another tag) and removes them.
+- **Linked tickets** (AIPG staff): enter the number of the other ticket - `ABC_0000042`, `abc 42` - and say
+  whether this ticket is **related** to it or a **duplicate** of it. Both tickets show the link. A person of a
+  brokerage house sees a link only when he may open the other ticket too. Marking a duplicate does not close
+  anything: close it when the people of the house know where the work goes on.
+- **Watch**: a button on the ticket page for everybody who may open the ticket without having raised it or
+  working on it. Watchers are told about replies, status changes, edits and a new engineer; internal notes go
+  to watchers of AIPG only. **Tickets > Watching** lists the watched tickets.
+
+### Rating
+When a ticket is closed, the person who raised it is asked on its page how the support was: 1 (bad) to 5 (very
+good) and an optional sentence, once. AIPG staff see the rating on the ticket; the engineer and the people who
+assign tickets are told.
+
 ### Assignment
-- Tickets are assigned to **support engineers** (active XFL accounts with that role).
+- Tickets are assigned to **support engineers** (active AIPG accounts with that role).
+- A new ticket can be assigned by itself: to the default engineer of its product, or by the rule for new tickets
+  (section 7, Automation). The history then says "Assigned to ... - Automation".
 - **Assign / Reassign** (permission "assign tickets"): from the lists, the ticket page, the workload page or the
   edit form. The dialog shows how many open tickets each engineer has.
 - **Take** (permission "take tickets"): an engineer takes an unassigned ticket; **Give back** returns it.
@@ -136,6 +216,10 @@ Rules the system keeps:
   result comes with charts (raised and closed over time, by priority, by product, by house, time to close);
   **Table** turns them into tables. Every role reports on the tickets it may see.
 - The search of every list also finds a ticket by the name or short name of its product.
+- **Service report** (permission "service report"): for the last 7, 30, 90 days or 12 months: how long the first
+  response and the solution took (the time within which half of the tickets were done, in working time), how many
+  targets were met, ratings, tickets raised and solved per day, open tickets by age, and the same per priority,
+  product, engineer and brokerage house. A house admin sees the own house.
 
 ### The dashboard
 Every role has one, over the tickets it may see. It is made of parts:
@@ -148,7 +232,7 @@ Every role has one, over the tickets it may see. It is made of parts:
 | Time to close | the tickets closed in the period, in five groups from "under 1 day" to "over 4 weeks" |
 | Open tickets per engineer | now (roles with "workload") |
 | Periods at a glance | today, 7 days, 30 days, 12 months as a table |
-| Waiting for an engineer, By brokerage house | XFL staff |
+| Waiting for an engineer, By brokerage house | AIPG staff |
 | Latest tickets | the newest six |
 
 - **Period** (7 days, 30 days, 90 days, 12 months) sits above everything it changes; the queue is always "now".
@@ -172,7 +256,7 @@ phone the same button opens and closes the menu. All of it is remembered per bro
    jpeg, png, xls, xlsx, csv. The ticket gets the next number of the house (`ABC_0000001`).
 2. People of the house edit title, details, comments, priority and files while the ticket is open: a house
    user his own tickets, a house admin every ticket of the house.
-3. XFL staff also set the status and (with "assign tickets") the engineer on the edit form. Only fields that
+3. AIPG staff also set the status and (with "assign tickets") the engineer on the edit form. Only fields that
    were really changed on the form are applied, so a form that sat open does not undo what a colleague did.
 
 ## 4. Notifications
@@ -182,12 +266,18 @@ under the bell), **e-mail**, **SMS**. The person who does something is never tol
 
 | Event | Who is told | App | E-mail | SMS |
 |---|---|:-:|:-:|:-:|
-| Ticket raised | XFL staff who assign tickets, and the admins of that house | on | on | off |
+| Ticket raised | AIPG staff who assign tickets, and the admins of that house | on | on | off |
 | Ticket assigned | the engineer who got it, and the person who raised it | on | on | on |
-| Ticket unassigned | the engineer who had it, and XFL staff who assign tickets | on | off | off |
-| Status changed | the person who raised it and its engineer | on | off | off |
-| Ticket deployed or closed | the person who raised it and its engineer | on | on | on |
-| Ticket edited or commented | the person who raised it and its engineer | on | off | off |
+| Ticket unassigned | the engineer who had it, and AIPG staff who assign tickets | on | off | off |
+| Status changed | the person who raised it, its engineer and whoever watches it | on | off | off |
+| Ticket deployed or closed | the person who raised it, its engineer and whoever watches it | on | on | on |
+| Ticket edited | the person who raised it, its engineer and whoever watches it | on | off | off |
+| Reply in the conversation | the person who raised it, its engineer and whoever watches it; without an engineer: AIPG staff who assign tickets | on | on | off |
+| Reminder while a ticket is pending | the person who raised it (only when the rule is on: section 7, Automation) | on | on | off |
+| Internal note | the engineer of the ticket (AIPG staff only) | on | off | off |
+| Support was rated | the engineer and AIPG staff who assign tickets | on | off | off |
+| Service target is due soon | the engineer; without one: AIPG staff who assign tickets | on | off | off |
+| Service target was missed | AIPG staff who assign tickets, and the engineer | on | on | off |
 | Registration waiting for activation | the administrators who can activate it | on | off | off |
 | Account activated | the owner of the account | off | on | on |
 | Account created by an administrator | the owner | off | on | off |
@@ -226,7 +316,8 @@ the lists of all users, editing included, and the report over them.
 - **Users**: every account with house, role and state; create, activate, edit (name, e-mail, phone, house while
   the account has no tickets, branch, role, active / disabled), set a password, delete.
 - **Master data**: brokerage houses (name + acronym for ticket numbers), branches, products, support types,
-  categories, sub-categories, affected sections. An entry that is in use cannot be deleted.
+  categories, sub-categories, affected sections, tags. An entry that is in use cannot be deleted (a tag can: it
+  is taken off its tickets).
 - **Products**: what brokerage houses get support for. Each product has a name, a short name (shown in lists
   and the report), a description and **Active**.
   - The page of a product lists its support types, categories, sub-categories and affected sections; add,
@@ -242,11 +333,30 @@ the lists of all users, editing included, and the report over them.
     are added once; what is renamed or deleted afterwards stays that way.
 
 **System**
-- **Audit trail**: who did what and when: sign-ins (also failed ones), accounts, tickets, master data, settings.
+- **Audit trail**: who did what and when: sign-ins (also failed ones, and accounts locked by them), accounts, tickets, master data, settings.
   Filter by date, kind, house, text; export to CSV. Lines are only ever added.
 - **System health**: database, e-mail, notifications (open pages listening, queue, failed messages, SMS), file
   storage, security settings, the support queue, facts about the installation, the latest warnings and errors.
   `/health` answers `Healthy` or `Unhealthy` for monitoring tools, without sign-in.
+- **Service targets**: on / off, the two times per priority, working days and hours, days off, when to warn.
+- **Automation** (permission "automation"; by default platform admin and support manager): the rules that act
+  by themselves. **Every rule is off until it is switched on.** What a rule did stands in the history of the
+  ticket as done by "Automation".
+  - **New tickets**: nobody (a manager assigns), the engineers **in turn** (whoever was assigned a ticket longest
+    ago), or the engineer with the **fewest open tickets**. A product can have a **default engineer**
+    (Administration > Products > Edit): its new tickets go there whatever the rule says; if that account is no
+    longer an active engineer, the rule decides.
+  - **After "Deployed"**: close a ticket N days after it became Deployed. Not when the brokerage house wrote in
+    the conversation after the deployment. The ticket gets an entry that says why it was closed.
+  - **While "Pending"**: remind the person who raised the ticket every N days, at most M times; and, if wanted,
+    close a ticket that has been Pending for N days without a word from the house. Use the closing only when
+    Pending means "waiting for the brokerage house" in your team.
+  - No reminder and no closing while Pending when the people who raised the ticket have written since it went
+    pending: then it is the support team's turn.
+  - The rules that depend on time are applied by a check every five minutes, at most 20 tickets per check - an old
+    backlog goes in steps, not at once (`"Automation": { "CheckSeconds": 300, "MaxPerCheck": 20 }` in
+    `appsettings.json`). The page says how many tickets are Deployed and Pending right now and how many the saved
+    rules are due to close. System health shows which rules are on and whether the check runs.
 - **Roles & permissions**: the table of section 1 as switches. A change is in force as soon as it is saved, also
   for people who are signed in; it is written to the audit trail; **Reset to defaults** puts everything back.
   A locked box cannot be changed, a dash cannot be given.
@@ -271,12 +381,13 @@ platform admins, and cannot make anybody platform admin.
 
 **System > Demo data > Load demo data** fills the system so every page can be tried with content:
 3 brokerage houses with 7 branches, 15 accounts of every role (one of them waiting for activation), 64 tickets
-in every status with their history, to-dos, and notices under the bell.
+in every status with their history, conversations, service times and ratings, six articles of the knowledge
+base (one internal, one draft), tags, a duplicate, to-dos, and notices under the bell.
 
 - All demo accounts share one password. It is made up new for every load and shown on the demo data page.
 - User names start with `demo.` (`demo.manager`, `demo.engineer1`, `demo.demoa.admin`, `demo.demoa.user1`, ...),
   houses with `Demo`. Their addresses end in `demo.invalid`: no e-mail and no SMS is ever sent to them.
-- The demo manager and engineers are working XFL accounts: they see real tickets too. Next to existing tickets
+- The demo manager and engineers are working AIPG accounts: they see real tickets too. Next to existing tickets
   the page warns about this and wants a tick before it loads.
 - **Remove demo data** deletes exactly what was loaded, plus the tickets demo accounts raised meanwhile. Real
   tickets given to a demo engineer become unassigned. A demo account or house that was changed into a real one
@@ -292,8 +403,11 @@ in every status with their history, to-dos, and notices under the bell.
 |---|---|
 | Product, support type and category are set when the ticket is raised and cannot be changed afterwards | a ticket raised under the wrong product keeps it; the report then counts it there |
 | The arrangement of the dashboard is kept in the browser, not in the account | on another computer the dashboard starts in its standard arrangement |
-| One "Comments" field that every edit overwrites; no conversation | the history says that comments changed, not what they said before |
-| No due date, SLA or escalation | old tickets are visible as "oldest first" on the dashboard and the workload page only |
+| Support is reached through the web form only | no ticket by e-mail, no reply by e-mail, no chat |
+| The rules of Automation are a fixed set (who gets a new ticket, closing after Deployed, reminders and closing while Pending) | no rules of the kind "if the title contains X, set priority Y"; no working-hours or absence calendar for the turn of the engineers |
+| The knowledge base is read after sign-in only | no public help page; no attachments or pictures from a file in an article (pasted pictures work) |
+| Tags are for AIPG staff, and free text | no colours, no tag that the brokerage house sees |
+| One escalation step for a missed target (the people who assign tickets) | no second step to the platform admin after a further delay |
 | No "send the token again" on the activation page | when the mail is lost, an administrator activates |
 | Lists and reports load all visible tickets and filter in memory | fine for thousands of tickets, slow for hundreds of thousands |
 | Two people saving the same ticket at the same moment: the last one wins for title, details and comments | rare; status and engineer are protected (section 3) |
@@ -302,13 +416,21 @@ in every status with their history, to-dos, and notices under the bell.
 
 **Security and operations**
 
+Built in since version 3.2: passwords stored with PBKDF2 (210,000 rounds; older ones are converted at the owner's next
+sign-in), the limits on wrong attempts above, a content security policy and the other browser protection headers on
+every page, upload limits with a check of the file content, and "choose your own password first" for passwords an
+administrator or the settings file supplied. **System > System health** shows the state of each.
+
+Still to do by hand or later:
+
 | Item | Action |
 |---|---|
 | The Gmail app password is in `appsettings.json` and in the git history | revoke it; enter the new one under Notification settings (stored encrypted in the database) and remove it from the file |
-| No limit on sign-in or activation attempts, no lock-out | add an attempt limit before the site is reachable from the internet |
+| Sign-in is user name and password only | add a second factor (code by e-mail or authenticator app) before institutions ask for it |
+| Limits per network address are kept in memory | fine for one instance; they start again after a restart |
 | The folder `App_Data/keys` holds the keys for sign-in cookies and stored secrets | the account the site runs under must be able to write there; keep it out of version control and out of "delete extra files" deployments. After a move to another server, enter the mail password and SMS key again |
 | Start SQL Server before the application | database updates are applied at start-up only; if the database was not reachable then, restart the application |
-| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to a supported .NET and update MailKit |
+| .NET 6 is out of support; MailKit 4.3.0 has a published advisory | move to .NET 10 (.NET 8 support ends in November 2026) and update MailKit |
 | Uploaded files are in the repository (`wwwroot/Uplods`) | remove them from git, keep the folder |
 | `Controllers/UserController.cs` is dead code (its API class is never registered) | delete it |
 | No automated tests in the repository | the checks so far were run from outside |

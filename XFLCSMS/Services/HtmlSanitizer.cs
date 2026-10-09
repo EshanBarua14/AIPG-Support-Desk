@@ -257,13 +257,31 @@ namespace XFLCSMS.Services
         }
 
         // Web and mail links only (no javascript:, data:, vbscript:, ...). Relative addresses are refused too:
-        // a link inside a ticket should not point at an action of this application.
+        // a link inside a ticket should not point at an action of this application. The one exception are the
+        // short addresses of an article or a ticket (Controllers/GoController.cs): they only ever show a page,
+        // and only one the reader may open anyway.
         private static bool IsSafeLink(string url)
         {
             var value = Compact(url);
             return value.StartsWith("http://", StringComparison.Ordinal)
                 || value.StartsWith("https://", StringComparison.Ordinal)
-                || value.StartsWith("mailto:", StringComparison.Ordinal);
+                || value.StartsWith("mailto:", StringComparison.Ordinal)
+                || IsShortLink(value);
+        }
+
+        /// <summary>"/go/article/12" or "/go/ticket/345": a fixed start, then nothing but a few digits.</summary>
+        public static bool IsShortLink(string value)
+        {
+            foreach (var start in new[] { "/go/article/", "/go/ticket/" })
+            {
+                if (value.StartsWith(start, StringComparison.Ordinal))
+                {
+                    var number = value.Substring(start.Length);
+                    return number.Length > 0 && number.Length <= 9 && number.All(c => c >= '0' && c <= '9');
+                }
+            }
+
+            return false;
         }
 
         // Images must carry their own data (a picture pasted into the old editor). An image with an address

@@ -16,10 +16,24 @@ namespace XFLCSMS.Infrastructure
     public static class Ui
     {
         /// <summary>The name of the application, as shown in titles, the menu, the sign-in pages and messages.</summary>
-        public const string Brand = "Xpert CSMS";
+        public const string Brand = "AIPG Support Desk";
+        /// <summary>How the support team is called in texts the system writes by itself.</summary>
+        public const string SupportTeam = "AIPG";
+
+        // The brand in one place: name above, logo and credits here. The texts of the pages say "AIPG" for the
+        // organisation that gives the support (search for it to change it).
+        /// <summary>The logo, a square picture (menu, sign-in pages, footer). Replace the file or point this at another one.</summary>
+        public const string Logo = "~/img/brand-logo.png";
+        /// <summary>The line under every page: who designed, who developed, who stands behind it - each with its own mark.</summary>
+        public const string DesignBy = "AIPG Studios";
+        public const string DesignLogo = "~/img/aipg-studios.png";
+        public const string DevelopedBy = "AIPG Systems";
+        public const string DevelopedLogo = "~/img/aipg-systems.png";
+        public const string PoweredBy = "AIPG";
+        public const string PoweredLogo = "~/img/brand-logo.png";
 
         /// <summary>Shown in the footer and on the system health page.</summary>
-        public const string Version = "3.1";
+        public const string Version = "3.4";
 
         /// <summary>The role a page belongs to. Each role has its own controller, so the controller name decides.</summary>
         public sealed class RoleInfo
@@ -33,7 +47,7 @@ namespace XFLCSMS.Infrastructure
             public bool IsHouseAdmin => Role == Role.HouseAdmin;
             /// <summary>House user: sees the tickets he raised himself. (The area is called "Maker" for historical reasons.)</summary>
             public bool IsMaker => Role == Role.HouseUser;
-            /// <summary>XFL staff: platform admin, support manager, support engineer.</summary>
+            /// <summary>AIPG staff: platform admin, support manager, support engineer.</summary>
             public bool IsStaff => Rbac.IsStaff(Role);
             /// <summary>Action name of the role's main ticket list.</summary>
             public string TicketList => Role == Role.PlatformAdmin ? "AdminView" : IsStaff ? "AllTicketList" : "MackerTicketList";
@@ -42,7 +56,7 @@ namespace XFLCSMS.Infrastructure
             public bool SeesAll => Can(Permission.TicketsAll);
             /// <summary>Every ticket of the own brokerage house.</summary>
             public bool SeesHouse => !SeesAll && Can(Permission.TicketsHouse);
-            /// <summary>Only the tickets the user raised (XFL staff: and the ones assigned to them).</summary>
+            /// <summary>Only the tickets the user raised (AIPG staff: and the ones assigned to them).</summary>
             public bool SeesOwn => !SeesAll && !SeesHouse;
             /// <summary>Heading of that list.</summary>
             public string TicketListName => SeesAll ? "All tickets" : SeesHouse ? "House tickets" : "My tickets";
@@ -178,6 +192,23 @@ namespace XFLCSMS.Infrastructure
                 case "In progress": return Pill("st-inprogress", "In progress");
                 default: return Pill(string.Empty, string.IsNullOrEmpty(status) ? "No status" : status);
             }
+        }
+
+        /// <summary>
+        /// How a service target stands, as a badge: green "in time", amber "due in 40 min" when it comes up, red when
+        /// it has passed. <paramref name="whenNone"/> is shown for a ticket without that target (null: nothing).
+        /// </summary>
+        public static IHtmlContent SlaPill(XFLCSMS.Services.SlaClock clock, string? whenNone = null)
+        {
+            if (clock.State == "none")
+            {
+                var text = string.IsNullOrEmpty(clock.Text) ? whenNone : clock.Text;
+                return string.IsNullOrEmpty(text) ? HtmlString.Empty : new HtmlString("<span class=\"muted\">" + Encode(char.ToUpperInvariant(text[0]) + text.Substring(1)) + "</span>");
+            }
+
+            // the words say how it stands ("overdue by 2 h"); the colour only repeats it
+            var title = clock.Due == null ? string.Empty : " title=\"Target: " + Encode(Stamp(clock.Due)) + "\"";
+            return new HtmlString("<span class=\"pill sla sla-" + clock.State + "\"" + title + ">" + Encode(char.ToUpperInvariant(clock.Text[0]) + clock.Text.Substring(1)) + "</span>");
         }
 
         public static IHtmlContent Pill(string cssClass, string text)

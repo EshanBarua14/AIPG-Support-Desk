@@ -28,7 +28,7 @@ namespace XFLCSMS.Models.Audit
 
         /// <summary>
         /// The brokerage house the event belongs to (the house of the ticket, of the user that was changed, ...).
-        /// Null for events of the platform itself (XFL staff accounts, master data, system).
+        /// Null for events of the platform itself (AIPG staff accounts, master data, system).
         /// A house administrator sees the lines of the own house only.
         /// </summary>
         public int? BrokerageId { get; set; }

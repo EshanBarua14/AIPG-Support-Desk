@@ -1,0 +1,131 @@
+@*
+    The knowledge base: answers written down once. Everybody who is signed in reads the published articles (people
+    of a brokerage house: without the internal ones); the people who write see drafts as well.
+*@
+@model XFLCSMS.Models.Desk.KnowledgeView
+@{
+    var role = Ui.Role(ViewContext);
+    ViewData["Title"] = "Knowledge base";
+    var productNames = Model.Products.ToDictionary(product => product.ProductId, product => product.ShortName);
+    var filtered = Model.Query != null || Model.ProductId > 0 || Model.Show != null;
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Knowledge base</h1>
+        <p class="page-sub">@(role.IsStaff
+            ? "Answers written down once, so the same question does not have to become a ticket each time. Published articles are offered to the brokerage houses while they type a ticket."
+            : "Answers to questions that come up again and again. Look here first: it is quicker than waiting for a reply.")</p>
+    </div>
+    @if (Model.CanWrite)
+    {
+        <div class="page-actions">
+            <a class="btn btn-primary" asp-action="EditArticle"><icon name="plus" /> New article</a>
+        </div>
+    }
+</header>
+
+<form class="card kb-search" method="get" asp-action="Knowledge" role="search">
+    <div class="card-body">
+        <div class="field kb-q">
+            <label for="kbQuery">Search</label>
+            <span class="input-wrap"><icon name="search" /><input class="input" type="search" name="q" id="kbQuery" value="@Model.Query" placeholder="What are you looking for?" autofocus="@(Model.Query == null)"></span>
+        </div>
+        @if (Model.Products.Count > 0)
+        {
+            <div class="field">
+                <label for="kbProduct">Product</label>
+                <select class="select" name="product" id="kbProduct">
+                    <option value="0">All products</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.ProductId" selected="@(product.ProductId == Model.ProductId)">@product.Name</option>
+                    }
+                </select>
+            </div>
+        }
+        @if (Model.Show != null)
+        {
+            <input type="hidden" name="show" value="@Model.Show">
+        }
+        <button type="submit" class="btn btn-primary">Search</button>
+        @if (filtered)
+        {
+            <a class="btn" asp-action="Knowledge">Show all</a>
+        }
+    </div>
+</form>
+
+@if (role.IsStaff && (Model.Internal > 0 || Model.Drafts > 0))
+{
+    <nav class="tabs" aria-label="Which articles">
+        <a class="tab @(Model.Show == null ? "active" : "")" asp-action="Knowledge" asp-route-q="@Model.Query" asp-route-product="@(Model.ProductId > 0 ? Model.ProductId : null)">All <span class="nav-count">@Model.Total</span></a>
+        @if (Model.Internal > 0)
+        {
+            <a class="tab @(Model.Show == "internal" ? "active" : "")" asp-action="Knowledge" asp-route-show="internal" asp-route-q="@Model.Query" asp-route-product="@(Model.ProductId > 0 ? Model.ProductId : null)">Internal <span class="nav-count">@Model.Internal</span></a>
+        }
+        @if (Model.CanWrite && Model.Drafts > 0)
+        {
+            <a class="tab @(Model.Show == "drafts" ? "active" : "")" asp-action="Knowledge" asp-route-show="drafts" asp-route-q="@Model.Query" asp-route-product="@(Model.ProductId > 0 ? Model.ProductId : null)">Drafts <span class="nav-count">@Model.Drafts</span></a>
+        }
+    </nav>
+}
+
+@if (Model.Articles.Count == 0)
+{
+    <section class="card">
+        <div class="empty">
+            <icon name="book-open" />
+            @if (filtered)
+            {
+                <b>No article fits</b>
+                <span>Try other words@(Model.ProductId > 0 ? ", or all products" : "").@(role.Can(Permission.TicketCreate) ? " If the answer is not here, raise a ticket." : "")</span>
+                @if (role.Can(Permission.TicketCreate))
+                {
+                    <a class="btn btn-primary" asp-action="IssueRaiseFrom"><icon name="ticket-plus" /> Create ticket</a>
+                }
+            }
+            else
+            {
+                <b>No articles yet</b>
+                <span>@(Model.CanWrite ? "Write the first one: a question the support team has answered more than twice is a good start. A solved ticket has a button “Write an article”." : "The support team has not published anything yet.")</span>
+                @if (Model.CanWrite)
+                {
+                    <a class="btn btn-primary" asp-action="EditArticle"><icon name="plus" /> New article</a>
+                }
+            }
+        </div>
+    </section>
+}
+else
+{
+    <p class="muted kb-count" data-total="@Model.Articles.Count">@Model.Articles.Count @(Model.Articles.Count == 1 ? "article" : "articles")@(Model.Query != null ? ", best match first" : "")</p>
+    <ul class="kb-list">
+        @foreach (var article in Model.Articles)
+        {
+            var votes = article.Helpful + article.NotHelpful;
+            <li class="card kb-item">
+                <a class="kb-title" asp-action="Article" asp-route-id="@article.Id">@article.Title</a>
+                <p>@KnowledgeSearch.Snippet(article)</p>
+                <div class="kb-meta">
+                    @if (article.ProductId != null && productNames.TryGetValue(article.ProductId.Value, out var productName))
+                    {
+                        <b class="t-product">@productName</b>
+                    }
+                    @if (!article.IsPublished)
+                    {
+                        @Ui.Pill("st-disabled", "Draft")
+                    }
+                    @if (article.IsInternal)
+                    {
+                        <span class="pill note-pill kb-internal"><icon name="lock" /> Internal</span>
+                    }
+                    <span class="t-meta">Updated @Ui.Date(article.UpdatedAt)</span>
+                    @if (role.IsStaff)
+                    {
+                        <span class="t-meta">@article.Views @(article.Views == 1 ? "view" : "views")@(votes > 0 ? ", helped " + article.Helpful + " of " + votes : "")</span>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}

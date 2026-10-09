@@ -78,6 +78,75 @@ namespace XFLCSMS.Data
         }
 
         /// <summary>
+        /// Version 3.3 replaced the one "Comments" field of a ticket by a conversation. What stood in that field becomes
+        /// the first entry of the ticket's conversation, once. Who wrote it was never recorded, so the entry says so.
+        /// The old column keeps its text; nothing is lost.
+        /// </summary>
+        private static void MoveCommentsIntoConversations(DataContext db, SettingsStore settings, ILogger logger)
+        {
+            const string done = "desk.comments_moved";
+            if (settings.GetBool(done, false))
+            {
+                return;
+            }
+
+            var withComments = db.Issues.Where(issue => issue.Comments != null && issue.Comments != "")
+                .Select(issue => new { issue.IssueId, issue.Comments, issue.TDate, issue.UpdatedOn }).ToList()
+                .Where(issue => !string.IsNullOrWhiteSpace(issue.Comments)).ToList();
+            var already = db.TicketMessages.Select(message => message.IssueId).Distinct().ToList().ToHashSet();
+            var moved = 0;
+            foreach (var issue in withComments.Where(issue => !already.Contains(issue.IssueId)))
+            {
+                db.TicketMessages.Add(new XFLCSMS.Models.Desk.TicketMessage
+                {
+                    IssueId = issue.IssueId,
+                    AuthorName = "Comments field",
+                    AuthorRole = "before version 3.3",
+                    At = issue.UpdatedOn ?? issue.TDate,
+                    Body = System.Net.WebUtility.HtmlEncode(issue.Comments!.Trim()).Replace("\r\n", "<br>").Replace("\n", "<br>")
+                });
+                moved++;
+            }
+
+            settings.Stage(db, new Dictionary<string, string?> { [done] = "true" }, "System");
+            db.SaveChanges();
+            settings.Reload();
+            if (moved > 0)
+            {
+                logger.LogWarning("Moved the comments of {Count} tickets into their conversations.", moved);
+            }
+        }
+
+        /// <summary>A few canned replies to start with, added once. They are ordinary entries: change or remove them.</summary>
+        private static void AddStarterCannedReplies(DataContext db, SettingsStore settings)
+        {
+            const string done = "desk.canned_added";
+            if (settings.GetBool(done, false))
+            {
+                return;
+            }
+
+            if (!db.CannedReplies.Any())
+            {
+                var now = DateTime.Now;
+                foreach (var (title, body) in new[]
+                {
+                    ("We have your ticket", "<p>Dear {name},</p><p>thank you for ticket {ticket}. We are looking into it and will write here as soon as we know more.</p><p>{me}<br>AIPG Support</p>"),
+                    ("Ask for a screenshot", "<p>Dear {name},</p><p>to find the cause we need a little more from you:</p><ul><li>a screenshot of the screen with the message,</li><li>the time it happened,</li><li>the user who was signed in.</li></ul><p>You can attach files to your reply here.</p><p>{me}</p>"),
+                    ("Fix is deployed", "<p>Dear {name},</p><p>the fix for ticket {ticket} is deployed. Please try again and tell us here whether it works for you.</p><p>{me}<br>AIPG Support</p>"),
+                    ("Closing the ticket", "<p>Dear {name},</p><p>we have not heard of further trouble, so we are closing ticket {ticket}. If the problem comes back, write here or raise a new ticket.</p><p>{me}</p>")
+                })
+                {
+                    db.CannedReplies.Add(new XFLCSMS.Models.Desk.CannedReply { Title = title, Body = body, IsActive = true, UpdatedAt = now, UpdatedBy = "System" });
+                }
+            }
+
+            settings.Stage(db, new Dictionary<string, string?> { [done] = "true" }, "System");
+            db.SaveChanges();
+            settings.Reload();
+        }
+
+        /// <summary>
         /// Adds the starting products with their support types and categories (Data/ProductSeed.cs) - once: a
         /// database that has a product, or that was filled before, is left alone, so what an administrator renamed
         /// or deleted does not come back at the next start.
@@ -157,6 +226,8 @@ namespace XFLCSMS.Data
                 NormaliseStatuses(db, logger);
 
                 SeedProducts(db, settings, configuration, logger);
+                MoveCommentsIntoConversations(db, settings, logger);
+                AddStarterCannedReplies(db, settings);
 
                 if (db.Users.Any())
                 {
@@ -177,8 +248,8 @@ namespace XFLCSMS.Data
                 {
                     house = new Brokerage
                     {
-                        BrokerageHouseName = seed["BrokerageHouseName"] ?? "Xpert Fintech Limited",
-                        BrokerageHouseAcronym = seed["BrokerageHouseAcronym"] ?? "XFL"
+                        BrokerageHouseName = seed["BrokerageHouseName"] ?? Ui.SupportTeam,
+                        BrokerageHouseAcronym = seed["BrokerageHouseAcronym"] ?? "AIPG"
                     };
                     db.Brokerages.Add(house);
                     db.SaveChanges();
@@ -211,7 +282,8 @@ namespace XFLCSMS.Data
                     UCatagory = true,
                     UType = true,
                     UStatus = true,
-                    Terms = true
+                    Terms = true,
+                    MustChangePassword = true // this password stands in a settings file: good for the first sign-in only
                 });
                 db.SaveChanges();
 

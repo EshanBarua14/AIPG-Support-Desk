@@ -36,7 +36,7 @@ namespace XFLCSMS.Models.Desk
         public List<Row> ByPriority { get; set; } = new();
         public List<Row> ByEngineer { get; set; } = new();
         public List<Row> ByHouse { get; set; } = new();
-        /// <summary>Per product of XFL; tickets raised without a product come last, under a name of their own.</summary>
+        /// <summary>Per product of AIPG; tickets raised without a product come last, under a name of their own.</summary>
         public List<Row> ByProduct { get; set; } = new();
         /// <summary>Raised and solved per day (short periods) or per week.</summary>
         public List<(string Label, int Raised, int Solved)> Trend { get; set; } = new();

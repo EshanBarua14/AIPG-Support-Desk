@@ -8,7 +8,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Something went wrong - Xpert CSMS</title>
+    <title>Something went wrong - AIPG Support Desk</title>
     <partial name="_Theme" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
 </head>
@@ -17,16 +17,17 @@
         <div class="card">
             <icon name="triangle-alert" />
             <h1>Something went wrong</h1>
-            <p>The page could not be completed. Go back and try again. If it keeps happening, tell the XFL team what you were doing.</p>
+            <p>The page could not be completed. Go back and try again. If it keeps happening, tell the AIPG team what you were doing.</p>
             @if (Model != null && Model.ShowRequestId)
             {
                 <p class="small muted">Request ID: <code>@Model.RequestId</code></p>
             }
             <div class="row" style="justify-content: center">
-                <a class="btn" href="javascript:history.back()"><icon name="arrow-left" /> Go back</a>
+                <button type="button" class="btn" data-go-back><icon name="arrow-left" /> Go back</button>
                 <a class="btn btn-primary" href="~/">Start page</a>
             </div>
         </div>
     </main>
+    <script>document.querySelector('[data-go-back]').addEventListener('click', function () { history.back(); });</script>
 </body>
 </html>

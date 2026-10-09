@@ -53,7 +53,7 @@ namespace XFLCSMS.Services
     /// "demo.ids"), so removing it takes away exactly that and nothing else. The demo accounts have addresses under
     /// "demo.invalid": no e-mail or SMS is ever sent to them.
     ///
-    /// The demo accounts are real accounts: the demo manager and engineers are XFL staff and see every ticket. So each
+    /// The demo accounts are real accounts: the demo manager and engineers are AIPG staff and see every ticket. So each
     /// load gets its own random password (shown on the page to whoever may load demo data), and loading next to
     /// real tickets needs an explicit yes.
     /// </summary>
@@ -85,12 +85,14 @@ namespace XFLCSMS.Services
         private readonly DataContext _db;
         private readonly SettingsStore _settings;
         private readonly AuditService _audit;
+        private readonly SlaService _sla;
 
-        public DemoDataService(DataContext db, SettingsStore settings, AuditService audit)
+        public DemoDataService(DataContext db, SettingsStore settings, AuditService audit, SlaService sla)
         {
             _db = db;
             _settings = settings;
             _audit = audit;
+            _sla = sla;
         }
 
         /// <summary>What was created, so it can be removed again.</summary>
@@ -109,7 +111,37 @@ namespace XFLCSMS.Services
             public List<int> Categories { get; set; } = new();
             public List<int> SubCategories { get; set; } = new();
             public List<int> Sections { get; set; } = new();
+            public List<int> Articles { get; set; } = new();
+            public List<int> Tags { get; set; } = new();
         }
+
+        // The knowledge base of the demo: title, keywords, text, index of the product among the active ones (-1: all), internal, published.
+        private static readonly (string Title, string Keywords, string Body, int Product, bool Internal, bool Published)[] DemoArticles =
+        {
+            ("Order screen freezes when the session opens", "hang, not responding, stuck, order entry",
+                "<h3>Problem</h3><p>Right after the opening of the trading session the order entry screen stops reacting for some seconds, sometimes longer.</p>"
+                + "<h3>Cause</h3><p>The terminal loads the full order book of every instrument on the watch list at once.</p>"
+                + "<h3>Solution</h3><ol><li>Open <b>Settings &gt; Market data</b>.</li><li>Set <b>Depth on start</b> to <b>Top 5</b>.</li><li>Restart the terminal once.</li></ol>"
+                + "<p>If it still freezes with a watch list of fewer than 50 instruments, raise a ticket and attach the log file of that morning.</p>", 0, false, true),
+            ("How do we change the commission rate for one client?", "commission, brokerage fee, charge, rate",
+                "<p>The rate of a single client is set in the back office, not in the trading terminal.</p>"
+                + "<ol><li><b>Clients &gt; Charges</b>, search the client code.</li><li>Choose <b>Own rate</b> and enter the percentage.</li><li>Give the date from which it applies and save. A second person has to approve the change.</li></ol>"
+                + "<p>Trades of the same day keep the old rate; the new one applies from the next settlement run.</p>", 2, false, true),
+            ("New dealer cannot sign in to the trading terminal", "login, password, locked, dealer, sign in",
+                "<p>A dealer account needs three things before the first sign-in works:</p>"
+                + "<ul><li>the account is <b>active</b> (Users &gt; Dealers),</li><li>a <b>terminal licence</b> is assigned to it,</li><li>the dealer has changed the first password in the web portal.</li></ul>"
+                + "<p>The message <i>Not permitted on this workstation</i> means the licence is bound to another computer: release it under Users &gt; Licences.</p>", 0, false, true),
+            ("Password reset link expires too quickly", "reset, link, expired, forgot password, mobile",
+                "<p>The link in the reset mail is valid for 15 minutes and for one use. Mail servers that scan links open it once: then the client sees “expired”.</p>"
+                + "<p>Ask the client to request a new link and to copy the address into the browser instead of clicking it, or use the reset by SMS code in the app.</p>", 1, false, true),
+            ("Diagnosing a stale price feed", "price, feed, stale, market data, delayed",
+                "<p><b>For AIPG staff.</b> Before answering a “prices are wrong” ticket, check in this order:</p>"
+                + "<ol><li>Feed monitor: last tick time per exchange gateway.</li><li>Is it one instrument or all? One instrument: corporate action or suspension. All: gateway.</li><li>Restarting a gateway during the session needs the approval of the duty manager.</li></ol>", 4, true, true),
+            ("Month-end statements: what to check before sending", "statement, month end, ledger, balance",
+                "<p>Draft. To be completed after the next month-end run.</p><ul><li>Closing balance equals the ledger.</li><li>Charges of the last trading day are in.</li></ul>", 2, false, false)
+        };
+
+        private static readonly string[] DemoTags = { "regression", "needs vendor", "release 4.2", "training" };
 
         private Ledger? ReadLedger()
         {
@@ -149,7 +181,7 @@ namespace XFLCSMS.Services
                     Role = Rbac.Label(Rbac.RoleOf(u)),
                     FullName = u.FullName,
                     UserName = u.UserName,
-                    House = Rbac.IsStaff(Rbac.RoleOf(u)) ? "XFL" : houses.GetValueOrDefault(u.BrokerageHouseName, string.Empty)
+                    House = Rbac.IsStaff(Rbac.RoleOf(u)) ? "AIPG" : houses.GetValueOrDefault(u.BrokerageHouseName, string.Empty)
                 })
                 .ToList();
             return status;
@@ -334,7 +366,7 @@ namespace XFLCSMS.Services
             // the products of the installation are not demo data; the demo tickets are spread over the active ones
             var productIds = await _db.Products.Where(product => product.IsActive).OrderBy(product => product.ProductId).Select(product => product.ProductId).ToListAsync();
 
-            // XFL staff (they belong to the house of the administrator who loads the data)
+            // AIPG staff (they belong to the house of the administrator who loads the data)
             var number = 1;
             User NewUser(string userName, string fullName, string designation, Role role, int houseId, int branchId)
             {
@@ -402,6 +434,8 @@ namespace XFLCSMS.Services
             var serial = Houses.ToDictionary(house => house.Acronym, house => 0);
             var created = new List<IssueTable>();
             var history = new List<(IssueTable Issue, DateTime At, User By, string Action, string Text)>();
+            // the conversation of each ticket: (ticket, when, who, text, internal note?)
+            var talk = new List<(IssueTable Issue, DateTime At, User By, string Text, bool Internal)>();
             for (var t = 0; t < statuses.Count; t++)
             {
                 var status = statuses[t];
@@ -427,6 +461,9 @@ namespace XFLCSMS.Services
                     IStatus = status, AssignBy = null, ApproveBy = null, UpdatedBy = null
                 };
                 history.Add((issue, raisedAt, raiser, AuditActions.TicketCreate, "Raised the ticket “" + issue.ITitle + "”, priority " + priority));
+                // service targets as a real ticket gets them; the watcher must not report forty old demo tickets as late
+                _sla.Start(issue);
+                issue.SlaNotices = (int)(SlaNotice.ResponseSoon | SlaNotice.ResponseMissed | SlaNotice.ResolveSoon | SlaNotice.ResolveMissed);
 
                 if (status != TicketStatus.Unassigned)
                 {
@@ -455,11 +492,50 @@ namespace XFLCSMS.Services
                             (next == TicketStatus.Closed ? "Closed the ticket" : "Status " + TicketStatus.Name(next)) + " (was " + TicketStatus.Name(before) + ")"));
                         before = next;
                         if (next == TicketStatus.Closed) { issue.ClosedOn = step; issue.ClosedBy = by.FullName; }
+
+                        // the service times that the real status change would have stamped
+                        if (next == TicketStatus.InProgress && issue.FirstResponseAt == null)
+                        {
+                            // most engineers write to the house when they start; a few just start
+                            var answeredAt = random.Next(4) == 0 ? step : step.AddMinutes(-random.Next(2, 25));
+                            if (answeredAt < issue.AssignOn) { answeredAt = step; }
+                            issue.FirstResponseAt = answeredAt;
+                            if (answeredAt != step)
+                            {
+                                talk.Add((issue, answeredAt, engineer, "Dear " + raiser.FullName.Split(' ')[0] + ", I have taken your ticket and am looking into it now.", false));
+                            }
+                        }
+
+                        if (next == TicketStatus.Pending) { issue.PendingSince = step; }
+                        if (SlaService.IsSolved(next) && issue.ResolvedAt == null) { issue.ResolvedAt = step; }
+                    }
+
+                    // what happened in between, as a conversation
+                    if (path.Count > 0)
+                    {
+                        var noteAt = (issue.FirstResponseAt ?? step).AddMinutes(random.Next(10, 240));
+                        if (noteAt > now) { noteAt = now.AddMinutes(-random.Next(1, 30)); }
+                        talk.Add((issue, noteAt, engineer, EngineerNotes[random.Next(EngineerNotes.Length)], random.Next(3) > 0));
+                        if (random.Next(3) == 0)
+                        {
+                            talk.Add((issue, noteAt.AddMinutes(random.Next(5, 90)) > now ? now.AddMinutes(-1) : noteAt.AddMinutes(random.Next(5, 90)), raiser,
+                                new[] { "Thank you. It happened again this morning, same screen.", "Is there anything we should do on our side meanwhile?", "Attached the file you asked for to the ticket." }[random.Next(3)], false));
+                        }
+                    }
+
+                    // closed tickets: most people answer the question "how was the support?"
+                    if (status == TicketStatus.Closed && issue.ClosedOn != null && random.Next(10) < 7)
+                    {
+                        issue.Rating = new[] { 5, 5, 5, 4, 4, 4, 3, 3, 2, 1 }[random.Next(10)];
+                        issue.RatedAt = issue.ClosedOn.Value.AddMinutes(random.Next(20, 60 * 30));
+                        if (issue.RatedAt > now) { issue.RatedAt = now; }
+                        issue.RatingComment = issue.Rating >= 4
+                            ? new[] { null, null, "Quick and clear, thank you.", "Solved the same day." }[random.Next(4)]
+                            : new[] { null, "Took too long to get the first answer.", "We had to ask twice." }[random.Next(3)];
                     }
 
                     if (path.Count > 0)
                     {
-                        issue.Comments = EngineerNotes[random.Next(EngineerNotes.Length)];
                         issue.UpdatedOn = step;
                         issue.UpdatedBy = history[history.Count - 1].By.FullName;
                     }
@@ -471,6 +547,65 @@ namespace XFLCSMS.Services
             _db.Issues.AddRange(created);
             await _db.SaveChangesAsync();
             ledger.Issues.AddRange(created.Select(issue => issue.IssueId));
+
+            // since when each ticket has its status (the rules under System > Automation count from there)
+            foreach (var issue in created)
+            {
+                issue.StatusSince = issue.ClosedOn ?? issue.UpdatedOn ?? issue.AssignOn ?? issue.TDate;
+            }
+
+            // knowledge base, tags, a duplicate, somebody watching: so these pages have content too
+            foreach (var (title, keywords, body, product, isInternal, published) in DemoArticles)
+            {
+                if (await _db.KbArticles.AnyAsync(article => article.Title == title)) { continue; }
+                var article = new XFLCSMS.Models.Desk.KbArticle
+                {
+                    Title = title, Keywords = keywords, Body = body, IsInternal = isInternal, IsPublished = published,
+                    ProductId = product >= 0 && product < productIds.Count ? productIds[product] : null,
+                    CreatedAt = now.AddDays(-random.Next(20, 90)), UpdatedAt = now.AddDays(-random.Next(1, 20)), UpdatedBy = manager.FullName,
+                    Views = published ? random.Next(3, 60) : 0, Helpful = published && !isInternal ? random.Next(1, 12) : 0, NotHelpful = published && !isInternal ? random.Next(0, 3) : 0
+                };
+                _db.KbArticles.Add(article);
+                await _db.SaveChangesAsync();
+                ledger.Articles.Add(article.Id);
+            }
+
+            var tags = new List<XFLCSMS.Models.Desk.Tag>();
+            foreach (var name in DemoTags)
+            {
+                var tag = await _db.Tags.FirstOrDefaultAsync(item => item.Name == name);
+                if (tag == null) { tag = new XFLCSMS.Models.Desk.Tag { Name = name }; _db.Tags.Add(tag); await _db.SaveChangesAsync(); ledger.Tags.Add(tag.Id); }
+                tags.Add(tag);
+            }
+
+            for (var i = 0; i < created.Count; i += 3)
+            {
+                _db.TicketTags.Add(new XFLCSMS.Models.Desk.TicketTag { IssueId = created[i].IssueId, TagId = tags[(i / 3) % tags.Count].Id });
+                if (i % 12 == 0) { _db.TicketTags.Add(new XFLCSMS.Models.Desk.TicketTag { IssueId = created[i].IssueId, TagId = tags[(i / 3 + 1) % tags.Count].Id }); }
+            }
+
+            // the same problem raised a second time: marked as a duplicate of the first
+            var again = created.FirstOrDefault(issue => issue.ITitle != null && issue.ITitle.EndsWith(" (2)") && !TicketStatus.IsClosed(issue.IStatus));
+            var first = again == null ? null : created.FirstOrDefault(issue => issue.ITitle == again.ITitle!.Substring(0, again.ITitle.Length - 4));
+            if (again != null && first != null)
+            {
+                _db.TicketLinks.Add(new XFLCSMS.Models.Desk.TicketLink { IssueId = again.IssueId, OtherIssueId = first.IssueId, Kind = XFLCSMS.Models.Desk.TicketLink.Duplicate, CreatedAt = now.AddHours(-5), CreatedBy = manager.FullName });
+            }
+
+            foreach (var issue in created.Where(issue => issue.Priority == "High" && !TicketStatus.IsClosed(issue.IStatus) && issue.AssignedToId != null).Take(4))
+            {
+                _db.TicketWatchers.Add(new XFLCSMS.Models.Desk.TicketWatcher { IssueId = issue.IssueId, UserId = manager.Id, Since = now.AddDays(-1) });
+            }
+
+            foreach (var entry in talk.OrderBy(item => item.At))
+            {
+                var role = Rbac.RoleOf(entry.By);
+                _db.TicketMessages.Add(new XFLCSMS.Models.Desk.TicketMessage
+                {
+                    IssueId = entry.Issue.IssueId, UserId = entry.By.Id, AuthorName = entry.By.FullName, AuthorRole = Rbac.Label(role),
+                    FromStaff = Rbac.IsStaff(role), IsInternal = entry.Internal && Rbac.IsStaff(role), At = entry.At, Body = "<p>" + System.Net.WebUtility.HtmlEncode(entry.Text) + "</p>"
+                });
+            }
 
             foreach (var line in history.OrderBy(item => item.At))
             {
@@ -611,8 +746,20 @@ namespace XFLCSMS.Services
             _db.Todos.RemoveRange((await _db.Todos.Where(todo => ledger.Todos.Contains(todo.Id) || ledger.Users.Contains(todo.UserId)).ToListAsync())
                 .Where(todo => demoUserIds.Contains(todo.UserId) || TodoTexts.Contains(todo.Todoname)));
             _db.Attachments.RemoveRange(files);
+            _db.TicketMessages.RemoveRange(await _db.TicketMessages.Where(message => issueIds.Contains(message.IssueId)).ToListAsync());
+            _db.TicketTags.RemoveRange(await _db.TicketTags.Where(row => issueIds.Contains(row.IssueId)).ToListAsync());
+            _db.TicketLinks.RemoveRange(await _db.TicketLinks.Where(link => issueIds.Contains(link.IssueId) || issueIds.Contains(link.OtherIssueId)).ToListAsync());
+            _db.TicketWatchers.RemoveRange(await _db.TicketWatchers.Where(row => issueIds.Contains(row.IssueId) || ledger.Users.Contains(row.UserId)).ToListAsync());
             _db.Issues.RemoveRange(demoIssues);
             await _db.SaveChangesAsync();
+
+            // the demo articles, and the demo tags no real ticket took over; a product whose default engineer was a demo account has none again
+            _db.KbArticles.RemoveRange(await _db.KbArticles.Where(article => ledger.Articles.Contains(article.Id)).ToListAsync());
+            _db.Tags.RemoveRange((await _db.Tags.Where(tag => ledger.Tags.Contains(tag.Id)).ToListAsync()).Where(tag => !_db.TicketTags.Any(row => row.TagId == tag.Id)));
+            foreach (var product in await _db.Products.Where(product => product.EngineerId != null && ledger.Users.Contains(product.EngineerId.Value)).ToListAsync())
+            {
+                product.EngineerId = null;
+            }
 
             // real tickets that were given to a demo engineer are unassigned again
             var orphaned = await _db.Issues.Where(issue => issue.AssignedToId != null && ledger.Users.Contains(issue.AssignedToId.Value)).ToListAsync();
@@ -623,7 +770,7 @@ namespace XFLCSMS.Services
                 issue.AssignOn = null;
                 issue.ApproveBy = null;
                 issue.ApproveOn = null;
-                if (!TicketStatus.IsClosed(issue.IStatus)) { issue.IStatus = TicketStatus.Unassigned; }
+                if (!TicketStatus.IsClosed(issue.IStatus)) { issue.IStatus = TicketStatus.Unassigned; issue.StatusSince = DateTime.Now; issue.ReminderCount = 0; issue.LastReminderAt = null; }
             }
 
             _db.Users.RemoveRange(await _db.Users.Where(user => ledger.Users.Contains(user.Id)).ToListAsync());

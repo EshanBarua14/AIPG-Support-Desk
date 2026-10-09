@@ -6,11 +6,11 @@ namespace XFLCSMS.Infrastructure
     /// <summary>The five roles. A user has exactly one; it follows from three columns of the user (see <see cref="Rbac.RoleOf(User)"/>).</summary>
     public enum Role
     {
-        /// <summary>Administrator of XFL: everything, for every brokerage house.</summary>
+        /// <summary>Administrator of AIPG: everything, for every brokerage house.</summary>
         PlatformAdmin,
-        /// <summary>XFL support manager: every ticket, assigns the engineers.</summary>
+        /// <summary>AIPG support manager: every ticket, assigns the engineers.</summary>
         SupportManager,
-        /// <summary>XFL support engineer: sees every ticket, works on the tickets assigned to him.</summary>
+        /// <summary>AIPG support engineer: sees every ticket, works on the tickets assigned to him.</summary>
         SupportEngineer,
         /// <summary>Administrator of one brokerage house: its tickets, users and branches.</summary>
         HouseAdmin,
@@ -68,10 +68,17 @@ namespace XFLCSMS.Infrastructure
 
         /// <summary>The service targets: times per priority, working hours, holidays.</summary>
         ServiceTargets,
-        /// <summary>Write and change the canned replies everybody of XFL can use.</summary>
+        /// <summary>Write and change the canned replies everybody of AIPG can use.</summary>
         CannedReplies,
         /// <summary>The service report: response and solution times, targets met, ratings.</summary>
-        ServiceReport
+        ServiceReport,
+
+        // Added with version 3.4.
+
+        /// <summary>Write, change, publish and remove the articles of the knowledge base. (Reading needs no permission.)</summary>
+        Knowledge,
+        /// <summary>The rules that act by themselves: who gets a new ticket, closing after "Deployed", reminders while "Pending".</summary>
+        Automation
     }
 
     /// <summary>
@@ -103,16 +110,19 @@ namespace XFLCSMS.Infrastructure
                 Permission.TicketsAll, Permission.TicketAssign, Permission.TicketWorkAny, Permission.TicketClose, Permission.TicketDelete, Permission.Workload,
                 Permission.UsersAll, Permission.MasterData, Permission.TeamTodos, Permission.AuditAll, Permission.SystemHealth,
                 Permission.SystemSettings, Permission.PermissionsEdit,
-                Permission.ServiceTargets, Permission.CannedReplies, Permission.ServiceReport
+                Permission.ServiceTargets, Permission.CannedReplies, Permission.ServiceReport,
+                Permission.Knowledge, Permission.Automation
             },
             [Role.SupportManager] = new[]
             {
                 Permission.TicketsAll, Permission.TicketCreate, Permission.TicketAssign, Permission.TicketWorkAny, Permission.TicketClose, Permission.Workload,
-                Permission.AuditTickets, Permission.CannedReplies, Permission.ServiceReport
+                Permission.AuditTickets, Permission.CannedReplies, Permission.ServiceReport,
+                Permission.Knowledge, Permission.Automation
             },
             [Role.SupportEngineer] = new[]
             {
-                Permission.TicketsAll, Permission.TicketCreate, Permission.TicketTake, Permission.TicketClose
+                Permission.TicketsAll, Permission.TicketCreate, Permission.TicketTake, Permission.TicketClose,
+                Permission.Knowledge
             },
             [Role.HouseAdmin] = new[]
             {
@@ -127,7 +137,7 @@ namespace XFLCSMS.Infrastructure
 
         /// <summary>
         /// The roles a permission can be given to at all. This is what keeps the brokerage houses apart whatever is
-        /// ticked on the permissions page: a permission that reaches across houses can only go to XFL roles, and the
+        /// ticked on the permissions page: a permission that reaches across houses can only go to AIPG roles, and the
         /// house permissions only to the house admin.
         ///
         /// Two deliberate limits:
@@ -163,7 +173,10 @@ namespace XFLCSMS.Infrastructure
             [Permission.ServiceTargets] = new[] { Role.PlatformAdmin, Role.SupportManager },
             [Permission.CannedReplies] = Staff,
             // a house admin sees the report of the own house only (CsmsController.ServiceReport)
-            [Permission.ServiceReport] = new[] { Role.PlatformAdmin, Role.SupportManager, Role.SupportEngineer, Role.HouseAdmin }
+            [Permission.ServiceReport] = new[] { Role.PlatformAdmin, Role.SupportManager, Role.SupportEngineer, Role.HouseAdmin },
+            [Permission.Knowledge] = Staff,
+            // the rules decide who gets which ticket: with the people who assign tickets by hand
+            [Permission.Automation] = new[] { Role.PlatformAdmin, Role.SupportManager }
         };
 
         /// <summary>
@@ -322,7 +335,7 @@ namespace XFLCSMS.Infrastructure
         /// <summary>Groups, names and explanations of the permissions, in the order of the permissions page.</summary>
         public static readonly (string Group, Permission Permission, string Name, string About)[] Catalogue =
         {
-            ("Tickets", Permission.TicketsAll, "See all tickets", "Every ticket of every brokerage house. Without it, XFL staff see the tickets assigned to them and the ones they raised."),
+            ("Tickets", Permission.TicketsAll, "See all tickets", "Every ticket of every brokerage house. Without it, AIPG staff see the tickets assigned to them and the ones they raised."),
             ("Tickets", Permission.TicketsHouse, "See the tickets of their house", "Every ticket raised by people of their own brokerage house. Without it: only the tickets they raised themselves."),
             ("Tickets", Permission.TicketCreate, "Raise tickets", "Create a ticket."),
             ("Tickets", Permission.TicketEditHouse, "Edit the tickets of their house", "Change title, details, priority and files of open tickets raised by colleagues of their own brokerage house. Everybody can always edit their own open tickets."),
@@ -332,14 +345,16 @@ namespace XFLCSMS.Infrastructure
             ("Tickets", Permission.TicketClose, "Deploy, close and reopen", "Set a ticket to Deployed or Closed and reopen a closed ticket."),
             ("Tickets", Permission.TicketDelete, "Delete tickets", "Remove a ticket and its files for good."),
             ("Tickets", Permission.Workload, "Workload page", "How many tickets each engineer has, and what is waiting."),
-            ("Accounts and master data", Permission.UsersAll, "Manage all accounts", "Create, change, disable and delete accounts of every house and of XFL. Only a platform admin can make or change another platform admin."),
+            ("Accounts and master data", Permission.UsersAll, "Manage all accounts", "Create, change, disable and delete accounts of every house and of AIPG. Only a platform admin can make or change another platform admin."),
             ("Accounts and master data", Permission.UsersHouse, "Manage the accounts of their house", "Create, activate, change, disable and delete the house users and house admins of their own brokerage house."),
             ("Accounts and master data", Permission.BranchesHouse, "Manage the branches of their house", "Add, rename and remove branches of their own brokerage house."),
             ("Accounts and master data", Permission.MasterData, "Master data", "Brokerage houses, all branches, support types, categories, sub-categories and affected sections."),
             ("Accounts and master data", Permission.TeamTodos, "Team to-dos", "The to-do lists of all users and the report over them."),
-            ("Service", Permission.ServiceReport, "Service report", "Response and solution times, targets met and missed, ratings. XFL roles see all brokerage houses, a house admin the own house."),
-            ("Service", Permission.CannedReplies, "Manage canned replies", "Write, change and remove the ready-made texts for replies. Every XFL role can use them."),
+            ("Service", Permission.ServiceReport, "Service report", "Response and solution times, targets met and missed, ratings. AIPG roles see all brokerage houses, a house admin the own house."),
+            ("Service", Permission.CannedReplies, "Manage canned replies", "Write, change and remove the ready-made texts for replies. Every AIPG role can use them."),
             ("Service", Permission.ServiceTargets, "Service targets", "The time allowed for the first response and for the solution per priority, the working hours and the holidays."),
+            ("Service", Permission.Knowledge, "Write the knowledge base", "Write, change, publish and remove articles. Reading needs no permission: published articles are for everybody, internal ones for AIPG roles."),
+            ("Service", Permission.Automation, "Automation", "The rules that act by themselves: which engineer gets a new ticket, closing tickets some days after \u201cDeployed\u201d, reminders while a ticket is \u201cPending\u201d."),
             ("System", Permission.AuditAll, "Whole audit trail", "Every line: sign-ins, accounts, tickets, master data, settings."),
             ("System", Permission.AuditTickets, "Audit trail of tickets", "The lines about tickets, for all brokerage houses."),
             ("System", Permission.AuditHouse, "Audit trail of their house", "The lines of their own brokerage house: its tickets, accounts, branches and sign-ins."),
@@ -352,7 +367,7 @@ namespace XFLCSMS.Infrastructure
         public static readonly Role[] RolesByReach = { Role.HouseUser, Role.HouseAdmin, Role.SupportEngineer, Role.SupportManager, Role.PlatformAdmin };
 
         /// <summary>
-        /// The role of a user. Administrator wins; then XFL staff by position; a brokerage house user is
+        /// The role of a user. Administrator wins; then AIPG staff by position; a brokerage house user is
         /// house administrator or house user. Anything unknown is the role with the fewest rights.
         /// </summary>
         public static Role RoleOf(bool isAdmin, bool isXflStaff, string? position)
@@ -374,7 +389,7 @@ namespace XFLCSMS.Infrastructure
         {
             switch (role)
             {
-                case Role.PlatformAdmin: return (true, true, HouseUserPosition);   // the platform administrator is XFL staff
+                case Role.PlatformAdmin: return (true, true, HouseUserPosition);   // the platform administrator is AIPG staff
                 case Role.SupportManager: return (false, true, ManagerPosition);
                 case Role.SupportEngineer: return (false, true, EngineerPosition);
                 case Role.HouseAdmin: return (false, false, HouseAdminPosition);
@@ -406,8 +421,8 @@ namespace XFLCSMS.Infrastructure
             if (!table[role].SetEquals(Build(null)[role]))
             {
                 var what = Catalogue.Where(entry => table[role].Contains(entry.Permission)).Select(entry => entry.Name.ToLowerInvariant()).ToList();
-                var who = role == Role.PlatformAdmin ? "XFL administrator."
-                    : IsStaff(role) ? "XFL staff."
+                var who = role == Role.PlatformAdmin ? "AIPG administrator."
+                    : IsStaff(role) ? "AIPG staff."
                     : role == Role.HouseAdmin ? "Administrator of one brokerage house."
                     : "User of a brokerage house.";
                 return who + (what.Count == 0 ? " Has no permissions at the moment." : " May: " + string.Join(", ", what) + ".");
@@ -415,9 +430,9 @@ namespace XFLCSMS.Infrastructure
 
             switch (role)
             {
-                case Role.PlatformAdmin: return "XFL administrator. Everything: all tickets, all users, master data, audit trail, system health, settings.";
-                case Role.SupportManager: return "XFL staff. Sees every ticket, assigns engineers, sets status, sees the ticket audit trail.";
-                case Role.SupportEngineer: return "XFL staff. Sees every ticket, takes unassigned tickets, works on the tickets assigned to him.";
+                case Role.PlatformAdmin: return "AIPG administrator. Everything: all tickets, all users, master data, audit trail, system health, settings.";
+                case Role.SupportManager: return "AIPG staff. Sees every ticket, assigns engineers, sets status, sees the ticket audit trail.";
+                case Role.SupportEngineer: return "AIPG staff. Sees every ticket, takes unassigned tickets, works on the tickets assigned to him.";
                 case Role.HouseAdmin: return "Administrator of one brokerage house. All tickets, users and branches of that house, and its audit trail.";
                 default: return "User of a brokerage house. Raises tickets and follows the tickets he raised.";
             }
@@ -459,7 +474,7 @@ namespace XFLCSMS.Infrastructure
             }
         }
 
-        /// <summary>XFL staff: platform administrator, support manager, support engineer.</summary>
+        /// <summary>AIPG staff: platform administrator, support manager, support engineer.</summary>
         public static bool IsStaff(Role role)
         {
             return role == Role.PlatformAdmin || role == Role.SupportManager || role == Role.SupportEngineer;
@@ -467,7 +482,7 @@ namespace XFLCSMS.Infrastructure
 
         /// <summary>
         /// The brokerage house an account belongs to for the purpose of the audit trail and of house administration:
-        /// XFL staff accounts belong to the platform (null), everybody else to the house they registered for.
+        /// AIPG staff accounts belong to the platform (null), everybody else to the house they registered for.
         /// </summary>
         public static int? HouseOf(User user)
         {

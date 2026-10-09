@@ -1,4 +1,4 @@
-/* Xpert CSMS - charts and the dashboard. Plain JavaScript and SVG, no libraries.
+/* AIPG Support Desk - charts and the dashboard. Plain JavaScript and SVG, no libraries.
 
    A chart is an element with data-chart="trend | split | columns" inside a container that carries the numbers:
 

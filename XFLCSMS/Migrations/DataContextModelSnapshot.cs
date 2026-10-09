@@ -179,6 +179,231 @@ namespace XFLCSMS.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("XFLCSMS.Models.Desk.CannedReply", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CannedReplies");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.KbArticle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Helpful")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Keywords")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("NotHelpful")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SourceIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Views")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsPublished");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("KbArticles");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.Tag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Tags");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("OtherIssueId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId");
+
+                    b.HasIndex("OtherIssueId");
+
+                    b.ToTable("TicketLinks");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"), 1L, 1);
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AuthorRole")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("FromStaff")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId", "Id");
+
+                    b.ToTable("TicketMessages");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketTag", b =>
+                {
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TagId")
+                        .HasColumnType("int");
+
+                    b.HasKey("IssueId", "TagId");
+
+                    b.HasIndex("TagId");
+
+                    b.ToTable("TicketTags");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketWatcher", b =>
+                {
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Since")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("IssueId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TicketWatchers");
+                });
+
             modelBuilder.Entity("XFLCSMS.Models.Issue.Attachment", b =>
                 {
                     b.Property<int>("AttachmentId")
@@ -198,9 +423,14 @@ namespace XFLCSMS.Migrations
                     b.Property<int>("IssueId")
                         .HasColumnType("int");
 
+                    b.Property<long?>("MessageId")
+                        .HasColumnType("bigint");
+
                     b.HasKey("AttachmentId");
 
                     b.HasIndex("IssueId");
+
+                    b.HasIndex("MessageId");
 
                     b.ToTable("Attachments");
                 });
@@ -249,11 +479,20 @@ namespace XFLCSMS.Migrations
                     b.Property<string>("Details")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("FirstResponseAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("IStatus")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ITitle")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("LastReminderAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PendingSince")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Priority")
                         .IsRequired()
@@ -261,6 +500,40 @@ namespace XFLCSMS.Migrations
 
                     b.Property<int?>("ProductId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("RatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RatingComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ReminderCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReopenCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolveDueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ResponseDueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SlaNotices")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SlaPausedMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StatusSince")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("SupportCatagoryId")
                         .HasColumnType("int");
@@ -298,6 +571,8 @@ namespace XFLCSMS.Migrations
                     b.HasIndex("BrokerageId");
 
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("ResolveDueAt");
 
                     b.HasIndex("SupportCatagoryId");
 
@@ -467,9 +742,18 @@ namespace XFLCSMS.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("bit");
 
                     b.Property<byte[]>("PasswordHash")
                         .IsRequired()
@@ -552,6 +836,9 @@ namespace XFLCSMS.Migrations
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("EngineerId")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -687,6 +974,62 @@ namespace XFLCSMS.Migrations
                         .HasForeignKey("BrokerageId");
 
                     b.Navigation("Brokerage");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.KbArticle", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Support.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketLink", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Issue.IssueTable", null)
+                        .WithMany()
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketMessage", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Issue.IssueTable", "Issue")
+                        .WithMany()
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketTag", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Issue.IssueTable", "Issue")
+                        .WithMany()
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("XFLCSMS.Models.Desk.Tag", "Tag")
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+
+                    b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketWatcher", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Issue.IssueTable", null)
+                        .WithMany()
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("XFLCSMS.Models.Issue.Attachment", b =>

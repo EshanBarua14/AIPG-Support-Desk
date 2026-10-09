@@ -476,7 +476,7 @@ namespace XFLCSMS.Controllers
                     what = "SMS";
                     if (to.Length == 0) { to = me.PhonNumber; }
                     error = await HttpContext.RequestServices.GetRequiredService<SmsSender>()
-                        .SendAsync(to, "Xpert CSMS: this is a test message. SMS notifications work.", HttpContext.RequestAborted);
+                        .SendAsync(to, "AIPG Support Desk: this is a test message. SMS notifications work.", HttpContext.RequestAborted);
                 }
                 else
                 {
@@ -494,8 +494,8 @@ namespace XFLCSMS.Controllers
                             HttpContext.RequestServices.GetRequiredService<IEmailServices>().SendEmail(new XFLCSMS.Models.Email.EmailDto
                             {
                                 To = to,
-                                Subject = "Xpert CSMS: test message",
-                                Body = notify.MailBody(me, "This is a test message", "E-mail notifications of Xpert CSMS work. Sent by " + me.FullName + ".", "NotificationSettings", null)
+                                Subject = "AIPG Support Desk: test message",
+                                Body = notify.MailBody(me, "This is a test message", "E-mail notifications of AIPG Support Desk work. Sent by " + me.FullName + ".", "NotificationSettings", null)
                             });
                             error = null;
                         }

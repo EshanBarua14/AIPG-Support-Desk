@@ -393,7 +393,9 @@ namespace XFLCSMS.Controllers
             if (!string.IsNullOrEmpty(seedPassword) && request.Password == seedPassword
                 && string.Equals(user.UserName, seedName, StringComparison.OrdinalIgnoreCase))
             {
-                user.MustChangePassword = true;
+                // On a PC of one's own the password may stay (SignIn:AllowSeedPassword, Development only); the
+                // system health page keeps saying so.
+                user.MustChangePassword = !_limits.AllowSeedPassword;
             }
 
             if (user.VerifiedAt == null || !user.UStatus)

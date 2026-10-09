@@ -177,6 +177,11 @@ app.MapGet("/health", async (HttpContext http, SystemHealthService health) =>
     await http.Response.WriteAsync(alive ? "Healthy" : "Unhealthy");
 });
 
+if (app.Services.GetRequiredService<SignInLimits>().AllowSeedPassword)
+{
+    app.Logger.LogWarning("SignIn:AllowSeedPassword is on: the first administrator may keep the password from appsettings.Development.json. For a PC of your own only.");
+}
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=RegisterLogin}/{action=Login}/{id?}");

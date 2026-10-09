@@ -101,8 +101,9 @@ namespace XFLCSMS.Services
     /// <summary>The limits on guessing, read from the settings ("SignIn" in appsettings.json) with safe bounds.</summary>
     public sealed class SignInLimits
     {
-        public SignInLimits(IConfiguration configuration)
+        public SignInLimits(IConfiguration configuration, IHostEnvironment environment)
         {
+            AllowSeedPassword = environment.IsDevelopment() && configuration.GetValue("SignIn:AllowSeedPassword", false);
             MaxFailuresPerAccount = Math.Clamp(configuration.GetValue("SignIn:MaxFailuresPerAccount", 5), 3, 50);
             LockMinutes = Math.Clamp(configuration.GetValue("SignIn:LockMinutes", 15), 1, 1440);
             MaxFailuresPerAddress = Math.Clamp(configuration.GetValue("SignIn:MaxFailuresPerAddress", 30), 5, 10000);
@@ -119,6 +120,13 @@ namespace XFLCSMS.Services
         public int MaxFailuresPerAddress { get; }
 
         public int AddressWindowMinutes { get; }
+
+        /// <summary>
+        /// For a PC of one's own: the first administrator may keep the password that is written in the settings file
+        /// ("SignIn:AllowSeedPassword": true). Counts only in the Development environment; everywhere else, and
+        /// without the setting, signing in with that password means choosing a new one first.
+        /// </summary>
+        public bool AllowSeedPassword { get; }
 
         public TimeSpan LockTime => TimeSpan.FromMinutes(LockMinutes);
         public TimeSpan AddressWindow => TimeSpan.FromMinutes(AddressWindowMinutes);

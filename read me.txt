@@ -140,6 +140,11 @@ Settings (appsettings.json; every one is optional, these are the defaults):
    "Session":  { "IdleMinutes": 10, "CookieSecure": "auto" }       "always" = cookies only over https
    "Security": { "ContentSecurityPolicy": "enforce" }              "report" = only note violations, "off"
 
+"SignIn": { "AllowSeedPassword": true } - for a PC of your own only: the first administrator may keep the
+password from appsettings.Development.json instead of choosing a new one after signing in. Counts only in the
+Development environment (dotnet run); the system health page keeps a warning while that password is in use.
+Never on a machine other people can reach.
+
 "MaxFailuresPerAddress" counts failed attempts from one network address. Behind a reverse proxy that does
 not pass the visitor's address on, every visitor has the proxy's address: raise the number or configure
 forwarded headers before going live that way.

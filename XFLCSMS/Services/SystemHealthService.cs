@@ -395,7 +395,9 @@ namespace XFLCSMS.Services
                     if (first != null && PasswordHasher.Verify(seedPassword, first.PasswordHash, first.PasswordSalt))
                     {
                         Add(report, area, "First administrator", HealthLevel.Warning, "The account “" + seedName + "” still has the password that is written in appsettings.Development.json.",
-                            "Everybody who can read that file can sign in as administrator. Change it now.", "ChangePassword", "Change password");
+                            _signIn.AllowSeedPassword
+                                ? "The setting SignIn:AllowSeedPassword lets it stay. That is for a PC of your own only: everybody who can read that file can sign in as administrator. Before other people can reach this application, change the password and take the setting out."
+                                : "Everybody who can read that file can sign in as administrator. Change it now.", "ChangePassword", "Change password");
                     }
                     else
                     {

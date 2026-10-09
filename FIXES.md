@@ -25,7 +25,7 @@ Fewer tickets, tickets that find their engineer, and tickets nobody forgets.
 
 New migration: `KnowledgeAutomationTags` (tables `KbArticles`, `Tags`, `TicketTags`, `TicketLinks`, `TicketWatchers`; columns `Issues.StatusSince`, `ReminderCount`, `LastReminderAt`, `Products.EngineerId`). Applied at start-up.
 
-**AIPG edition.** This repository carries the AIPG name from this version on (the old interface with the XFL name lives in `XFL-CSMS-stable`).
+**AIPG edition.** This repository (`AIPG-Support-Desk`, before: `XFL-CSMS`) carries the AIPG name from this version on. The old interface with the XFL name lives in the repository `XFL-CSMS` (before: `XFL-CSMS-stable`).
 
 | What | Where |
 |---|---|
@@ -33,6 +33,7 @@ New migration: `KnowledgeAutomationTags` (tables `KbArticles`, `Tags`, `TicketTa
 | Under every page: "Design By: AIPG Studios - Developed By: AIPG Systems - Powered By: AIPG", with the logo. Also on the sign-in pages. | `Ui.DesignBy`, `Ui.DevelopedBy`, `Ui.PoweredBy`, `Views/Shared/_Layout.cshtml`, `_AuthLayout.cshtml` |
 | Logo: `wwwroot/img/brand-logo.png` (the AIPG mark, cut out of the supplied logo on a clear background), tab icon `wwwroot/favicon.ico`. The credits carry the marks of AIPG Studios (`img/aipg-studios.png`), AIPG Systems (`img/aipg-systems.png`) and AIPG. `img/xpert-logo.png` is removed. | `Ui.Logo`, `Ui.DesignLogo`, `Ui.DevelopedLogo`, `Ui.PoweredLogo` |
 | The organisation that gives the support is called "AIPG" in every text (was "XFL"): role descriptions, messages, e-mails, pages. | all views and messages |
+| For a PC of one's own: `SignIn:AllowSeedPassword` (off by default, Development environment only) lets the first administrator keep the password from the settings file; a warning stays on the system health page and in the start-up log. | `SignInLimits.AllowSeedPassword`, `RegisterLoginController.Login`, `SystemHealthService`, `Program.cs` |
 | The first starting product is "Trading OMS" (was "Xpert Trading OMS"). Only for a database that has no product yet. | `Data/ProductSeed.cs` |
 | Not renamed: project folder and namespace `XFLCSMS`, the database, what is already stored (starter canned replies, the names of products and houses). | - |
 

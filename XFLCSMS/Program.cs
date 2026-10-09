@@ -103,6 +103,12 @@ builder.Services.AddScoped<SystemHealthService>();
 
 // The last warnings and errors are kept in memory for the system health page.
 builder.Logging.AddProvider(XFLCSMS.Infrastructure.RecentLog.Instance);
+// Service targets (SLA): the settings, the times of a ticket, and the watcher that warns before and after a target
+builder.Services.AddSingleton<SlaPolicy>();
+builder.Services.AddScoped<SlaService>();
+builder.Services.AddSingleton<SlaWatcher>();
+builder.Services.AddHostedService(services => services.GetRequiredService<SlaWatcher>());
+
 builder.Services.AddScoped<TicketService>();
 
 // Connection string lives in appsettings.json -> ConnectionStrings:DefaultConnection

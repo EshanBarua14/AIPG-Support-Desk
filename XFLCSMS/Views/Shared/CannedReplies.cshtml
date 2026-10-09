@@ -1,0 +1,85 @@
+@*
+    Canned replies: ready-made texts XFL staff put into a reply with one choice and then adapt.
+    In a text, {name} becomes the first name of the person who raised the ticket, {ticket} the ticket number
+    and {me} the name of whoever sends the reply.
+*@
+@model List<XFLCSMS.Models.Desk.CannedReply>
+@{
+    ViewData["Title"] = "Canned replies";
+    var editing = ViewBag.Editing as XFLCSMS.Models.Desk.CannedReply;
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Canned replies</h1>
+        <p class="page-sub">Texts the support team writes again and again. Every XFL role finds them above the reply box of a ticket.</p>
+    </div>
+</header>
+
+<div class="split">
+    <section class="card flush">
+        <div class="card-head"><h2>@Model.Count @(Model.Count == 1 ? "reply" : "replies")</h2></div>
+        @if (Model.Count == 0)
+        {
+            <div class="empty">
+                <icon name="message-square" />
+                <b>No canned replies yet</b>
+                <span>Write the first one on the right: an acknowledgement, a request for a screenshot, the note that a fix is deployed.</span>
+            </div>
+        }
+        else
+        {
+            <ul class="canned-list">
+                @foreach (var reply in Model)
+                {
+                    var words = TicketService.PlainText(reply.Body);
+                    <li class="@(editing?.Id == reply.Id ? "is-current" : "")">
+                        <div class="canned-text">
+                            <b>@reply.Title</b>
+                            @if (!reply.IsActive)
+                            {
+                                @Ui.Pill("st-disabled", "Not offered")
+                            }
+                            <p>@(words.Length > 190 ? words.Substring(0, 187) + "..." : words)</p>
+                            <span class="t-meta">Changed @Ui.Stamp(reply.UpdatedAt)@(string.IsNullOrEmpty(reply.UpdatedBy) ? "" : " by " + reply.UpdatedBy)</span>
+                        </div>
+                        <div class="canned-actions">
+                            <a class="btn btn-sm" asp-action="CannedReplies" asp-route-edit="@reply.Id"><icon name="pencil" /> Edit</a>
+                            <form asp-action="DeleteCannedReply" asp-route-id="@reply.Id" method="post"
+                                  data-confirm-submit="Remove &ldquo;@reply.Title&rdquo;?" data-action="Remove" data-confirm-text="Replies already sent with it stay as they are.">
+                                <button type="submit" class="btn btn-icon btn-sm danger" aria-label="Remove @reply.Title" title="Remove"><icon name="trash-2" /></button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <form class="card" asp-action="SaveCannedReply" method="post" autocomplete="off">
+        <input type="hidden" name="id" value="@(editing?.Id ?? 0)">
+        <div class="card-head"><h2>@(editing == null ? "New reply" : "Edit reply")</h2></div>
+        <div class="card-body stack">
+            <div class="field">
+                <label for="cannedTitle">Title <span class="req" aria-hidden="true">*</span></label>
+                <input class="input" name="title" id="cannedTitle" value="@editing?.Title" required maxlength="120" placeholder="Ask for a screenshot">
+                <span class="hint">What colleagues see in the list.</span>
+            </div>
+            <div class="field">
+                <label for="cannedBody">Text <span class="req" aria-hidden="true">*</span></label>
+                <textarea class="textarea" name="body" id="cannedBody" data-rte rows="7" aria-label="Text" placeholder="Dear {name}, ...">@HtmlSanitizer.Sanitize(editing?.Body)</textarea>
+                <span class="hint"><code>{name}</code> first name of the person who raised the ticket, <code>{ticket}</code> ticket number, <code>{me}</code> your name.</span>
+            </div>
+            @if (editing != null)
+            {
+                <label class="check"><input type="checkbox" name="isActive" value="true" checked="@editing.IsActive"> <span><b>Offer it in the reply box</b><small>Switch off to keep a text without showing it.</small></span></label>
+            }
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> @(editing == null ? "Add reply" : "Save reply")</button>
+            @if (editing != null)
+            {
+                <a class="btn" asp-action="CannedReplies">Cancel</a>
+            }
+        </div>
+    </form>
+</div>

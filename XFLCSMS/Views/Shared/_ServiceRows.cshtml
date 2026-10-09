@@ -1,0 +1,62 @@
+@* One table of the service report: a row per priority, product, engineer or brokerage house. *@
+@model (string What, List<XFLCSMS.Models.Desk.ServiceReport.Row> Rows)
+@{
+    string Rate(double? value) => value == null ? "-" : value.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+}
+<div class="table-wrap">
+    <table class="table service-rows">
+        <thead>
+            <tr>
+                <th scope="col">@Model.What</th>
+                <th scope="col" class="t-right">Raised</th>
+                <th scope="col" class="t-right">Solved</th>
+                <th scope="col" class="t-right">Open now</th>
+                <th scope="col" class="t-right" title="Working time until half of the tickets had their first response">First response</th>
+                <th scope="col" class="t-right" title="Working time until half of the tickets were solved">Solved within</th>
+                <th scope="col">Answered in time</th>
+                <th scope="col">Solved in time</th>
+                <th scope="col" class="t-right">Rating</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr>
+                    <th scope="row">
+                        @if (Model.What == "Priority")
+                        {
+                            @Ui.PriorityPill(row.Name)
+                        }
+                        else
+                        {
+                            @row.Name
+                        }
+                    </th>
+                    <td class="t-right num">@row.Raised</td>
+                    <td class="t-right num">@row.Solved</td>
+                    <td class="t-right num">@row.OpenNow</td>
+                    <td class="t-right num">@SlaService.Hours(row.MedianResponse)</td>
+                    <td class="t-right num">@SlaService.Hours(row.MedianResolve)</td>
+                    @foreach (var share in new[] { row.ResponseMet, row.ResolveMet })
+                    {
+                        <td class="met">
+                            @if (share.Percent == null)
+                            {
+                                <span class="muted">-</span>
+                            }
+                            else
+                            {
+                                @* nine in ten in time reads as fine, below seven in ten as a problem; the number is always there *@
+                                <div class="meter @(share.Percent >= 90 ? "" : share.Percent >= 70 ? "warn" : "bad")" title="@share.Met of @share.Of in time">
+                                    <div class="meter-track"><i style="width: @share.Percent%"></i></div>
+                                    <b>@share.Percent%</b>
+                                </div>
+                            }
+                        </td>
+                    }
+                    <td class="t-right num">@Rate(row.AverageRating)@(row.Ratings > 0 ? " (" + row.Ratings + ")" : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

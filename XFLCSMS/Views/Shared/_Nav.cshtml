@@ -6,6 +6,9 @@
 
     Every group can be folded with a click on its name, and so can the sub menu "By status". What is folded is
     remembered per browser (wwwroot/js/app.js, "csms-nav-closed"); the group of the page that is open never folds away.
+
+    The whole menu collapses to a rail of icons with the button in the top bar (class "nav-rail" on .app, remembered
+    as "csms-nav"); the rail opens over the page while the pointer or the keyboard focus is in it.
 *@
 @functions {
     private class Entry
@@ -40,6 +43,7 @@
     var currentStatus = TicketStatus.Normalize(Context.Request.Query["status"]);
     int mine = ViewBag.AssignedToMeCount ?? 0;
     int pendingUsers = ViewBag.PendingUsersCount ?? 0;
+    int overdue = ViewBag.OverdueCount ?? 0;
     var statusCounts = ViewBag.NavStatusCounts as Dictionary<string, int> ?? new Dictionary<string, int>();
 
     var groups = new List<Group>();
@@ -50,6 +54,8 @@
     tickets.Items.Add(Item(role.TicketListName, role.TicketList, "ticket"));
     if (role.IsEngineer) { tickets.Items.Add(Item("Assigned to me", "AssignedTicketList", "user-check", mine, false, mine == 1 ? "1 open ticket is assigned to you" : mine + " open tickets are assigned to you")); }
     tickets.Items.Add(Item("Board", "TicketBoard", "square-kanban"));
+    // open tickets with a service target that has passed; the number is red for the people who can do something about it
+    if (overdue > 0 || role.IsStaff) { tickets.Items.Add(Item("Overdue", "OverdueTicketList", "clock", overdue, role.IsStaff, overdue == 1 ? "1 open ticket has missed a service target" : overdue + " open tickets have missed a service target")); }
 
     var byStatus = new Entry { Text = "By status", Icon = "tags", Children = new List<Entry>() };
     foreach (var status in TicketStatus.All)
@@ -72,6 +78,8 @@
 
     if (role.Can(Permission.Workload)) { tickets.Items.Add(Item("Workload", "Workload", "signal-high")); }
     tickets.Items.Add(Item("Ticket report", "Reports", "chart-column"));
+    if (role.Can(Permission.ServiceReport)) { tickets.Items.Add(Item("Service report", "ServiceReport", "chart-no-axes-column")); }
+    if (role.Can(Permission.CannedReplies)) { tickets.Items.Add(Item("Canned replies", "CannedReplies", "message-square")); }
     if (role.Can(Permission.AuditTickets) && !role.Can(Permission.AuditAll)) { tickets.Items.Add(Item("Ticket activity", "AuditTrail", "clipboard-check")); }
     groups.Add(tickets);
 
@@ -94,6 +102,7 @@
         {
             admin.Items.Add(Item("Brokerage houses", "BrocarageHouseList", "building-2"));
             admin.Items.Add(Item("Branches", "BranchList", "map-pin"));
+            admin.Items.Add(Item("Products", "ProductList", "package"));
             admin.Items.Add(new Entry
             {
                 Text = "Support lists", Icon = "layers", Children = new List<Entry>
@@ -109,12 +118,13 @@
     }
 
     // ---- the system itself
-    if (role.Can(Permission.AuditAll) || role.Can(Permission.SystemHealth) || role.Can(Permission.PermissionsEdit) || role.Can(Permission.SystemSettings))
+    if (role.Can(Permission.AuditAll) || role.Can(Permission.SystemHealth) || role.Can(Permission.PermissionsEdit) || role.Can(Permission.SystemSettings) || role.Can(Permission.ServiceTargets))
     {
         var system = new Group { Key = "system", Label = "System" };
         if (role.Can(Permission.AuditAll)) { system.Items.Add(Item("Audit trail", "AuditTrail", "shield-check")); }
         if (role.Can(Permission.SystemHealth)) { system.Items.Add(Item("System health", "SystemHealth", "circle-dot")); }
         if (role.Can(Permission.PermissionsEdit)) { system.Items.Add(Item("Roles & permissions", "Permissions", "sliders-horizontal")); }
+        if (role.Can(Permission.ServiceTargets)) { system.Items.Add(Item("Service targets", "ServiceTargets", "hourglass")); }
         if (role.Can(Permission.SystemSettings))
         {
             system.Items.Add(Item("Notification settings", "NotificationSettings", "bell-ring"));
@@ -144,6 +154,7 @@
         ["UserView"] = "UserList", ["EditUser"] = "UserList", ["CreateUser"] = "UserList",
         ["CreateBrocarage"] = "BrocarageHouseList", ["EditBrocarage"] = "BrocarageHouseList", ["ViewBrocarageHouse"] = "BrocarageHouseList",
         ["CreateBranch"] = "BranchList", ["EditBranch"] = "BranchList", ["ViewBranch"] = "BranchList",
+        ["CreateProduct"] = "ProductList", ["EditProduct"] = "ProductList", ["ViewProduct"] = "ProductList", ["UpdateProduct"] = "ProductList",
         ["CreateSupportType"] = "SupportTypeList", ["EditSupportType"] = "SupportTypeList", ["ViewSupportType"] = "SupportTypeList",
         ["CreateSupportCatagory"] = "SupportCatagoryList", ["EditSupportCatagory"] = "SupportCatagoryList", ["ViewSupportCatagory"] = "SupportCatagoryList",
         ["CreateSupportSubCatagory"] = "SupportSubCatagoryList", ["EditSupportSubCatagory"] = "SupportSubCatagoryList", ["ViewSupportSubCatagory"] = "SupportSubCatagoryList",
@@ -173,8 +184,8 @@
     }
 }
 <a class="nav-brand" asp-controller="@role.Controller" asp-action="Dashbord">
-    <img src="~/img/xpert-logo.png" asp-append-version="true" alt="" width="36" height="36">
-    <span><b>Xpert CSMS</b><span>@role.Label</span></span>
+    <span class="brand-mark"><img src="~/img/xpert-logo.png" asp-append-version="true" alt="" width="40" height="40"></span>
+    <span class="brand-text"><b>@Ui.Brand</b><span>@role.Label</span></span>
 </a>
 
 <div class="nav-group">

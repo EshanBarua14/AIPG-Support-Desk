@@ -62,7 +62,16 @@ namespace XFLCSMS.Infrastructure
         /// <summary>Notification channels (e-mail, SMS), which event tells whom, demo data.</summary>
         SystemSettings,
         /// <summary>Change what each role may do (this table).</summary>
-        PermissionsEdit
+        PermissionsEdit,
+
+        // Added with version 3.3. New permissions go at the end: the stored table names the ones it knew (see Rbac.Parse).
+
+        /// <summary>The service targets: times per priority, working hours, holidays.</summary>
+        ServiceTargets,
+        /// <summary>Write and change the canned replies everybody of XFL can use.</summary>
+        CannedReplies,
+        /// <summary>The service report: response and solution times, targets met, ratings.</summary>
+        ServiceReport
     }
 
     /// <summary>
@@ -93,12 +102,13 @@ namespace XFLCSMS.Infrastructure
             {
                 Permission.TicketsAll, Permission.TicketAssign, Permission.TicketWorkAny, Permission.TicketClose, Permission.TicketDelete, Permission.Workload,
                 Permission.UsersAll, Permission.MasterData, Permission.TeamTodos, Permission.AuditAll, Permission.SystemHealth,
-                Permission.SystemSettings, Permission.PermissionsEdit
+                Permission.SystemSettings, Permission.PermissionsEdit,
+                Permission.ServiceTargets, Permission.CannedReplies, Permission.ServiceReport
             },
             [Role.SupportManager] = new[]
             {
                 Permission.TicketsAll, Permission.TicketCreate, Permission.TicketAssign, Permission.TicketWorkAny, Permission.TicketClose, Permission.Workload,
-                Permission.AuditTickets
+                Permission.AuditTickets, Permission.CannedReplies, Permission.ServiceReport
             },
             [Role.SupportEngineer] = new[]
             {
@@ -106,7 +116,8 @@ namespace XFLCSMS.Infrastructure
             },
             [Role.HouseAdmin] = new[]
             {
-                Permission.TicketsHouse, Permission.TicketCreate, Permission.TicketEditHouse, Permission.UsersHouse, Permission.BranchesHouse, Permission.AuditHouse
+                Permission.TicketsHouse, Permission.TicketCreate, Permission.TicketEditHouse, Permission.UsersHouse, Permission.BranchesHouse, Permission.AuditHouse,
+                Permission.ServiceReport
             },
             [Role.HouseUser] = new[]
             {
@@ -148,7 +159,11 @@ namespace XFLCSMS.Infrastructure
             [Permission.AuditHouse] = new[] { Role.HouseAdmin },
             [Permission.SystemHealth] = new[] { Role.PlatformAdmin, Role.SupportManager },
             [Permission.SystemSettings] = new[] { Role.PlatformAdmin },
-            [Permission.PermissionsEdit] = new[] { Role.PlatformAdmin }
+            [Permission.PermissionsEdit] = new[] { Role.PlatformAdmin },
+            [Permission.ServiceTargets] = new[] { Role.PlatformAdmin, Role.SupportManager },
+            [Permission.CannedReplies] = Staff,
+            // a house admin sees the report of the own house only (CsmsController.ServiceReport)
+            [Permission.ServiceReport] = new[] { Role.PlatformAdmin, Role.SupportManager, Role.SupportEngineer, Role.HouseAdmin }
         };
 
         /// <summary>
@@ -204,8 +219,16 @@ namespace XFLCSMS.Infrastructure
 
         private static string Serialize(Dictionary<Role, HashSet<Permission>> table)
         {
-            return string.Join(";", AllRoles.Select(role => role + "=" + string.Join(",", table[role].OrderBy(p => p))));
+            // "Known" lists every permission that existed when the table was saved. A later version reads from it
+            // which permissions are new since then, and gives exactly those to their default roles (see Parse).
+            return string.Join(";", AllRoles.Select(role => role + "=" + string.Join(",", table[role].OrderBy(p => p))))
+                + ";" + KnownEntry + "=" + string.Join(",", Enum.GetValues<Permission>());
         }
+
+        private const string KnownEntry = "Known";
+
+        /// <summary>The permissions of version 3.0 to 3.2: what a stored table without a "Known" entry knew.</summary>
+        private static readonly Permission[] KnownBefore33 = Enum.GetValues<Permission>().Where(permission => permission <= Permission.PermissionsEdit).ToArray();
 
         /// <summary>
         /// What a wish becomes once the limits are applied (nothing a role cannot hold, the fixed permissions added):
@@ -238,9 +261,20 @@ namespace XFLCSMS.Infrastructure
             }
 
             var chosen = new Dictionary<Role, IEnumerable<Permission>>();
+            var known = new HashSet<Permission>(KnownBefore33);
             foreach (var part in text.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 var pair = part.Split('=', 2);
+                if (pair.Length == 2 && pair[0] == KnownEntry)
+                {
+                    foreach (var name in pair[1].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        if (Enum.TryParse<Permission>(name, out var knownPermission) && Enum.IsDefined(knownPermission)) { known.Add(knownPermission); }
+                    }
+
+                    continue;
+                }
+
                 if (pair.Length != 2 || !Enum.TryParse<Role>(pair[0], out var role) || !Enum.IsDefined(role))
                 {
                     continue;
@@ -256,6 +290,17 @@ namespace XFLCSMS.Infrastructure
                 }
 
                 chosen[role] = permissions;
+            }
+
+            // A permission the stored table did not know was not decided by anybody: it goes to its default roles.
+            // (Without this, a table saved on the permissions page would lock every later feature away from everyone.)
+            foreach (var role in chosen.Keys.ToList())
+            {
+                var fresh = Defaults[role].Where(permission => !known.Contains(permission)).ToList();
+                if (fresh.Count > 0)
+                {
+                    chosen[role] = chosen[role].Concat(fresh).Distinct().ToList();
+                }
             }
 
             return chosen.Count == 0 ? null : chosen;
@@ -292,6 +337,9 @@ namespace XFLCSMS.Infrastructure
             ("Accounts and master data", Permission.BranchesHouse, "Manage the branches of their house", "Add, rename and remove branches of their own brokerage house."),
             ("Accounts and master data", Permission.MasterData, "Master data", "Brokerage houses, all branches, support types, categories, sub-categories and affected sections."),
             ("Accounts and master data", Permission.TeamTodos, "Team to-dos", "The to-do lists of all users and the report over them."),
+            ("Service", Permission.ServiceReport, "Service report", "Response and solution times, targets met and missed, ratings. XFL roles see all brokerage houses, a house admin the own house."),
+            ("Service", Permission.CannedReplies, "Manage canned replies", "Write, change and remove the ready-made texts for replies. Every XFL role can use them."),
+            ("Service", Permission.ServiceTargets, "Service targets", "The time allowed for the first response and for the solution per priority, the working hours and the holidays."),
             ("System", Permission.AuditAll, "Whole audit trail", "Every line: sign-ins, accounts, tickets, master data, settings."),
             ("System", Permission.AuditTickets, "Audit trail of tickets", "The lines about tickets, for all brokerage houses."),
             ("System", Permission.AuditHouse, "Audit trail of their house", "The lines of their own brokerage house: its tickets, accounts, branches and sign-ins."),

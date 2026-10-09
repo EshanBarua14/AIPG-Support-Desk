@@ -9,7 +9,13 @@
     var status = TicketStatus.Normalize(Model.IStatus);
     var closed = status == TicketStatus.Closed;
     var assigned = !string.IsNullOrEmpty(Model.AssgnBy);
-    var attachments = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
+    var allFiles = Model.Attachments?.ToList() ?? new List<XFLCSMS.Models.Issue.Attachment>();
+    // files of the ticket itself; what came with a conversation entry is shown with that entry
+    var attachments = allFiles.Where(file => file.MessageId == null).ToList();
+    var filesOf = allFiles.Where(file => file.MessageId != null).ToLookup(file => file.MessageId!.Value);
+    var me = ViewBag.Profile as XFLCSMS.Models.Register.User;
+    var firstName = (Model.CreatedBy ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+    var hasTargets = Model.ResponseClock.Due != null || Model.ResolveClock.Due != null;
     var canAssign = role.Can(Permission.TicketAssign) && !closed;
     var canTake = role.Can(Permission.TicketTake) && !closed;
     var engineers = canAssign ? ((Lazy<List<XFLCSMS.Models.Admin.EngineerLoad>>)ViewBag.EngineerChoices).Value : new List<XFLCSMS.Models.Admin.EngineerLoad>();
@@ -85,18 +91,85 @@
             </div>
         </section>
 
-        <section class="card">
-            <div class="card-head"><h2>Comments</h2></div>
+        <section class="card" id="conversation">
+            <div class="card-head"><h2>Conversation</h2><span class="sub">@Model.Messages.Count @(Model.Messages.Count == 1 ? "entry" : "entries")</span></div>
             <div class="card-body">
-                @if (string.IsNullOrWhiteSpace(Model.Command))
+                @if (Model.Messages.Count == 0)
                 {
-                    <p class="muted">No comments yet.</p>
+                    <p class="muted" style="margin: 0">Nobody has written yet. @(role.IsStaff ? "A reply here is what the brokerage house reads; it also counts as the first response." : "Ask a question or add what you have found out since.")</p>
                 }
                 else
                 {
-                    <p style="white-space: pre-line; max-width: 78ch;">@Model.Command</p>
+                    <ol class="thread">
+                        @foreach (var message in Model.Messages)
+                        {
+                            var files = filesOf[message.Id].ToList();
+                            <li class="msg @(message.IsInternal ? "is-note" : message.FromStaff ? "from-staff" : "from-house")" id="message-@message.Id">
+                                <span class="avatar" aria-hidden="true">@Ui.Initials(message.AuthorName)</span>
+                                <div class="msg-main">
+                                    <div class="msg-head">
+                                        <b>@message.AuthorName</b>
+                                        <span>@(message.FromStaff ? "XFL" : "Brokerage house")@(string.IsNullOrEmpty(message.AuthorRole) ? "" : ", " + message.AuthorRole.ToLowerInvariant()) &middot; @Ui.Stamp(message.At)</span>
+                                        @if (message.IsInternal)
+                                        {
+                                            <span class="pill note-pill"><icon name="lock" /> Internal note</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(message.Body))
+                                    {
+                                        <div class="prose">@Html.Raw(HtmlSanitizer.Sanitize(message.Body))</div>
+                                    }
+                                    @if (files.Count > 0)
+                                    {
+                                        <ul class="files msg-files">
+                                            @foreach (var file in files)
+                                            {
+                                                <li class="file">
+                                                    <icon name="@Ui.FileIcon(file.FileName)" />
+                                                    <span class="file-name">@file.FileName</span>
+                                                    <a class="btn btn-sm right" asp-action="DownloadAttachment" asp-route-att="@file.AttachmentId"><icon name="download" /> Download</a>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ol>
                 }
             </div>
+            <form class="card-body reply" asp-action="ReplyTicket" asp-route-id="@Model.IssueId" method="post" enctype="multipart/form-data" data-reply
+                  data-name="@firstName" data-ticket="@Model.TicketNumber" data-me="@me?.FullName">
+                @if (closed)
+                {
+                    <p class="muted" style="margin: 0 0 12px">This ticket is closed. You can still write here; it does not reopen the ticket by itself.</p>
+                }
+                @if (role.IsStaff && Model.CannedReplies.Count > 0)
+                {
+                    <div class="field">
+                        <label for="cannedReply">Canned reply</label>
+                        <select class="select" id="cannedReply" data-canned>
+                            <option value="">Insert a ready-made text ...</option>
+                            @foreach (var canned in Model.CannedReplies)
+                            {
+                                <option value="@canned.Id" data-body="@HtmlSanitizer.Sanitize(canned.Body)">@canned.Title</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="field">
+                    <label for="replyBody">@(role.IsStaff ? "Reply to the brokerage house" : "Your reply")</label>
+                    <textarea class="textarea" name="body" id="replyBody" data-rte rows="4" aria-label="Reply" placeholder="Write your reply"></textarea>
+                </div>
+                <partial name="_Attachments" />
+                <div class="reply-actions">
+                    <button type="submit" class="btn btn-primary" data-reply-send><icon name="send" /> <span>Send reply</span></button>
+                    @if (role.IsStaff)
+                    {
+                        <label class="check"><input type="checkbox" name="internalNote" value="true" data-note-toggle> <span>Internal note: only XFL staff can read it</span></label>
+                    }
+                </div>
+            </form>
         </section>
 
         <section class="card">
@@ -152,6 +225,86 @@
                 <div class="card-body"><p class="muted" style="margin: 0">The status can be set once the ticket has an engineer.</p></div>
             </section>
         }
+
+        @if (Model.CanRate)
+        {
+            <section class="card" id="rating">
+                <div class="card-head"><h2>How was the support?</h2></div>
+                <form class="card-body rate-box" asp-action="RateTicket" asp-route-id="@Model.IssueId" method="post">
+                    <fieldset class="rate">
+                        <legend class="sr-only">Your rating, from 1 (bad) to 5 (very good)</legend>
+                        @for (var value = 1; value <= 5; value++)
+                        {
+                            <label><input type="radio" name="rating" value="@value" required><span>@value</span></label>
+                        }
+                    </fieldset>
+                    <div class="rate-ends"><span>Bad</span><span>Very good</span></div>
+                    <div class="field">
+                        <label for="ratingComment">Anything to add? <span class="muted">(optional)</span></label>
+                        <textarea class="textarea" name="comment" id="ratingComment" rows="2" maxlength="1000"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Send rating</button>
+                </form>
+            </section>
+        }
+        else if (Model.Rating != null)
+        {
+            <section class="card" id="rating">
+                <div class="card-head"><h2>Rating</h2><span class="sub">@Ui.Date(Model.RatedAt)</span></div>
+                <div class="card-body">
+                    <div class="rated r-@Model.Rating" title="@Model.Rating of 5">
+                        <b>@Model.Rating</b><span>of 5</span>
+                        <span class="rate-dots" aria-hidden="true">@for (var value = 1; value <= 5; value++) { <i class="@(value <= Model.Rating ? "on" : "")"></i> }</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.RatingComment))
+                    {
+                        <p style="margin: 10px 0 0; white-space: pre-line">&ldquo;@Model.RatingComment&rdquo;</p>
+                    }
+                    <p class="muted" style="margin: 8px 0 0">Given by @Model.CreatedBy.</p>
+                </div>
+            </section>
+        }
+
+        <section class="card" id="service">
+            <div class="card-head"><h2>Service times</h2></div>
+            <div class="card-body">
+                <dl class="facts">
+                    <dt>First response</dt>
+                    <dd>
+                        @Ui.SlaPill(Model.ResponseClock, Model.FirstResponseAt == null ? "not yet" : null)
+                        @if (Model.ResponseClock.Due != null)
+                        {
+                            <span class="t-meta">Target @Ui.Stamp(Model.ResponseClock.Due)@(Model.FirstResponseAt != null ? ", answered " + Ui.Stamp(Model.FirstResponseAt) : "")</span>
+                        }
+                        else if (Model.FirstResponseAt != null)
+                        {
+                            <span class="t-meta">@Ui.Stamp(Model.FirstResponseAt)</span>
+                        }
+                    </dd>
+                    <dt>Solution</dt>
+                    <dd>
+                        @Ui.SlaPill(Model.ResolveClock, Model.ResolvedAt == null ? "not yet" : null)
+                        @if (Model.ResolveClock.Due != null)
+                        {
+                            <span class="t-meta">Target @Ui.Stamp(Model.ResolveClock.Due)@(Model.ResolvedAt != null ? ", solved " + Ui.Stamp(Model.ResolvedAt) : "")</span>
+                        }
+                        else if (Model.ResolvedAt != null)
+                        {
+                            <span class="t-meta">@Ui.Stamp(Model.ResolvedAt)</span>
+                        }
+                    </dd>
+                    @if (Model.ReopenCount > 0)
+                    {
+                        <dt>Reopened</dt>
+                        <dd>@Model.ReopenCount @(Model.ReopenCount == 1 ? "time" : "times")</dd>
+                    }
+                </dl>
+                @if (!hasTargets)
+                {
+                    <p class="muted" style="margin: 12px 0 0">This ticket has no targets: it was raised before service targets applied, or its priority has none.</p>
+                }
+            </div>
+        </section>
 
         <section class="card" id="assignment">
             <div class="card-head"><h2>Handling</h2></div>

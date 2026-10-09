@@ -13,17 +13,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@(string.IsNullOrEmpty(title) ? "Xpert CSMS" : title + " - Xpert CSMS")</title>
+    <title>@(string.IsNullOrEmpty(title) ? Ui.Brand : title + " - " + Ui.Brand)</title>
     <meta name="app-base" content="@Url.Content("~/")">
     <meta name="icon-sprite" content="@Url.Content("~/img/icons.svg")?v=@IconTagHelper.SpriteVersion">
     <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken">
     <partial name="_Theme" />
     <link rel="icon" href="~/favicon.ico">
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/desk.css" asp-append-version="true">
 </head>
 <body>
     <div class="app" id="app">
-        <script>if (function () { try { return localStorage.getItem('csms-nav') === 'hidden'; } catch (e) { return false; } }()) { document.getElementById('app').classList.add('nav-hidden'); }</script>
+        @* the side menu as this browser left it: wide, or collapsed to a rail of icons (set before the page is drawn) *@
+        <script>if (function () { try { var nav = localStorage.getItem('csms-nav'); return nav === 'rail' || nav === 'hidden'; } catch (e) { return false; } }()) { document.getElementById('app').classList.add('nav-rail'); }</script>
 
         <aside class="nav" id="nav" aria-label="Main menu">
             <partial name="_Nav" />
@@ -32,7 +34,7 @@
 
         <div class="sheet">
             <header class="topbar">
-                <button type="button" class="btn btn-icon" data-nav-toggle aria-label="Show or hide the menu" aria-controls="nav">
+                <button type="button" class="btn btn-icon" data-nav-toggle aria-label="Collapse or expand the menu" title="Collapse or expand the menu" aria-controls="nav">
                     <icon name="panel-left" />
                 </button>
 
@@ -114,12 +116,14 @@
             <footer class="foot">
                 <span>&copy; @DateTime.Now.Year <a href="https://xpertfintech.com" target="_blank" rel="noopener">Xpert Fintech Limited</a></span>
                 <span class="spacer"></span>
-                <span>Xpert CSMS @Ui.Version</span>
+                <span>@Ui.Brand @Ui.Version</span>
             </footer>
         </div>
     </div>
 
     <script src="~/js/app.js" asp-append-version="true"></script>
+    <script src="~/js/desk.js" asp-append-version="true"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -213,6 +213,54 @@ namespace XFLCSMS.Services.Notify
                 "TicketView", issue.IssueId, actor?.Id);
         }
 
+        /// <summary>A reply in the conversation of a ticket, readable by the house.</summary>
+        public void TicketReplied(IssueTable issue, User author, bool fromStaff, string preview)
+        {
+            var who = new List<int?> { issue.UserId, issue.AssignedToId };
+            if (issue.AssignedToId == null)
+            {
+                // nobody works on it yet: the people who hand out tickets should see that the house wrote
+                who.AddRange(StaffWith(Permission.TicketAssign));
+            }
+
+            Tell(NotificationEvents.TicketReply, who,
+                (fromStaff ? "XFL replied on ticket " : "New reply on ticket ") + issue.TNumber,
+                author.FullName + ": " + preview, "TicketView", issue.IssueId, author.Id);
+        }
+
+        /// <summary>An internal note: only ever goes to XFL staff.</summary>
+        public void TicketNoted(IssueTable issue, User author, string preview)
+        {
+            var who = issue.AssignedToId != null ? new List<int?> { issue.AssignedToId } : StaffWith(Permission.TicketAssign);
+            var staff = _db.Users.Where(user => user.UType || user.UCatagory).Select(user => (int?)user.Id).ToList();
+            Tell(NotificationEvents.TicketNote, who.Where(id => staff.Contains(id)),
+                "Internal note on ticket " + issue.TNumber, author.FullName + ": " + preview, "TicketView", issue.IssueId, author.Id);
+        }
+
+        public void TicketRated(IssueTable issue, User rater)
+        {
+            Tell(NotificationEvents.TicketRated, new List<int?> { issue.AssignedToId }.Concat(StaffWith(Permission.TicketAssign)),
+                "Ticket " + issue.TNumber + " was rated " + issue.Rating + " of 5",
+                rater.FullName + (string.IsNullOrWhiteSpace(issue.RatingComment) ? " rated the support." : ": " + issue.RatingComment),
+                "TicketView", issue.IssueId, rater.Id);
+        }
+
+        /// <summary>A service target of the ticket comes up (<paramref name="missed"/> false) or has passed (true).</summary>
+        public void SlaAlert(IssueTable issue, bool response, bool missed, string when)
+        {
+            var what = response ? "first response" : "solution";
+            var who = new List<int?> { issue.AssignedToId };
+            if (missed || issue.AssignedToId == null)
+            {
+                who.AddRange(StaffWith(Permission.TicketAssign));
+            }
+
+            Tell(missed ? NotificationEvents.SlaMissed : NotificationEvents.SlaSoon, who,
+                "Ticket " + issue.TNumber + ": " + what + (missed ? " is overdue" : " is due soon"),
+                "\u201c" + issue.ITitle + "\u201d, priority " + issue.Priority + ". The " + what + " " + when + ".",
+                "TicketView", issue.IssueId, null);
+        }
+
         private static string By(User? actor, string lead = " by ")
         {
             return actor == null ? string.Empty : lead + actor.FullName;

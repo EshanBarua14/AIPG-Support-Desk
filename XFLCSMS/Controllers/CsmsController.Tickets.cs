@@ -57,11 +57,17 @@ namespace XFLCSMS.Controllers
                     }
                 }
 
+                // short name and name of the products, for the search and for the line under the title
+                var products = await Db.Products.ToDictionaryAsync(product => product.ProductId);
+                ViewBag.ProductLabels = products.ToDictionary(pair => pair.Key, pair => pair.Value.ShortName);
+
                 if (!string.IsNullOrWhiteSpace(searchString))
                 {
                     var text = searchString.Trim().ToLower();
                     tickets = tickets.Where(e =>
                         e.TNumber.ToLower().Contains(text) ||
+                        (e.ProductId != null && products.TryGetValue(e.ProductId.Value, out var product)
+                            && (product.Name.ToLower().Contains(text) || product.Code?.ToLower().Contains(text) == true)) ||
                         e.ITitle?.ToLower().Contains(text) == true ||
                         e.Priority?.ToLower().Contains(text) == true ||
                         TicketStatus.Name(e.IStatus).ToLower().Contains(text) ||   // the name people see, not the stored key
@@ -176,7 +182,8 @@ namespace XFLCSMS.Controllers
                     EmployeeNames = await VisibleIssues.Where(i => i.ClosedBy != null && i.ClosedBy != "").Select(i => i.ClosedBy!).Distinct().OrderBy(name => name).ToListAsync(),
                     brocarages = Rbac.IsStaff(MyRole)
                         ? await Db.Brokerages.OrderBy(house => house.BrokerageHouseName).ToListAsync()
-                        : new List<Brokerage>()
+                        : new List<Brokerage>(),
+                    Products = await Db.Products.OrderBy(product => product.Name).ToListAsync()
                 });
             }
             catch (Exception ex)
@@ -189,8 +196,9 @@ namespace XFLCSMS.Controllers
         /// Runs the ticket report over the tickets this role may see. The form posts its filters under a name that
         /// differs per role (search, SESearch, MakerSearch - as the pages always did); all three are understood.
         /// </summary>
+        /// <param name="productId">Only the tickets of this product (the same field name for every role).</param>
         [HttpGet]
-        public async Task<IActionResult> Search(ReportView reportView)
+        public async Task<IActionResult> Search(ReportView reportView, int? productId = null)
         {
             try
             {
@@ -220,6 +228,13 @@ namespace XFLCSMS.Controllers
                 if (!string.IsNullOrEmpty(filter.Priority))
                 {
                     query = query.Where(x => x.Priority == filter.Priority);
+                }
+
+                var products = await Db.Products.ToListAsync();
+                var product = productId > 0 ? products.FirstOrDefault(item => item.ProductId == productId) : null;
+                if (productId > 0)
+                {
+                    query = query.Where(x => x.ProductId == productId);
                 }
 
                 var closedBy = staff && MyRole != Role.SupportEngineer && !string.IsNullOrEmpty(filter.EmployeeName) ? filter.EmployeeName : null;
@@ -263,10 +278,30 @@ namespace XFLCSMS.Controllers
                     TotalInque = results.Count - byStatus[TicketStatus.Unassigned] - byStatus[TicketStatus.Closed],
                     ByStatus = byStatus,
                     StatusName = status == null ? null : TicketStatus.Name(status),
+                    ProductName = product?.Name,
                     ReportName = Rbac.Label(MyRole)
                 };
 
-                return PartialView("_SearchResults", new ReportView { Issues = results, HeaderInfo = header });
+                // the charts of the report: the same tickets, from the first to the last day the report covers
+                TicketCharts? charts = null;
+                if (results.Count > 0)
+                {
+                    var rows = results.Select(x => new TicketStats.Row
+                    {
+                        IssueId = x.IssueId, BrokerageId = x.BrokerageId, ProductId = x.ProductId, Status = TicketStatus.Normalize(x.IStatus) ?? x.IStatus,
+                        Priority = x.Priority, Raised = x.TDate, ClosedOn = x.ClosedOn, UpdatedOn = x.UpdatedOn, AssignedTo = x.AssignBy
+                    }).ToList();
+                    var first = filter.FromDate?.Date ?? rows.Min(row => row.Raised).Date;
+                    var last = filter.ToDate?.Date ?? DateTime.Now.Date;
+                    if (last < first) { last = rows.Max(row => row.Raised).Date; }
+                    var houses = staff && Can(Permission.TicketsAll) && !(filter.BrokerageId > 0)
+                        ? await Db.Brokerages.ToDictionaryAsync(house => house.BrokerageId, house => house.BrokerageHouseName)
+                        : null;
+                    charts = TicketStats.Build(rows, first, last, compare: false, products.ToDictionary(item => item.ProductId, item => item.Name), houses, engineers: false, closedWhenever: true);
+                    charts.PeriodName = first.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture) + " \u2013 " + last.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                return PartialView("_SearchResults", new ReportView { Issues = results, HeaderInfo = header, Products = products, Charts = charts });
             }
             catch (Exception ex)
             {
@@ -286,7 +321,9 @@ namespace XFLCSMS.Controllers
                     return NotFound();
                 }
 
-                return View(ToMakerView(issue, includeEngineers: false));
+                var view = ToMakerView(issue, includeEngineers: false);
+                await FillDeskAsync(view, issue); // conversation, service times, rating
+                return View(view);
             }
             catch (Exception ex)
             {
@@ -430,6 +467,9 @@ namespace XFLCSMS.Controllers
                 {
                     return NotFound("The ticket was not found.");
                 }
+
+                // the conversation goes with the ticket
+                Db.TicketMessages.RemoveRange(Db.TicketMessages.Where(message => message.IssueId == issue.IssueId));
 
                 // remove the uploaded files too, not only the database rows
                 var files = issue.attachment?.ToList() ?? new List<Attachment>();

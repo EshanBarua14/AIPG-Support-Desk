@@ -2,6 +2,7 @@
 using XFLCSMS.Models.Brocarage;
 using XFLCSMS.Infrastructure;
 using XFLCSMS.Models.Register;
+using XFLCSMS.Models.Support;
 using XFLCSMS.Services;
 
 namespace XFLCSMS.Data
@@ -9,7 +10,9 @@ namespace XFLCSMS.Data
     /// <summary>
     /// Runs once at start-up:
     ///  1. applies pending EF Core migrations (creates the database on a fresh SQL Server);
-    ///  2. on a database without any user, creates the first administrator from the "SeedAdmin" settings.
+    ///  2. once, on a database without any product, adds the starting products with their support types and
+    ///     categories (Data/ProductSeed.cs);
+    ///  3. on a database without any user, creates the first administrator from the "SeedAdmin" settings.
     ///     Without it a fresh database cannot be used at all: registering needs a brokerage house and a
     ///     branch, and only an administrator can create those.
     /// </summary>
@@ -74,6 +77,119 @@ namespace XFLCSMS.Data
             logger.LogWarning("Brought the status of {Count} tickets in line with their assignment.", odd.Count);
         }
 
+        /// <summary>
+        /// Version 3.3 replaced the one "Comments" field of a ticket by a conversation. What stood in that field becomes
+        /// the first entry of the ticket's conversation, once. Who wrote it was never recorded, so the entry says so.
+        /// The old column keeps its text; nothing is lost.
+        /// </summary>
+        private static void MoveCommentsIntoConversations(DataContext db, SettingsStore settings, ILogger logger)
+        {
+            const string done = "desk.comments_moved";
+            if (settings.GetBool(done, false))
+            {
+                return;
+            }
+
+            var withComments = db.Issues.Where(issue => issue.Comments != null && issue.Comments != "")
+                .Select(issue => new { issue.IssueId, issue.Comments, issue.TDate, issue.UpdatedOn }).ToList()
+                .Where(issue => !string.IsNullOrWhiteSpace(issue.Comments)).ToList();
+            var already = db.TicketMessages.Select(message => message.IssueId).Distinct().ToList().ToHashSet();
+            var moved = 0;
+            foreach (var issue in withComments.Where(issue => !already.Contains(issue.IssueId)))
+            {
+                db.TicketMessages.Add(new XFLCSMS.Models.Desk.TicketMessage
+                {
+                    IssueId = issue.IssueId,
+                    AuthorName = "Comments field",
+                    AuthorRole = "before version 3.3",
+                    At = issue.UpdatedOn ?? issue.TDate,
+                    Body = System.Net.WebUtility.HtmlEncode(issue.Comments!.Trim()).Replace("\r\n", "<br>").Replace("\n", "<br>")
+                });
+                moved++;
+            }
+
+            settings.Stage(db, new Dictionary<string, string?> { [done] = "true" }, "System");
+            db.SaveChanges();
+            settings.Reload();
+            if (moved > 0)
+            {
+                logger.LogWarning("Moved the comments of {Count} tickets into their conversations.", moved);
+            }
+        }
+
+        /// <summary>A few canned replies to start with, added once. They are ordinary entries: change or remove them.</summary>
+        private static void AddStarterCannedReplies(DataContext db, SettingsStore settings)
+        {
+            const string done = "desk.canned_added";
+            if (settings.GetBool(done, false))
+            {
+                return;
+            }
+
+            if (!db.CannedReplies.Any())
+            {
+                var now = DateTime.Now;
+                foreach (var (title, body) in new[]
+                {
+                    ("We have your ticket", "<p>Dear {name},</p><p>thank you for ticket {ticket}. We are looking into it and will write here as soon as we know more.</p><p>{me}<br>XFL Support</p>"),
+                    ("Ask for a screenshot", "<p>Dear {name},</p><p>to find the cause we need a little more from you:</p><ul><li>a screenshot of the screen with the message,</li><li>the time it happened,</li><li>the user who was signed in.</li></ul><p>You can attach files to your reply here.</p><p>{me}</p>"),
+                    ("Fix is deployed", "<p>Dear {name},</p><p>the fix for ticket {ticket} is deployed. Please try again and tell us here whether it works for you.</p><p>{me}<br>XFL Support</p>"),
+                    ("Closing the ticket", "<p>Dear {name},</p><p>we have not heard of further trouble, so we are closing ticket {ticket}. If the problem comes back, write here or raise a new ticket.</p><p>{me}</p>")
+                })
+                {
+                    db.CannedReplies.Add(new XFLCSMS.Models.Desk.CannedReply { Title = title, Body = body, IsActive = true, UpdatedAt = now, UpdatedBy = "System" });
+                }
+            }
+
+            settings.Stage(db, new Dictionary<string, string?> { [done] = "true" }, "System");
+            db.SaveChanges();
+            settings.Reload();
+        }
+
+        /// <summary>
+        /// Adds the starting products with their support types and categories (Data/ProductSeed.cs) - once: a
+        /// database that has a product, or that was filled before, is left alone, so what an administrator renamed
+        /// or deleted does not come back at the next start.
+        /// </summary>
+        private static void SeedProducts(DataContext db, SettingsStore settings, IConfiguration configuration, ILogger logger)
+        {
+            // asked of the database itself, not of the settings in memory: those keep their old (empty) values when
+            // the table could not be read, and the products an administrator deleted would come back
+            if (!configuration.GetValue("Products:Seed", true) || db.AppSettings.Any(setting => setting.Name == SettingsStore.ProductsSeeded))
+            {
+                return;
+            }
+
+            if (!db.Products.Any())
+            {
+                foreach (var entry in ProductSeed.Products)
+                {
+                    var product = new Product { Name = entry.Name, Code = entry.Code, Description = entry.Description, IsActive = true };
+                    db.Products.Add(product);
+                    foreach (var name in entry.Types)
+                    {
+                        db.SupportTypes.Add(new SupportType { SType = name, Product = product });
+                    }
+
+                    foreach (var name in entry.Categories)
+                    {
+                        db.SupportCatagories.Add(new SupportCatagory { SCatagory = name, Product = product });
+                    }
+                }
+
+                db.AuditLogs.Add(new XFLCSMS.Models.Audit.AuditLog
+                {
+                    At = DateTime.Now, UserName = "System", Action = AuditActions.DataCreate, EntityType = "Product", EntityLabel = "Starting products",
+                    Details = "Added the starting products (" + string.Join(", ", ProductSeed.Products.Select(entry => entry.Name)) + ") with their support types and categories"
+                });
+                logger.LogWarning("Added {Count} starting products with their support types and categories. Change them under Administration > Products.", ProductSeed.Products.Length);
+            }
+
+            settings.Stage(db, new Dictionary<string, string?> { [SettingsStore.ProductsSeeded] = "1" }, "System");
+            db.SaveChanges();
+            settings.Reload();
+        }
+
         public static void Initialize(IServiceProvider services, IConfiguration configuration, ILogger logger)
         {
             using var scope = services.CreateScope();
@@ -108,6 +224,10 @@ namespace XFLCSMS.Data
                 settings.Reload();
 
                 NormaliseStatuses(db, logger);
+
+                SeedProducts(db, settings, configuration, logger);
+                MoveCommentsIntoConversations(db, settings, logger);
+                AddStarterCannedReplies(db, settings);
 
                 if (db.Users.Any())
                 {

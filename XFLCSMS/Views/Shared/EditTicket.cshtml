@@ -45,10 +45,7 @@
                                   placeholder="What happened, where, and what you expected instead">@HtmlSanitizer.Sanitize(Model.TicketDetails)</textarea>
                     </div>
 
-                    <div class="field">
-                        <label for="Command">Comments</label>
-                        <textarea class="textarea" asp-for="Command" rows="3" placeholder="Notes for whoever handles the ticket"></textarea>
-                    </div>
+                    <p class="hint" style="margin: 0">Comments are written in the conversation on the ticket page now: every entry keeps its author and time.</p>
                 </div>
             </section>
 

@@ -1,0 +1,114 @@
+@*
+    Service targets: how long support may take for the first response and for the solution, per priority, and the
+    working time those hours are counted in. A ticket gets its two target times when it is raised and keeps them;
+    saving this page changes the targets of tickets raised afterwards.
+*@
+@model XFLCSMS.Models.Desk.ServiceTargetsForm
+@{
+    ViewData["Title"] = "Service targets";
+    ViewData["PageClass"] = "narrow";
+    var dayNames = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+    var about = new Dictionary<string, string> { ["High"] = "Trading or settlement is blocked", ["Medium"] = "Work goes on, with trouble", ["Low"] = "Questions and small things" };
+}
+<header class="page-head">
+    <div>
+        <h1 class="page-title">Service targets</h1>
+        <p class="page-sub">How long XFL may take to answer a ticket and to solve it. Lists and the ticket page show how each ticket stands; the engineer is warned before a target passes, the managers when it has passed.</p>
+    </div>
+</header>
+
+@if (ViewBag.Problem != null)
+{
+    <div class="alert alert-danger" role="alert"><icon name="circle-alert" /><span>@ViewBag.Problem</span></div>
+}
+
+<form asp-action="ServiceTargets" method="post" class="stack" autocomplete="off">
+    <section class="card">
+        <div class="card-body">
+            <label class="switch" style="max-width: 560px">
+                <input type="checkbox" name="Enabled" value="true" checked="@Model.Enabled">
+                <span><b>Service targets are on</b><small>Off: new tickets get no targets and nobody is warned. Tickets that have targets keep showing them.</small></span>
+            </label>
+        </div>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>Targets per priority</h2><span class="sub">In hours; 0.5 is half an hour, 0 means no target</span></div>
+        <div class="table-wrap">
+            <table class="table targets">
+                <thead>
+                    <tr>
+                        <th scope="col">Priority</th>
+                        <th scope="col">First response within</th>
+                        <th scope="col">Solved within</th>
+                        <th scope="col">The clock runs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var priority in XFLCSMS.Models.Desk.ServiceTargetsForm.Priorities)
+                    {
+                        <tr>
+                            <th scope="row">@Ui.PriorityPill(priority)<span class="t-meta">@about[priority]</span></th>
+                            <td>
+                                <label class="sr-only" for="response@(priority)">First response for @priority, hours</label>
+                                <span class="unit"><input class="input" type="number" min="0" max="8760" step="0.25" inputmode="decimal" name="ResponseHours[@priority]" id="response@(priority)" value="@Model.ResponseHours.GetValueOrDefault(priority)" required> h</span>
+                            </td>
+                            <td>
+                                <label class="sr-only" for="resolve@(priority)">Solution for @priority, hours</label>
+                                <span class="unit"><input class="input" type="number" min="0" max="8760" step="0.25" inputmode="decimal" name="ResolveHours[@priority]" id="resolve@(priority)" value="@Model.ResolveHours.GetValueOrDefault(priority)" required> h</span>
+                            </td>
+                            <td>
+                                <label class="sr-only" for="clock@(priority)">Clock for @priority</label>
+                                <select class="select" name="Clock[@priority]" id="clock@(priority)">
+                                    <option value="business" selected="@(Model.Clock.GetValueOrDefault(priority) != "always")">In working time</option>
+                                    <option value="always" selected="@(Model.Clock.GetValueOrDefault(priority) == "always")">Round the clock</option>
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-body" style="border-top: 1px solid var(--line)">
+            <p class="muted" style="margin: 0">&ldquo;Solved&rdquo; is the first time a ticket reaches Done, Deployed or Closed. While a ticket is Pending (waiting for somebody else) the clock for the solution stands still. The first response is the first reply the brokerage house can read, or the engineer starting to work.</p>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>Working time</h2><span class="sub">What &ldquo;in working time&rdquo; counts</span></div>
+        <div class="card-body stack">
+            <fieldset class="days">
+                <legend class="label">Working days</legend>
+                <div class="day-row">
+                    @for (var day = 0; day < 7; day++)
+                    {
+                        <label class="day"><input type="checkbox" name="Days" value="@day" checked="@Model.Days.Contains(day)"><span>@dayNames[day].Substring(0, 3)<span class="sr-only">@dayNames[day].Substring(3)</span></span></label>
+                    }
+                </div>
+            </fieldset>
+            <div class="form-grid three">
+                <div class="field">
+                    <label for="Start">From</label>
+                    <input class="input" type="time" name="Start" id="Start" value="@Model.Start" required>
+                </div>
+                <div class="field">
+                    <label for="End">Until</label>
+                    <input class="input" type="time" name="End" id="End" value="@Model.End" required>
+                </div>
+                <div class="field">
+                    <label for="WarnPercent">Warn when this much of the time is used</label>
+                    <span class="unit"><input class="input" type="number" min="10" max="95" step="5" name="WarnPercent" id="WarnPercent" value="@Model.WarnPercent" required> %</span>
+                </div>
+            </div>
+            <div class="field">
+                <label for="Holidays">Days off</label>
+                <textarea class="textarea" name="Holidays" id="Holidays" rows="5" spellcheck="false" placeholder="2026-12-16 Victory Day">@Model.Holidays</textarea>
+                <span class="hint">One day per line: the date as year-month-day, then what it is if you like. Public holidays and market closures go here; they move every year, so the list starts empty.</span>
+            </div>
+        </div>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary"><icon name="save" /> Save targets</button>
+            <span class="muted">Applies to tickets raised from now on.</span>
+        </div>
+    </section>
+</form>

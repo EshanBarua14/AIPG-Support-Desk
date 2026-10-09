@@ -34,7 +34,12 @@ namespace XFLCSMS.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
                     b.HasKey("AffectedSectionId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("AffectedSectionss");
                 });
@@ -174,6 +179,81 @@ namespace XFLCSMS.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("XFLCSMS.Models.Desk.CannedReply", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CannedReplies");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"), 1L, 1);
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AuthorRole")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("FromStaff")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("IssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId", "Id");
+
+                    b.ToTable("TicketMessages");
+                });
+
             modelBuilder.Entity("XFLCSMS.Models.Issue.Attachment", b =>
                 {
                     b.Property<int>("AttachmentId")
@@ -193,9 +273,14 @@ namespace XFLCSMS.Migrations
                     b.Property<int>("IssueId")
                         .HasColumnType("int");
 
+                    b.Property<long?>("MessageId")
+                        .HasColumnType("bigint");
+
                     b.HasKey("AttachmentId");
 
                     b.HasIndex("IssueId");
+
+                    b.HasIndex("MessageId");
 
                     b.ToTable("Attachments");
                 });
@@ -244,15 +329,52 @@ namespace XFLCSMS.Migrations
                     b.Property<string>("Details")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("FirstResponseAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("IStatus")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ITitle")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("PendingSince")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RatingComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ReopenCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolveDueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ResponseDueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SlaNotices")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SlaPausedMinutes")
+                        .HasColumnType("int");
 
                     b.Property<int?>("SupportCatagoryId")
                         .HasColumnType("int");
@@ -288,6 +410,10 @@ namespace XFLCSMS.Migrations
                     b.HasIndex("BranchhBranchId");
 
                     b.HasIndex("BrokerageId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ResolveDueAt");
 
                     b.HasIndex("SupportCatagoryId");
 
@@ -536,6 +662,38 @@ namespace XFLCSMS.Migrations
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("XFLCSMS.Models.Support.Product", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductId"), 1L, 1);
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("ProductId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Products");
+                });
+
             modelBuilder.Entity("XFLCSMS.Models.Support.SupportCatagory", b =>
                 {
                     b.Property<int>("SupportCatagoryId")
@@ -544,12 +702,17 @@ namespace XFLCSMS.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SupportCatagoryId"), 1L, 1);
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
                     b.Property<string>("SCatagory")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("SupportCatagoryId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("SupportCatagories");
                 });
@@ -562,12 +725,17 @@ namespace XFLCSMS.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SupportSubCatagoryId"), 1L, 1);
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
                     b.Property<string>("SubCatagory")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("SupportSubCatagoryId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("SupportSubCatagories");
                 });
@@ -580,12 +748,17 @@ namespace XFLCSMS.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SupportTypeId"), 1L, 1);
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
                     b.Property<string>("SType")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("SupportTypeId");
+
+                    b.HasIndex("ProductId");
 
                     b.ToTable("SupportTypes");
                 });
@@ -622,6 +795,16 @@ namespace XFLCSMS.Migrations
                     b.ToTable("Todos");
                 });
 
+            modelBuilder.Entity("XFLCSMS.Models.Affected.AffectedSection", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Support.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("XFLCSMS.Models.Branch.Branchh", b =>
                 {
                     b.HasOne("XFLCSMS.Models.Brocarage.Brokerage", "Brokerage")
@@ -629,6 +812,17 @@ namespace XFLCSMS.Migrations
                         .HasForeignKey("BrokerageId");
 
                     b.Navigation("Brokerage");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Desk.TicketMessage", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Issue.IssueTable", "Issue")
+                        .WithMany()
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
                 });
 
             modelBuilder.Entity("XFLCSMS.Models.Issue.Attachment", b =>
@@ -658,6 +852,11 @@ namespace XFLCSMS.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("XFLCSMS.Models.Support.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("XFLCSMS.Models.Support.SupportCatagory", "supportCatagorys")
                         .WithMany("issue")
                         .HasForeignKey("SupportCatagoryId");
@@ -678,6 +877,8 @@ namespace XFLCSMS.Migrations
 
                     b.Navigation("Brokerages");
 
+                    b.Navigation("Product");
+
                     b.Navigation("SupportSubCatagorys");
 
                     b.Navigation("Users");
@@ -687,6 +888,36 @@ namespace XFLCSMS.Migrations
                     b.Navigation("supportCatagorys");
 
                     b.Navigation("supportTypes");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Support.SupportCatagory", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Support.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Support.SupportSubCatagory", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Support.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("XFLCSMS.Models.Support.SupportType", b =>
+                {
+                    b.HasOne("XFLCSMS.Models.Support.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("XFLCSMS.Models.Todos.Todo", b =>

@@ -2,6 +2,36 @@
 
 What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 
+## Version 3.3 - support desk
+
+What every support desk is built around and this system did not have: a conversation per ticket, time targets, and
+numbers on how fast and how well support answered.
+
+| What | Where |
+|---|---|
+| **Conversation.** Replies and internal notes as entries with author, role and time, with their own files; nothing is overwritten. The old Comments text of each ticket becomes its first entry at the first start. Internal notes, their files and every trace of them stay with XFL staff. | `Models/Desk/TicketMessage.cs`, `TicketService.AddMessageAsync`, `CsmsController.Desk.cs` (ReplyTicket), `Views/Shared/TicketView.cshtml`, `DbInitializer.MoveCommentsIntoConversations` |
+| **Service targets.** First response and solution per priority, in working time (days, hours, days off) or round the clock; stamped first response and solution; the clock stops while Pending; reopen counts. Shown on lists, the ticket page, the dashboard and an Overdue list. | `Services/Sla.cs`, `Models/Desk/ServiceTargetsForm.cs`, `Views/Shared/ServiceTargets.cshtml`, hooks in `TicketService` (create, status, priority) |
+| **Warnings.** A background check once a minute: "due soon" to the engineer at 75 % of the time, "overdue" to the people who assign tickets. Once per ticket and target. | `Services/SlaWatcher.cs`, `NotificationService.SlaAlert` |
+| **Canned replies** with `{name}`, `{ticket}`, `{me}`; four starters are added once. | `Models/Desk/TicketMessage.cs` (CannedReply), `Views/Shared/CannedReplies.cshtml`, `wwwroot/js/desk.js` |
+| **Rating** by the person who raised the ticket, after it is closed. | `TicketService.Rate`, ticket page |
+| **Service report**: median first response and solution, targets met, ratings, raised / solved per day, backlog by age, per priority, product, engineer and house. | `Services/ServiceReportBuilder.cs`, `Views/Shared/ServiceReport.cshtml` |
+| **Three permissions** (service report, manage canned replies, service targets). A permission table saved by an older version keeps its changes and gives permissions it did not know to their default roles. | `Infrastructure/Rbac.cs` (Parse, "Known") |
+| Demo data has conversations, service times and ratings. | `Services/DemoDataService.cs` |
+
+New migration: `SupportDesk` (tables `TicketMessages`, `CannedReplies`; columns on `Issues` and `Attachments`). Applied at start-up.
+
+The default targets and working hours are assumptions. Set the real ones under System > Service targets before relying on the numbers.
+
+**Version 3.1 put back together.** The packages of 3.1 and 3.2 were applied to the same folder one after the other, and
+3.2 had been built without 3.1: in the 25 files both packages contain, the 3.2 file replaced the 3.1 file. The result
+built and started, but parts of 3.1 were gone - no "Products" in the menu and no starting products, the charts of the
+dashboard and of the report were not drawn (their script was not loaded, their styles were missing), the menu did
+not collapse to a rail, the ticket form did not narrow its lists by product, and the model snapshot did not know the
+product tables. This version is 3.1, 3.2 and 3.3 merged file by file: every one of those 25 files carries the changes
+of all three. Nothing has to be done by hand; at the first start the five starting products are added (section 12)
+if the database has no product yet. The designer file of the migration `SignInProtection` and the model snapshot
+now describe the product tables as well; the migration itself (what it does to the database) is unchanged.
+
 ## Version 3.2 - security
 
 | Problem | Fix |
@@ -16,7 +46,7 @@ What was wrong and what was changed. File names are relative to `XFLCSMS/`.
 | Uploads had no size limit and were judged by the file name alone. | `Services/UploadLimits.cs`, `TicketService.SaveAttachmentsAsync`: 10 MB per file, 10 files at once, the first bytes must match the type. Each refused file is named with its reason. The form checks size and number before uploading. |
 | Registration could be flooded by a script. | Ten registrations per address and hour. |
 | The menu logo was a broken picture (the file had been deleted) and the pages still said "XFL CSMS". | `wwwroot/img/xpert-logo.png` (centred), name "Xpert CSMS" on pages, in e-mails and SMS. |
-| `add_admin.sql` and the uploaded files were tracked by git. | `.gitignore`; the commands to stop tracking them are in `read me.txt`, section 8. |
+| `add_admin.sql` and the uploaded files were tracked by git. | `.gitignore`; the commands to stop tracking them are in `read me.txt`, section 9. |
 
 New migration: `SignInProtection` (three columns on `Users`). It is applied at start-up.
 
@@ -224,6 +254,47 @@ Also changed
 
 **Checked with:** 1,149 checks in seven suites on a stand-in database: 895 server checks (351 from the earlier passes, 267 for roles, 277 for this pass), 247 browser checks in headless Chromium (every page of every role on desktop and phone width; the five roles; and for this pass 83: folding menu, status buttons, messages appearing on the open page of another signed-in person, permissions, settings, demo data), and 7 for the sign-out after idle time. Also: an empty database from the first administrator through demo data and back (37 checks), and Production mode over the network address (12). E-mails were received by a test mail server, SMS by a test gateway. Two independent reviews of the code; their findings are listed above. Not checked: a real SQL Server (the migration script was read: four `CREATE TABLE`, two indexes), a build with the .NET 6 reference assemblies (built here with SDK 8 against the EF Core 6 assemblies, language version 10), a real mail server and a real SMS provider, browsers other than Chromium.
 
+## 12. Seventh pass: products, the name Xpert CSMS, charts, a dashboard everybody arranges
+
+**Products** (`Models/Support/Product.cs`, `CsmsController.Products.cs`, pages `ProductList`, `ViewProduct`, `CreateProduct`, `EditProduct`)
+- New master data **Products** under Administration: create, edit, make inactive, delete.
+- Support types, categories, sub-categories and affected sections can belong to one product (`ProductId`; empty = for all products). The four list pages got a Product column and a Product box; the page of a product maintains its entries in one place.
+- The ticket form has a Product box that narrows the four lists; `TicketService.CreateAsync` keeps only entries that fit the product. Product on the ticket page, in the lists (short name, searchable), as a filter and a column of the report.
+- Five starting products with 24 support types and 36 categories are added once at the first start (`Data/ProductSeed.cs`, `DbInitializer.SeedProducts`, remembered in `AppSettings` as `products.seeded`). **Only "Xpert Trading OMS" is a name taken from XFL; the other four (Mobile Trading App, Back Office System, Risk Management System, Market Data & Analysis) and all types and categories are a starting point to rename.** `"Products": { "Seed": false }` in `appsettings.json` switches the starting list off.
+- Names of support types, categories and sub-categories may now contain spaces, digits and `. , & / ( ) + ' -` and need 2 characters (before: letters and dots only, 4 characters - "Order entry" or "API" could not be saved). What is typed is tidied (spaces around and double spaces) before it is checked.
+- Audit trail: products and their entries, including "product from A to B" and "made inactive".
+- Demo data spreads its tickets over the active products.
+
+**Name and logo**
+- The application is called **Xpert CSMS** everywhere a person reads it: titles, menu, sign-in pages, footer, e-mails and SMS, system health (`Ui.Brand`). "XFL" remains the short name of the company in sentences.
+- The logo was drawn low and left inside its image, so it sat off-centre in every frame. `img/xpert-logo.png` is the same drawing centred; the frame (`.brand-mark`) centres and fills. `img/XFLlogo.png` is no longer used.
+
+**Side menu**: the button in the top bar collapses it to a rail of icons (before: hid it completely). The rail opens over the page on hover and keyboard focus, shows the open page and a dot where a counter waits, and is remembered.
+
+**Sign-in pages**: new panel with an example ticket that travels from raised to deployed (CSS only, 16 s loop, hidden from screen readers; with "reduce motion" it stands still at the end state). The button that was pressed turns into a spinner until the next page arrives - on every form of the application - and a form cannot be sent twice.
+
+**Dashboard and charts** (`Services/TicketStats.cs`, `CsmsController.Charts.cs`, `wwwroot/js/charts.js`, `Views/Shared/Dashbord.cshtml`)
+- The dashboard is made of parts that each person hides, moves and widens (**Customize**), with a period for the charts. See WORKFLOWS.md section 3.
+- Charts: raised and closed over time (two lines), by product and by priority (bars split into not closed / closed), time to close (columns), open tickets per engineer. Drawn as SVG and HTML by one script of 600 lines, no library, nothing from the internet.
+- The same charts are in the result of the ticket report.
+- Every chart: a legend when it has two series, numbers on hover and keyboard focus, the same numbers as a table, colours checked for colour-blind readers in both themes (`--series-open`, `--series-closed`), text always in ink.
+- The numbers are computed on the server for the tickets the role may see (`VisibleIssues`). House names are only sent to roles that see all tickets, engineer names only to roles with "workload".
+- "Periods at a glance" now uses the same periods as the charts ("last 7 days" was 8 days before).
+- Motion: the page arrives, the parts of the dashboard follow once, lines draw themselves, bars and counters grow, panels and dialogs show where they come from. All of it is off with the system setting "reduce motion".
+
+**Found by an independent review of this pass and fixed before delivery**
+- Report over a past period: a ticket closed after the last day of the report counted as closed in the header but not in "time to close". Both count it now.
+- The axis of the trend chart could show 2.5 or 12.5 tickets. It now has four steps of whole tickets.
+- "Reports" for all products and "Reports" of a product appeared twice in the ticket form. The product's entry replaces the general one of the same name.
+- The 12-month chart began and ended with a partial month. It now shows twelve calendar months; a year stands under the first month and under January.
+- An entry in use could be moved to another product, leaving tickets with an entry of a product that is not theirs. Refused now.
+- The starting products could have come back after an administrator deleted them, if the settings table could not be read at one start. The flag is read from the database itself.
+- The spinner was drawn at 55% and did not stop with "reduce motion"; listeners piled up on every submit; an ended session during a period change showed "try again" instead of the sign-in page; the dashboard printed its controls; bars with long names nearly vanished on a phone. All fixed.
+
+**Database**: migration `ProductsForSupportLists` (one new table `Products`; a nullable column `ProductId` with index and foreign key on `SupportTypes`, `SupportCatagories`, `SupportSubCatagories`, `AffectedSectionss`, `Issues`; existing rows are not changed; applied at start-up).
+
+**Checked with:** 1,480 checks in eleven suites on a stand-in database, all passing on the delivered state: 1,129 server checks (896 from the earlier passes, 180 for products, 53 for the chart numbers and for who gets which numbers), 344 browser checks in headless Chromium (247 from the earlier passes; 38 for products; 59 for this pass: the sign-in page with and without "reduce motion", the logo measured in its frame, the rail with pointer and keyboard, charts with pointer and keyboard, the period, arranging the dashboard and finding it arranged after a reload, charts in the report, phone width and the dark theme), and 7 for the sign-out after idle time. Also: an empty database from the first administrator through demo data and back (37 checks) and Production mode over the network address (12). One independent review of the code; its findings are listed above. The colours of the two chart series were run through a colour-blindness check for both themes. Not checked: a real SQL Server (the migration script was read: one `CREATE TABLE`, five `ADD` column, six indexes, five foreign keys), a build with the .NET 6 reference assemblies (built here with SDK 8 against the EF Core 6 assemblies, language version 10), browsers other than Chromium, a real mail server and SMS provider.
+
 ## New files
 
 `Controllers/CsmsController.cs`, `Infrastructure/SessionAuthorizeAttribute.cs`, `Services/TicketService.cs`,
@@ -239,3 +310,5 @@ Fourth pass: `Models/Admin/NewUser.cs`, `Views/Admin/CreateUser.cshtml`.
 Fifth pass: `Infrastructure/Rbac.cs`, `Infrastructure/RecentLog.cs`, `Controllers/CsmsController.Assignment.cs`, `.Users.cs`, `.Audit.cs`, `Controllers/HouseAdminController.cs`, `Services/AuditService.cs`, `Services/SystemHealthService.cs`, `Models/Audit/*`, `Views/HouseAdmin/Organization.cshtml`, `Views/Shared/Workload.cshtml`, `AuditTrail.cshtml`, `SystemHealth.cshtml`, `_AssignDialog.cshtml`, `_RoleChoice.cshtml`, migration `20261007092004_AuditTrailAndAssignee`.
 
 Sixth pass: `Services/TicketStatus.cs`, `Services/SettingsStore.cs`, `Services/DemoDataService.cs`, `Services/Notify/*` (events, service, hub, worker, SMS sender), `Services/EmailService/MailSettings.cs`, `Models/Notify/*`, `Models/Settings/*`, `Controllers/CsmsController.Tickets.cs`, `.MasterData.cs`, `.TeamTodos.cs`, `.Notifications.cs`, `.System.cs`, `Views/Shared/TicketBoard.cshtml`, `Permissions.cshtml`, `NotificationSettings.cshtml`, `Notifications.cshtml`, `_NotificationItems.cshtml`, `DemoData.cshtml`, migration `20261007120446_NotificationsAndSettings`.
+
+Seventh pass: `Models/Support/Product.cs`, `Models/Admin/ProductView.cs`, `Models/Admin/TicketCharts.cs`, `Data/ProductSeed.cs`, `Services/TicketStats.cs`, `Controllers/CsmsController.Products.cs`, `.Charts.cs`, `Views/Shared/ProductList.cshtml`, `ViewProduct.cshtml`, `CreateProduct.cshtml`, `EditProduct.cshtml`, `_ProductFields.cshtml`, `_ProductChoice.cshtml`, `_ProductName.cshtml`, `_SupportListBack.cshtml`, `wwwroot/js/charts.js`, `wwwroot/img/xpert-logo.png`, migration `20261007175954_ProductsForSupportLists`. Removed: `wwwroot/img/XFLlogo.png`.

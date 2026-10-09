@@ -83,6 +83,10 @@
                             <span>high priority, open</span>
                         </div>
                         <div class="kpi">
+                            <a class="fig num" asp-action="OverdueTicketList">@(((int?)ViewBag.OverdueCount ?? 0).ToString("N0"))</a>
+                            <span>past a service target</span>
+                        </div>
+                        <div class="kpi">
                             <a class="fig num" asp-action="ClosedTicketList">@closed.ToString("N0")</a>
                             <span>closed</span>
                         </div>

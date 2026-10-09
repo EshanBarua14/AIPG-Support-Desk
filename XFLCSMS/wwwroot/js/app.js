@@ -1,7 +1,7 @@
 /* Xpert CSMS - page behaviour. Plain JavaScript, no libraries.
    Everything is opt-in through data-* attributes, so the views stay free of inline scripts:
 
-     data-nav-toggle            open/close the side menu
+     data-nav-toggle            side menu: wide or collapsed to a rail of icons (phone: open/close)
      data-theme-toggle          light/dark
      data-menu                  button that opens the next .menu-panel
      data-peek                  show/hide the password in the same .input-wrap
@@ -16,6 +16,8 @@
      data-confirm-submit        form asks before submitting
      data-assign                button that opens the "assign ticket" dialog (data-url, data-ticket, data-current)
      data-role-choice           role select of the user forms: shows what the role may do
+     data-product-choice        product select of the ticket form: the support lists show the entries of that product
+                                (their options carry data-product; empty = for every product)
      data-nav-fold="key"        <details> in the side menu: what is folded is remembered in this browser
      data-bell                  the bell: unread count, panel with the newest notifications, live toasts
                                 (data-stream, data-latest, data-read, data-open, data-user)
@@ -122,7 +124,10 @@
             if (window.matchMedia('(max-width: 960px)').matches) {
                 app.classList.toggle('nav-open');
             } else {
-                store('csms-nav', app.classList.toggle('nav-hidden') ? 'hidden' : 'shown');
+                // wide <-> a rail of icons (the rail opens over the page on hover and keyboard focus: wwwroot/css/app.css)
+                var rail = app.classList.toggle('nav-rail');
+                store('csms-nav', rail ? 'rail' : 'shown');
+                navButton.setAttribute('aria-expanded', rail ? 'false' : 'true');
             }
             return;
         }
@@ -334,6 +339,38 @@
         note.textContent = option ? option.getAttribute('data-summary') || '' : '';
     });
 
+    /* ---- ticket form: the product narrows the support lists -------------- */
+    $all('[data-product-choice]').forEach(function (choice) {
+        var lists = $all('select', choice.form || doc).filter(function (select) {
+            return select !== choice && select.querySelector('option[data-product]');
+        });
+        // every option as the server sent it: the lists are rebuilt from these (hiding an option does not work in every browser)
+        lists.forEach(function (select) { select._options = $all('option', select); });
+
+        function narrow() {
+            var product = choice.value;
+            lists.forEach(function (select) {
+                var chosen = select.value;
+                while (select.firstChild) { select.removeChild(select.firstChild); }
+                // an entry of the product replaces the one for every product that has the same name (no "Reports" twice)
+                var own = {};
+                select._options.forEach(function (option) {
+                    if (product && option.getAttribute('data-product') === product) { own[option.textContent.trim().toLowerCase()] = true; }
+                });
+                select._options.forEach(function (option) {
+                    var of = option.getAttribute('data-product');
+                    // "Not sure", the entries for every product, and the entries of the chosen product
+                    if (!option.value || of === product || (!of && !own[option.textContent.trim().toLowerCase()])) { select.appendChild(option); }
+                });
+                var still = select._options.some(function (option) { return option.parentNode === select && option.value === chosen; });
+                select.value = still ? chosen : '';
+            });
+        }
+
+        on(choice, 'change', narrow);
+        narrow();
+    });
+
     /* ---- forms ---------------------------------------------------------- */
     $all('[data-match]').forEach(function (input) {
         var other = $(input.getAttribute('data-match'));
@@ -346,6 +383,7 @@
     on(doc, 'submit', function (event) {
         var form = event.target;
         if (form.hasAttribute('data-report')) { return; }
+        if (form.sending) { event.preventDefault(); return; }   // already on its way: Enter a second time sends nothing
 
         // (an empty value means no question: Razor writes data-* attributes also when their value is empty)
         if (form.getAttribute('data-confirm-submit') && !form.confirmed) {
@@ -361,13 +399,27 @@
             return;
         }
 
-        // a second click must not send the form twice
+        // A second click must not send the form twice, and the button that was pressed shows that the request is on
+        // its way (a spinner) until the next page arrives.
+        var pressed = event.submitter || $('button[type="submit"]', form);
         setTimeout(function () {
-            $all('button[type="submit"], input[type="submit"]', form).forEach(function (button) { button.classList.add('is-busy'); });
+            if (event.defaultPrevented) { return; }   // another handler stopped the form (a file that is refused, ...)
+            form.sending = true;
+            $all('button[type="submit"], input[type="submit"]', form).forEach(function (button) { button.classList.add(button === pressed ? 'is-waiting' : 'is-busy'); });
+            if (pressed) { pressed.setAttribute('aria-busy', 'true'); }
+            // never a dead button for ever: an answer that is not a page (or none at all) leaves this page as it is
+            setTimeout(function () { release(form); }, 30000);
         }, 0);
     });
+    // makes the buttons of one form - or, without a form, of the whole page - usable again
+    function release(form) {
+        (form ? [form] : $all('form')).forEach(function (item) { item.sending = false; });
+        $all('.is-busy, .is-waiting', form || doc).forEach(function (button) {
+            button.classList.remove('is-busy', 'is-waiting'); button.removeAttribute('aria-busy');
+        });
+    }
     // coming back with the browser's Back button: buttons must work again
-    on(window, 'pageshow', function () { $all('.is-busy').forEach(function (button) { button.classList.remove('is-busy'); }); });
+    on(window, 'pageshow', function () { release(); });
 
     /* ---- rich text ------------------------------------------------------ */
     var RTE_ACTIONS = [
@@ -542,6 +594,7 @@
                 return response.text().then(function (html) {
                     if (!response.ok) { toast('The report could not be created. Please try again.', true); return; }
                     target.innerHTML = html;
+                    if (window.CsmsCharts) { window.CsmsCharts.scan(target); }   // the charts of the result (wwwroot/js/charts.js)
                     $all('[data-needs-report]').forEach(function (element) { element.hidden = false; });
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 });
@@ -714,4 +767,10 @@
 
     // for the few page-specific scripts in the views
     window.Csms = { toast: toast, confirm: confirmDialog, request: request, icon: icon };
+
+    // the button of the side menu says in which state the menu is
+    $all('[data-nav-toggle]').forEach(function (button) {
+        var app = $('.app');
+        button.setAttribute('aria-expanded', app && app.classList.contains('nav-rail') ? 'false' : 'true');
+    });
 })();

@@ -1,6 +1,5 @@
 Xpert CSMS - how to run
 =======================
-
 Requirements
 ------------
 - Visual Studio 2022 with the "ASP.NET and web development" workload and the .NET 6 SDK/runtime
@@ -53,7 +52,8 @@ The system also works without e-mail:
 5. Interface
 ------------
 The pages no longer use AdminLTE, Bootstrap, jQuery or any CDN: everything is in wwwroot (css/app.css,
-js/app.js, fonts, img/icons.svg), so the application also runs on a network without internet access.
+js/app.js, js/charts.js, fonts, img/icons.svg, img/xpert-logo.png), so the application also runs on a network
+without internet access. The charts are drawn by js/charts.js, without a chart library.
 Colours and fonts are variables at the top of css/app.css. Pages shared by all roles are in Views/Shared.
 
 6. Letting other people use it (brokerage houses, colleagues)
@@ -103,7 +103,23 @@ the SMS key again (the settings page says when that is needed).
 
 Run ONE instance of the application: the messages that appear on open pages are passed on inside the process.
 
-8. Version 3.2: sign-in protection, browser protection, upload limits
+8. First steps after updating to version 3.1
+--------------------------------------------
+Start the application once. It adds the table "Products" and a column "ProductId" to the support lists and
+the tickets (nothing existing is changed), and - once, when there is no product yet - five starting products
+with their support types and categories.
+   a) Administration > Products: rename the starting products to the real product names of XFL, delete what
+      does not apply, add what is missing. Only "Xpert Trading OMS" is a real name; the others are a start.
+      Open a product to change its support types and categories.
+      To start without the starting list, set  "Products": { "Seed": false }  in appsettings.json BEFORE the
+      first start with this version.
+   b) The support types and categories that existed before are kept as "All products": they are offered
+      whatever the product. Edit one and choose a product to make it belong to that product only.
+   c) Dashboard > Customize: every person arranges the own dashboard; nothing to set up.
+The old logo file XFLCSMS/wwwroot/img/XFLlogo.png is not used any more and can be deleted.
+If a page looks unstyled right after the update, reload it once with Ctrl+F5 (the browser kept the old files).
+
+9. Version 3.2: sign-in protection, browser protection, upload limits
 --------------------------------------------------------------------
 Start the application once: it adds three columns to the Users table (FailedAttempts, LockedUntil,
 MustChangePassword) by itself. Nothing else in the database changes, and everybody's password keeps working.
@@ -140,5 +156,21 @@ To do by hand, once (System > System health reminds you of the first two):
       .gitignore now keeps them out. They remain in the history of the repository: for a public repository
       that means the uploaded files and the old password can still be read there. Rewriting the history
       (git filter-repo) removes them; changing the password is what makes the old one worthless.
+
+10. Version 3.3: conversation, service targets, canned replies, rating, service report
+------------------------------------------------------------------------------------
+Start the application once: it adds two tables and some columns by itself, turns the old "Comments" text of
+every ticket into the first entry of its conversation, and adds four starter canned replies.
+
+Then, signed in as platform admin:
+   a) System > Service targets: the times per priority, the working days and hours, the days off.
+      The defaults are assumptions (High 0.5 h / 4 h, Medium 2 h / 18 h, Low 4 h / 45 h; Sunday to Thursday,
+      09:00 to 18:00; no days off). Tickets that exist already have no targets and are never reported as late.
+   b) Tickets > Canned replies: change the four starters to the wording of your team.
+   c) System > Notification settings: five new events (reply, internal note, rating, target due soon, target
+      missed). A reply and a missed target also go out by e-mail unless you switch that off.
+   d) System > Roles & permissions: three new permissions under "Service".
+
+Setting (appsettings.json, optional):   "Sla": { "CheckSeconds": 60 }   how often the targets are checked.
 
 See WORKFLOWS.md for what each role can do, and FIXES.md for the list of what was changed.

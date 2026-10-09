@@ -217,6 +217,10 @@ namespace XFLCSMS.Controllers
                 {
                     ViewBag.AssignedToMeCount = Db.Issues.Where(TicketService.AssignedTo(user)).Count(TicketService.NotClosed);
                 }
+                var now = DateTime.Now;
+                ViewBag.OverdueCount = VisibleIssues.Where(TicketService.NotClosed).Count(i =>
+                    (i.ResponseDueAt != null && i.FirstResponseAt == null && i.ResponseDueAt < now)
+                    || (i.ResolveDueAt != null && i.ResolvedAt == null && i.PendingSince == null && i.ResolveDueAt < now));
                 ViewBag.UnreadNotifications = Db.Notifications.Count(n => n.UserId == user.Id && n.ReadAt == null);
                 ViewBag.InAppNotifications = Services.Notify.NotificationEvents.ChannelOn(Settings, Services.Notify.NotificationEvents.InAppChannel);
                 if (Can(Permission.UsersAll) || Can(Permission.UsersHouse))
@@ -372,9 +376,10 @@ namespace XFLCSMS.Controllers
             int Raised(DateTime from) => rows.Count(r => r.TDate.Date >= from && r.TDate.Date <= today);
             int Closed(DateTime from) => rows.Count(r => r.TDate.Date >= from && r.TDate.Date <= today && r.IStatus == TicketStatus.Closed);
 
-            var week = today.AddDays(-7);
-            var month = today.AddMonths(-1);
-            var year = today.AddYears(-1);
+            // the same periods as the charts of the page (TicketStats.PeriodStart), so the numbers agree
+            var week = TicketStats.PeriodStart(7, today);
+            var month = TicketStats.PeriodStart(30, today);
+            var year = TicketStats.PeriodStart(365, today);
 
             var total = rows.Count;
             var closed = rows.Count(r => r.IStatus == TicketStatus.Closed);
@@ -438,6 +443,7 @@ namespace XFLCSMS.Controllers
 
             board.Recent = recentIds.Select(id => tickets.FirstOrDefault(t => t.IssueId == id)).Where(t => t != null).Select(t => t!).ToList();
             board.Waiting = waitingIds.Select(id => tickets.FirstOrDefault(t => t.IssueId == id)).Where(t => t != null).Select(t => t!).ToList();
+            board.Charts = await BuildChartsAsync(30);
             return board;
         }
 
@@ -459,6 +465,7 @@ namespace XFLCSMS.Controllers
                 UpdatedBy = issue.UpdatedBy,
                 CloseOn = issue.ClosedOn,
                 ClosedbyName = issue.ClosedBy,
+                Product = Db.Products.Where(x => x.ProductId == issue.ProductId).Select(x => x.Name).FirstOrDefault(),
                 SupportType = Db.SupportTypes.Where(x => x.SupportTypeId == issue.SupportTypeId).Select(x => x.SType).FirstOrDefault(),
                 SupportCatagory = Db.SupportCatagories.Where(x => x.SupportCatagoryId == issue.SupportCatagoryId).Select(x => x.SCatagory).FirstOrDefault(),
                 SupportSubCatagory = Db.SupportSubCatagories.Where(x => x.SupportSubCatagoryId == issue.SupportSubCatagoryId).Select(x => x.SubCatagory).FirstOrDefault(),
@@ -468,7 +475,9 @@ namespace XFLCSMS.Controllers
                 CanWork = Tickets.CanWorkOn(issue),
                 StatusChoices = Tickets.StatusChoices(issue),
                 IsMine = CurrentUser != null && TicketService.IsAssignedTo(issue, CurrentUser),
-                History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList(),
+                // XFL staff read everything that happened; the brokerage house does not see that an internal note was made
+                History = Db.AuditLogs.Where(line => line.EntityType == "Ticket" && line.EntityId == issue.IssueId).OrderBy(line => line.Id).ToList()
+                    .Where(line => Rbac.IsStaff(MyRole) || line.Action != AuditActions.TicketNote).ToList(),
                 TicketDetails = issue.Details,
                 Command = issue.Comments,
                 TicketStatus = issue.IStatus,
@@ -615,6 +624,16 @@ namespace XFLCSMS.Controllers
                 return NotFound("Attachment not found.");
             }
 
+            // a file that came with an internal note is as internal as the note
+            if (attachment.MessageId != null)
+            {
+                var message = await Db.TicketMessages.FirstOrDefaultAsync(item => item.Id == attachment.MessageId);
+                if (message != null && !Tickets.CanRead(message))
+                {
+                    return NotFound("Attachment not found.");
+                }
+            }
+
             var filePath = Tickets.ResolveAttachmentPath(attachment);
             if (filePath == null)
             {
@@ -633,8 +652,9 @@ namespace XFLCSMS.Controllers
                 return NotFound();
             }
 
-            // seeing a ticket is not enough to remove its files: the same rule as for editing it
-            if (!Tickets.CanEdit(attachment.issue))
+            // seeing a ticket is not enough to remove its files: the same rule as for editing it.
+            // What was sent with a conversation entry stays, like the entry itself.
+            if (!Tickets.CanEdit(attachment.issue) || attachment.MessageId != null)
             {
                 return Refused();
             }

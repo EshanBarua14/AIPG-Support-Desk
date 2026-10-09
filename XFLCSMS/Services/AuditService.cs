@@ -32,6 +32,9 @@ namespace XFLCSMS.Services
         public const string TicketDelete = "ticket.delete";
         public const string TicketFileAdd = "ticket.file_add";
         public const string TicketFileDelete = "ticket.file_delete";
+        public const string TicketReply = "ticket.reply";
+        public const string TicketNote = "ticket.note";
+        public const string TicketRate = "ticket.rate";
 
         public const string DataCreate = "data.create";
         public const string DataUpdate = "data.update";
@@ -76,6 +79,9 @@ namespace XFLCSMS.Services
                 case UserDelete: return "Account deleted";
                 case TicketCreate: return "Ticket raised";
                 case TicketEdit: return "Ticket edited";
+                case TicketReply: return "Reply";
+                case TicketNote: return "Internal note";
+                case TicketRate: return "Support rated";
                 case TicketAssign: return "Ticket assigned";
                 case TicketUnassign: return "Ticket unassigned";
                 case TicketStatus: return "Status changed";
@@ -157,7 +163,7 @@ namespace XFLCSMS.Services
         }
 
         /// <summary>
-        /// Audit lines for master data that is about to be saved: brokerage houses, branches and the four support lists.
+        /// Audit lines for master data that is about to be saved: brokerage houses, branches, products and the four support lists.
         /// Looks at what the DataContext is tracking, so no page that changes such a row can forget the line.
         /// </summary>
         public void AddMasterDataChanges(User? actor, string? actorRole)
@@ -180,6 +186,9 @@ namespace XFLCSMS.Services
                     case Models.Branch.Branchh branch:
                         type = "Branch"; nameProperty = nameof(branch.BranchName); idProperty = nameof(branch.BranchId);
                         houseId = branch.BrokerageId;
+                        break;
+                    case Models.Support.Product:
+                        type = "Product"; nameProperty = "Name"; idProperty = "ProductId";
                         break;
                     case Models.Support.SupportType:
                         type = "Support type"; nameProperty = "SType"; idProperty = "SupportTypeId";
@@ -209,18 +218,57 @@ namespace XFLCSMS.Services
                     name = entry.Property(nameProperty).OriginalValue as string ?? name;
                     Add(AuditActions.DataDelete, actor, actorRole, houseId, type, id, name, "Deleted the " + type.ToLowerInvariant() + " \u201c" + name + "\u201d");
                 }
+                else if (entry.Entity is Models.Support.Product)
+                {
+                    // a product has several fields: say which one changed
+                    var parts = new List<string>();
+                    foreach (var property in entry.Properties.Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue)))
+                    {
+                        switch (property.Metadata.Name)
+                        {
+                            case "Name": parts.Add("name from \u201c" + property.OriginalValue + "\u201d to \u201c" + property.CurrentValue + "\u201d"); break;
+                            case "Code": parts.Add("short name from \u201c" + property.OriginalValue + "\u201d to \u201c" + property.CurrentValue + "\u201d"); break;
+                            case "Description": parts.Add("description changed"); break;
+                            case "IsActive": parts.Add(Equals(property.CurrentValue, true) ? "made active" : "made inactive"); break;
+                        }
+                    }
+
+                    if (parts.Count > 0)
+                    {
+                        Add(AuditActions.DataUpdate, actor, actorRole, houseId, type, id, name, "Changed the product \u201c" + name + "\u201d: " + string.Join(", ", parts));
+                    }
+                }
                 else
                 {
                     var changes = entry.Properties
                         .Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue) && p.Metadata.ClrType == typeof(string))
                         .Select(p => "\u201c" + p.OriginalValue + "\u201d to \u201c" + p.CurrentValue + "\u201d")
                         .ToList();
-                    if (changes.Count > 0)
+                    var text = changes.Count > 0
+                        ? "Changed the " + type.ToLowerInvariant() + " from " + string.Join(", ", changes)
+                        : "Changed the " + type.ToLowerInvariant() + " \u201c" + name + "\u201d";
+
+                    // what is not text: the product a support list entry belongs to
+                    var more = new List<string>();
+                    foreach (var property in entry.Properties.Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue)))
                     {
-                        Add(AuditActions.DataUpdate, actor, actorRole, houseId, type, id, name, "Changed the " + type.ToLowerInvariant() + " from " + string.Join(", ", changes));
+                        if (property.Metadata.Name == "ProductId")
+                        {
+                            more.Add("product from \u201c" + ProductName(property.OriginalValue as int?) + "\u201d to \u201c" + ProductName(property.CurrentValue as int?) + "\u201d");
+                        }
+                    }
+
+                    if (changes.Count > 0 || more.Count > 0)
+                    {
+                        Add(AuditActions.DataUpdate, actor, actorRole, houseId, type, id, name, text + (more.Count > 0 ? (changes.Count > 0 ? "; " : ": ") + string.Join(", ", more) : string.Empty));
                     }
                 }
             }
+        }
+
+        private string ProductName(int? id)
+        {
+            return id == null ? "All products" : _context.Products.Where(product => product.ProductId == id).Select(product => product.Name).FirstOrDefault() ?? "(deleted product)";
         }
 
         public Task SaveAsync()

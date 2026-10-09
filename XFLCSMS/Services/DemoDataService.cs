@@ -85,12 +85,14 @@ namespace XFLCSMS.Services
         private readonly DataContext _db;
         private readonly SettingsStore _settings;
         private readonly AuditService _audit;
+        private readonly SlaService _sla;
 
-        public DemoDataService(DataContext db, SettingsStore settings, AuditService audit)
+        public DemoDataService(DataContext db, SettingsStore settings, AuditService audit, SlaService sla)
         {
             _db = db;
             _settings = settings;
             _audit = audit;
+            _sla = sla;
         }
 
         /// <summary>What was created, so it can be removed again.</summary>
@@ -402,6 +404,8 @@ namespace XFLCSMS.Services
             var serial = Houses.ToDictionary(house => house.Acronym, house => 0);
             var created = new List<IssueTable>();
             var history = new List<(IssueTable Issue, DateTime At, User By, string Action, string Text)>();
+            // the conversation of each ticket: (ticket, when, who, text, internal note?)
+            var talk = new List<(IssueTable Issue, DateTime At, User By, string Text, bool Internal)>();
             for (var t = 0; t < statuses.Count; t++)
             {
                 var status = statuses[t];
@@ -427,6 +431,9 @@ namespace XFLCSMS.Services
                     IStatus = status, AssignBy = null, ApproveBy = null, UpdatedBy = null
                 };
                 history.Add((issue, raisedAt, raiser, AuditActions.TicketCreate, "Raised the ticket “" + issue.ITitle + "”, priority " + priority));
+                // service targets as a real ticket gets them; the watcher must not report forty old demo tickets as late
+                _sla.Start(issue);
+                issue.SlaNotices = (int)(SlaNotice.ResponseSoon | SlaNotice.ResponseMissed | SlaNotice.ResolveSoon | SlaNotice.ResolveMissed);
 
                 if (status != TicketStatus.Unassigned)
                 {
@@ -455,11 +462,50 @@ namespace XFLCSMS.Services
                             (next == TicketStatus.Closed ? "Closed the ticket" : "Status " + TicketStatus.Name(next)) + " (was " + TicketStatus.Name(before) + ")"));
                         before = next;
                         if (next == TicketStatus.Closed) { issue.ClosedOn = step; issue.ClosedBy = by.FullName; }
+
+                        // the service times that the real status change would have stamped
+                        if (next == TicketStatus.InProgress && issue.FirstResponseAt == null)
+                        {
+                            // most engineers write to the house when they start; a few just start
+                            var answeredAt = random.Next(4) == 0 ? step : step.AddMinutes(-random.Next(2, 25));
+                            if (answeredAt < issue.AssignOn) { answeredAt = step; }
+                            issue.FirstResponseAt = answeredAt;
+                            if (answeredAt != step)
+                            {
+                                talk.Add((issue, answeredAt, engineer, "Dear " + raiser.FullName.Split(' ')[0] + ", I have taken your ticket and am looking into it now.", false));
+                            }
+                        }
+
+                        if (next == TicketStatus.Pending) { issue.PendingSince = step; }
+                        if (SlaService.IsSolved(next) && issue.ResolvedAt == null) { issue.ResolvedAt = step; }
+                    }
+
+                    // what happened in between, as a conversation
+                    if (path.Count > 0)
+                    {
+                        var noteAt = (issue.FirstResponseAt ?? step).AddMinutes(random.Next(10, 240));
+                        if (noteAt > now) { noteAt = now.AddMinutes(-random.Next(1, 30)); }
+                        talk.Add((issue, noteAt, engineer, EngineerNotes[random.Next(EngineerNotes.Length)], random.Next(3) > 0));
+                        if (random.Next(3) == 0)
+                        {
+                            talk.Add((issue, noteAt.AddMinutes(random.Next(5, 90)) > now ? now.AddMinutes(-1) : noteAt.AddMinutes(random.Next(5, 90)), raiser,
+                                new[] { "Thank you. It happened again this morning, same screen.", "Is there anything we should do on our side meanwhile?", "Attached the file you asked for to the ticket." }[random.Next(3)], false));
+                        }
+                    }
+
+                    // closed tickets: most people answer the question "how was the support?"
+                    if (status == TicketStatus.Closed && issue.ClosedOn != null && random.Next(10) < 7)
+                    {
+                        issue.Rating = new[] { 5, 5, 5, 4, 4, 4, 3, 3, 2, 1 }[random.Next(10)];
+                        issue.RatedAt = issue.ClosedOn.Value.AddMinutes(random.Next(20, 60 * 30));
+                        if (issue.RatedAt > now) { issue.RatedAt = now; }
+                        issue.RatingComment = issue.Rating >= 4
+                            ? new[] { null, null, "Quick and clear, thank you.", "Solved the same day." }[random.Next(4)]
+                            : new[] { null, "Took too long to get the first answer.", "We had to ask twice." }[random.Next(3)];
                     }
 
                     if (path.Count > 0)
                     {
-                        issue.Comments = EngineerNotes[random.Next(EngineerNotes.Length)];
                         issue.UpdatedOn = step;
                         issue.UpdatedBy = history[history.Count - 1].By.FullName;
                     }
@@ -471,6 +517,16 @@ namespace XFLCSMS.Services
             _db.Issues.AddRange(created);
             await _db.SaveChangesAsync();
             ledger.Issues.AddRange(created.Select(issue => issue.IssueId));
+
+            foreach (var entry in talk.OrderBy(item => item.At))
+            {
+                var role = Rbac.RoleOf(entry.By);
+                _db.TicketMessages.Add(new XFLCSMS.Models.Desk.TicketMessage
+                {
+                    IssueId = entry.Issue.IssueId, UserId = entry.By.Id, AuthorName = entry.By.FullName, AuthorRole = Rbac.Label(role),
+                    FromStaff = Rbac.IsStaff(role), IsInternal = entry.Internal && Rbac.IsStaff(role), At = entry.At, Body = "<p>" + System.Net.WebUtility.HtmlEncode(entry.Text) + "</p>"
+                });
+            }
 
             foreach (var line in history.OrderBy(item => item.At))
             {
@@ -611,6 +667,7 @@ namespace XFLCSMS.Services
             _db.Todos.RemoveRange((await _db.Todos.Where(todo => ledger.Todos.Contains(todo.Id) || ledger.Users.Contains(todo.UserId)).ToListAsync())
                 .Where(todo => demoUserIds.Contains(todo.UserId) || TodoTexts.Contains(todo.Todoname)));
             _db.Attachments.RemoveRange(files);
+            _db.TicketMessages.RemoveRange(await _db.TicketMessages.Where(message => issueIds.Contains(message.IssueId)).ToListAsync());
             _db.Issues.RemoveRange(demoIssues);
             await _db.SaveChangesAsync();
 

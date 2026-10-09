@@ -24,14 +24,19 @@ namespace XFLCSMS.Services
         private readonly IHttpContextAccessor _http;
         private readonly SignInLimits _signIn;
         private readonly UploadLimits _uploads;
+        private readonly SlaWatcher _slaWatcher;
+        private readonly SlaPolicy _slaPolicy;
 
         /// <summary>Result of the last "Test mail server" (kept in memory until the application restarts).</summary>
         private static string? _lastMailTest;
         private static bool? _lastMailOk;
 
         public SystemHealthService(DataContext context, IConfiguration configuration, IWebHostEnvironment environment,
-            TicketService tickets, IEmailServices mail, IServer server, IHttpContextAccessor http, SignInLimits signIn, UploadLimits uploads)
+            TicketService tickets, IEmailServices mail, IServer server, IHttpContextAccessor http, SignInLimits signIn, UploadLimits uploads,
+            SlaWatcher slaWatcher, SlaPolicy slaPolicy)
         {
+            _slaWatcher = slaWatcher;
+            _slaPolicy = slaPolicy;
             _signIn = signIn;
             _uploads = uploads;
             _context = context;
@@ -420,6 +425,31 @@ namespace XFLCSMS.Services
             const string area = "Support work";
             try
             {
+                // service targets: are they on, is somebody watching them, how many open tickets are past one
+                if (!_slaPolicy.IsOn)
+                {
+                    Add(report, area, "Service targets", HealthLevel.Info, "Service targets are switched off: new tickets get no target times and nobody is warned.",
+                        null, "ServiceTargets", "Service targets");
+                }
+                else
+                {
+                    var now = DateTime.Now;
+                    var late = await _context.Issues.CountAsync(i => i.IStatus != TicketStatus.Closed
+                        && ((i.ResponseDueAt != null && i.FirstResponseAt == null && i.ResponseDueAt < now)
+                            || (i.ResolveDueAt != null && i.ResolvedAt == null && i.PendingSince == null && i.ResolveDueAt < now)));
+                    Add(report, area, "Service targets", late > 0 ? HealthLevel.Warning : HealthLevel.Ok,
+                        late == 0 ? "No open ticket is past a service target." : late + " open ticket(s) are past a service target.",
+                        late > 0 ? "They are not answered or not solved within the time set under Service targets." : null,
+                        late > 0 ? "OverdueTicketList" : null, late > 0 ? "Overdue tickets" : null);
+
+                    var stale = _slaWatcher.LastRun == null || _slaWatcher.LastRun < now.AddMinutes(-10);
+                    Add(report, area, "Target warnings", _slaWatcher.LastError != null || (stale && _slaWatcher.LastRun != null) ? HealthLevel.Warning : HealthLevel.Ok,
+                        _slaWatcher.LastError != null ? "The last check of the targets failed: " + _slaWatcher.LastError
+                            : _slaWatcher.LastRun == null ? "The first check of the targets runs shortly after the start."
+                            : "Targets were last checked " + SlaService.Span(now - _slaWatcher.LastRun.Value) + " ago.",
+                        _slaWatcher.LastError != null || (stale && _slaWatcher.LastRun != null) ? "Warnings before and after a target only go out while this check runs. Restart the application if it stays like this." : null);
+                }
+
                 var waiting = await _context.Users.CountAsync(u => u.VerifiedAt == null && u.UStatus);
                 Add(report, area, "Accounts waiting", waiting > 0 ? HealthLevel.Warning : HealthLevel.Ok,
                     waiting == 0 ? "No registered account waits for activation." : waiting + " registered account(s) wait for activation.",

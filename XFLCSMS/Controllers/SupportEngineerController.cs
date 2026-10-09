@@ -84,15 +84,12 @@ namespace XFLCSMS.Controllers
 
                 var viewModel = new IssueViewModel
                 {
-                    SupportTypes = _context.SupportTypes.ToList(),
-                    SupportCatagories = _context.SupportCatagories.ToList(),
-                    SupportSubCatagories = _context.SupportSubCatagories.ToList(),
-                    AffectedSections = _context.AffectedSectionss.ToList(),
                     Brokerages = _context.Brokerages.ToList(),
                     Branchhs = _context.Branchhs.ToList(),
                     LoginInfo = issueLoginInfo
 
                 };
+                FillTicketChoices(viewModel); // products and the support lists (CsmsController.Products.cs)
                 return View(viewModel);
             }
             catch (Exception ex)

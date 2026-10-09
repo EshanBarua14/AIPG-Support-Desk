@@ -16,5 +16,8 @@ namespace XFLCSMS.Models.Issue
         public int IssueId { get; set; }
         public IssueTable issue { get; set; }
 
+        /// <summary>The conversation entry the file came with; null for the files of the ticket itself.</summary>
+        public long? MessageId { get; set; }
+
     }
 }
